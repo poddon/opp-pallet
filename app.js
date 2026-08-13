@@ -250,33 +250,21 @@
   function sendToGoogleSheets(entry) {
     try {
       if (!SHEETS_SCRIPT_URL || !SHEETS_SCRIPT_URL.includes("/exec")) return;
-      const payload = JSON.stringify({
-        date: entry.date,
-        name: entry.name,
-        group: entry.group,
-        modules: entry.modules,
-        status: entry.status,
-        correct: entry.correct,
-        total: entry.total,
-        pct: entry.pct,
-        xp: entry.xp,
-        duration: entry.duration
+      const params = new URLSearchParams({
+        date: String(entry.date || ""),
+        name: String(entry.name || ""),
+        group: String(entry.group || ""),
+        modules: String(entry.modules || ""),
+        status: String(entry.status || ""),
+        correct: String(entry.correct != null ? entry.correct : 0),
+        total: String(entry.total != null ? entry.total : 0),
+        pct: String(entry.pct != null ? entry.pct : 0),
+        xp: String(entry.xp != null ? entry.xp : 0),
+        duration: String(entry.duration != null ? entry.duration : 0)
       });
-      let sent = false;
-      try {
-        if (navigator.sendBeacon) {
-          sent = navigator.sendBeacon(SHEETS_SCRIPT_URL, new Blob([payload], { type: "text/plain;charset=utf-8" }));
-        }
-      } catch (_) {}
-      if (!sent) {
-        fetch(SHEETS_SCRIPT_URL, {
-          method: "POST",
-          mode: "no-cors",
-          keepalive: true,
-          headers: { "Content-Type": "text/plain;charset=utf-8" },
-          body: payload
-        }).catch(function () {});
-      }
+      const url = SHEETS_SCRIPT_URL + (SHEETS_SCRIPT_URL.indexOf("?") >= 0 ? "&" : "?") + params.toString();
+      try { const img = new Image(); img.src = url; } catch (_) {}
+      try { fetch(url, { method: "GET", mode: "no-cors", keepalive: true, cache: "no-store" }).catch(function () {}); } catch (_) {}
     } catch (_) {}
   }
   function saveResult() {
