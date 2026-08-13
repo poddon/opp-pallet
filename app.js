@@ -66,6 +66,40 @@
     state.cheated = true; clearInterval(state.timerId);
     if (!state.endTime) state.endTime = new Date();
     saveResult();
+    setTimeout(function () {
+      try {
+        const total = state.questions.length || 1;
+        sendToGoogleSheets({
+          date: state.endTime.toLocaleString("ru-RU"),
+          name: state.name,
+          group: state.group,
+          modules: String(state.selectedModule || ""),
+          status: "СПИСЫВАНИЕ",
+          correct: 0,
+          total: total,
+          pct: 0,
+          xp: 0,
+          duration: Math.max(0, Math.round((state.endTime - (state.startTime || state.endTime)) / 1000))
+        });
+      } catch (_) {}
+    }, 400);
+    setTimeout(function () {
+      try {
+        const total = state.questions.length || 1;
+        sendToGoogleSheets({
+          date: state.endTime.toLocaleString("ru-RU"),
+          name: state.name,
+          group: state.group,
+          modules: String(state.selectedModule || ""),
+          status: "СПИСЫВАНИЕ",
+          correct: 0,
+          total: total,
+          pct: 0,
+          xp: 0,
+          duration: Math.max(0, Math.round((state.endTime - (state.startTime || state.endTime)) / 1000))
+        });
+      } catch (_) {}
+    }, 2000);
     cheatOverlay.style.display = "flex"; playCheatAlert();
     setTimeout(() => finishQuiz(true), 6500);
   }
@@ -247,27 +281,66 @@
   function getHistory() { try { return JSON.parse(localStorage.getItem("opp_quiz_history_v2") || "[]"); } catch { return []; } }
   const GOOGLE_FORM_URL = "https://docs.google.com/forms/d/e/1FAIpQLSdCN2PSnT-cFcpqQd6g4zjZ8vLOdMKGxvECYfxq-90kEjDjug/formResponse";
   let resultSaved = false;
+  function buildFormBody(entry) {
+    return new URLSearchParams({
+      "entry.1601663761": String(entry.date || ""),
+      "entry.992977888": String(entry.name || ""),
+      "entry.2133739599": String(entry.group || ""),
+      "entry.1870108658": String(entry.modules || ""),
+      "entry.1488326839": String(entry.status || ""),
+      "entry.1350987115": String(entry.correct != null ? entry.correct : 0),
+      "entry.1648819030": String(entry.total != null ? entry.total : 0),
+      "entry.16642559": String(entry.pct != null ? entry.pct : 0),
+      "entry.1821650528": String(entry.xp != null ? entry.xp : 0),
+      "entry.1044125679": String(entry.duration != null ? entry.duration : 0)
+    });
+  }
   function sendToGoogleSheets(entry) {
     try {
-      const body = new URLSearchParams({
-        "entry.1601663761": String(entry.date || ""),
-        "entry.992977888": String(entry.name || ""),
-        "entry.2133739599": String(entry.group || ""),
-        "entry.1870108658": String(entry.modules || ""),
-        "entry.1488326839": String(entry.status || ""),
-        "entry.1350987115": String(entry.correct != null ? entry.correct : 0),
-        "entry.1648819030": String(entry.total != null ? entry.total : 0),
-        "entry.16642559": String(entry.pct != null ? entry.pct : 0),
-        "entry.1821650528": String(entry.xp != null ? entry.xp : 0),
-        "entry.1044125679": String(entry.duration != null ? entry.duration : 0)
-      });
-      fetch(GOOGLE_FORM_URL, {
-        method: "POST",
-        mode: "no-cors",
-        keepalive: true,
-        headers: { "Content-Type": "application/x-www-form-urlencoded" },
-        body: body.toString()
-      }).catch(function () {});
+      const body = buildFormBody(entry);
+      const bodyStr = body.toString();
+      try {
+        if (navigator.sendBeacon) {
+          navigator.sendBeacon(
+            GOOGLE_FORM_URL,
+            new Blob([bodyStr], { type: "application/x-www-form-urlencoded;charset=UTF-8" })
+          );
+        }
+      } catch (_) {}
+      try {
+        fetch(GOOGLE_FORM_URL, {
+          method: "POST",
+          mode: "no-cors",
+          keepalive: true,
+          headers: { "Content-Type": "application/x-www-form-urlencoded;charset=UTF-8" },
+          body: bodyStr
+        }).catch(function () {});
+      } catch (_) {}
+      try {
+        let iframe = document.getElementById("gform-frame");
+        if (!iframe) {
+          iframe = document.createElement("iframe");
+          iframe.name = "gform-frame";
+          iframe.id = "gform-frame";
+          iframe.style.display = "none";
+          document.body.appendChild(iframe);
+        }
+        const form = document.createElement("form");
+        form.method = "POST";
+        form.action = GOOGLE_FORM_URL;
+        form.target = "gform-frame";
+        form.style.display = "none";
+        body.forEach(function (value, key) {
+          const input = document.createElement("input");
+          input.type = "hidden";
+          input.name = key;
+          input.value = value;
+          form.appendChild(input);
+        });
+        document.body.appendChild(form);
+        form.submit();
+        setTimeout(function () { try { form.remove(); } catch (_) {} }, 5000);
+      } catch (_) {}
     } catch (_) {}
   }
   function saveResult() {
