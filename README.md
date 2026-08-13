@@ -1,5 +1,5 @@
 # Тестирование опытного производства поддонов · Алабуга
 
-**Сайт:** https://egorlukyanchikov09-jpg.github.io/opp-pallet/
+**Сайт:** https://poddon.github.io/opp-pallet/
 
 Модули 1 / 3 / 4 · 30 вопросов · антисписывание · админ-панель
