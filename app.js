@@ -160,14 +160,14 @@
   function setQuestionScene(module) {
     const scene = $("q-scene"); if (!scene) return;
     const sets = {
-      1: { icons: ["🤖", "🦾", "📦", "⚙️", "🏭", "🔧"], extra: `<div class="gear g1"></div><div class="gear g2"></div><div class="pulse-ring"></div>` },
-      3: { icons: ["📊", "💰", "📈", "💵", "🏦", "📉"], extra: `<div class="bar-chart"><span></span><span></span><span></span><span></span><span></span></div><div class="pulse-ring"></div>` },
-      4: { icons: ["💻", "🖥️", "📡", "🔌", "🛡️", "🌐"], extra: `<div class="circuit"></div><div class="scan-line"></div><div class="pulse-ring"></div>` }
+      1: { icons: ["🤖", "🦾", "📦", "⚙️", "🏭", "🔧"], extra: `<div class=\"gear g1\"></div><div class=\"gear g2\"></div><div class=\"pulse-ring\"></div>` },
+      3: { icons: ["📊", "💰", "📈", "💵", "🏦", "📉"], extra: `<div class=\"bar-chart\"><span></span><span></span><span></span><span></span><span></span></div><div class=\"pulse-ring\"></div>` },
+      4: { icons: ["💻", "🖥️", "📡", "🔌", "🛡️", "🌐"], extra: `<div class=\"circuit\"></div><div class=\"scan-line\"></div><div class=\"pulse-ring\"></div>` }
     };
     const cfg = sets[module] || sets[1];
     const rot = state.current % cfg.icons.length;
     const icons = cfg.icons.slice(rot).concat(cfg.icons.slice(0, rot));
-    scene.innerHTML = icons.map((ic) => `<span class="float-item">${ic}</span>`).join("") + cfg.extra;
+    scene.innerHTML = icons.map((ic) => `<span class=\"float-item\">${ic}</span>`).join("") + cfg.extra;
   }
   function renderQuestion() {
     if (state.current >= state.questions.length) { finishQuiz(false); return; }
@@ -236,13 +236,37 @@
     $("xp-fill").style.width = (state.cheated ? 0 : pct) + "%";
     const mins = Math.floor(durationSec / 60), secs = durationSec % 60;
     $("result-details").innerHTML = state.cheated
-      ? `Студент: <strong>${state.name}</strong><br>Группа: ${state.group}<br>Статус: <strong style="color:#c00">СПИСЫВАНИЕ</strong>`
+      ? `Студент: <strong>${state.name}</strong><br>Группа: ${state.group}<br>Статус: <strong style=\"color:#c00\">СПИСЫВАНИЕ</strong>`
       : `Студент: <strong>${state.name}</strong> · ${state.group}<br>Модуль: ${state.selectedModule}<br>XP: <strong>${state.score}</strong> · Время: ${mins}м ${secs}с<br>Правильных: ${correctCount} из ${total} (${pct}%)`;
     $("cheat-banner").style.display = state.cheated ? "block" : "none";
     if (!state.cheated && pct >= 70) launchConfetti();
     saveResult();
   }
   function getHistory() { try { return JSON.parse(localStorage.getItem("opp_quiz_history_v2") || "[]"); } catch { return []; } }
+  const SHEETS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwiNaUppjMquQYDavOub6OxAhTeW9wZ2lA7wEF5DHo5Eb9HYmiGn49KzvVMjgWECKM3ug/exec";
+  function sendToGoogleSheets(entry) {
+    try {
+      if (!SHEETS_SCRIPT_URL || !SHEETS_SCRIPT_URL.includes("/exec")) return;
+      const payload = {
+        date: entry.date,
+        name: entry.name,
+        group: entry.group,
+        modules: entry.modules,
+        status: entry.status,
+        correct: entry.correct,
+        total: entry.total,
+        pct: entry.pct,
+        xp: entry.xp,
+        duration: entry.duration
+      };
+      fetch(SHEETS_SCRIPT_URL, {
+        method: "POST",
+        mode: "no-cors",
+        headers: { "Content-Type": "text/plain;charset=utf-8" },
+        body: JSON.stringify(payload)
+      }).catch(function () {});
+    } catch (_) {}
+  }
   function saveResult() {
     const total = state.questions.length || 1;
     const correctCount = state.answersLog.filter((a) => a.isCorrect).length;
@@ -251,6 +275,7 @@
     const entry = { date: state.endTime.toLocaleString("ru-RU"), ts: state.endTime.getTime(), name: state.name, group: state.group, modules: String(state.selectedModule), status: state.cheated ? "СПИСЫВАНИЕ" : "Пройден", correct: state.cheated ? 0 : correctCount, total, pct, xp: state.cheated ? 0 : state.score, duration: durationSec, answers: state.answersLog };
     const history = getHistory(); history.unshift(entry);
     localStorage.setItem("opp_quiz_history_v2", JSON.stringify(history.slice(0, 500)));
+    sendToGoogleSheets(entry);
   }
   function buildPersonalExcel() {
     const total = state.questions.length;
@@ -268,7 +293,7 @@
   }
   function downloadPersonal() {
     const wb = buildPersonalExcel();
-    const safe = state.name.replace(/[\\/:*?"<>|]/g, "_").slice(0, 35);
+    const safe = state.name.replace(/[\\/:*?\"<>|]/g, "_").slice(0, 35);
     XLSX.writeFile(wb, `ОПП_${safe}_${state.cheated ? "СПИС" : "OK"}_${Date.now()}.xlsx`);
   }
   function buildMasterExcel() {
@@ -287,12 +312,12 @@
     const ok = history.filter((h) => h.status === "Пройден").length;
     const cheat = history.filter((h) => h.status === "СПИСЫВАНИЕ").length;
     const avg = total ? Math.round(history.reduce((s, h) => s + (h.pct || 0), 0) / total) : 0;
-    $("stats-grid").innerHTML = `<div class="stat-card"><div class="num">${total}</div><div class="lbl">Всего попыток</div></div><div class="stat-card"><div class="num">${ok}</div><div class="lbl">Успешных</div></div><div class="stat-card"><div class="num">${cheat}</div><div class="lbl">Списываний</div></div><div class="stat-card"><div class="num">${avg}%</div><div class="lbl">Средний %</div></div>`;
+    $("stats-grid").innerHTML = `<div class=\"stat-card\"><div class=\"num\">${total}</div><div class=\"lbl\">Всего попыток</div></div><div class=\"stat-card\"><div class=\"num\">${ok}</div><div class=\"lbl\">Успешных</div></div><div class=\"stat-card\"><div class=\"num\">${cheat}</div><div class=\"lbl\">Списываний</div></div><div class=\"stat-card\"><div class=\"num\">${avg}%</div><div class=\"lbl\">Средний %</div></div>`;
     const tbody = $("results-tbody"); tbody.innerHTML = "";
-    if (!history.length) { tbody.innerHTML = `<tr><td colspan="7" style="text-align:center;color:#8AA0B5;padding:1.5rem;">Пока нет результатов</td></tr>`; return; }
+    if (!history.length) { tbody.innerHTML = `<tr><td colspan=\"7\" style=\"text-align:center;color:#8AA0B5;padding:1.5rem;\">Пока нет результатов</td></tr>`; return; }
     history.slice(0, 100).forEach((h) => {
       const tr = document.createElement("tr");
-      tr.innerHTML = `<td>${h.date}</td><td>${h.name}</td><td>${h.group}</td><td>${h.modules}</td><td>${h.pct}%</td><td>${h.xp}</td><td>${h.status === "СПИСЫВАНИЕ" ? '<span class="badge-cheat">СПИС</span>' : '<span class="badge-ok">OK</span>'}</td>`;
+      tr.innerHTML = `<td>${h.date}</td><td>${h.name}</td><td>${h.group}</td><td>${h.modules}</td><td>${h.pct}%</td><td>${h.xp}</td><td>${h.status === "СПИСЫВАНИЕ" ? '<span class=\"badge-cheat\">СПИС</span>' : '<span class=\"badge-ok\">OK</span>'}</td>`;
       tbody.appendChild(tr);
     });
   }
