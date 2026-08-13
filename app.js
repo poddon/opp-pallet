@@ -245,26 +245,29 @@
     saveResult();
   }
   function getHistory() { try { return JSON.parse(localStorage.getItem("opp_quiz_history_v2") || "[]"); } catch { return []; } }
-  const SHEETS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwiNaUppjMquQYDavOub6OxAhTeW9wZ2lA7wEF5DHo5Eb9HYmiGn49KzvVMjgWECKM3ug/exec";
+  const GOOGLE_FORM_URL = "https://docs.google.com/forms/d/e/1FAIpQLSdCN2PSnT-cFcpqQd6g4zjZ8vLOdMKGxvECYfxq-90kEjDjug/formResponse";
   let resultSaved = false;
   function sendToGoogleSheets(entry) {
     try {
-      if (!SHEETS_SCRIPT_URL || !SHEETS_SCRIPT_URL.includes("/exec")) return;
-      const params = new URLSearchParams({
-        date: String(entry.date || ""),
-        name: String(entry.name || ""),
-        group: String(entry.group || ""),
-        modules: String(entry.modules || ""),
-        status: String(entry.status || ""),
-        correct: String(entry.correct != null ? entry.correct : 0),
-        total: String(entry.total != null ? entry.total : 0),
-        pct: String(entry.pct != null ? entry.pct : 0),
-        xp: String(entry.xp != null ? entry.xp : 0),
-        duration: String(entry.duration != null ? entry.duration : 0)
+      const body = new URLSearchParams({
+        "entry.1601663761": String(entry.date || ""),
+        "entry.992977888": String(entry.name || ""),
+        "entry.2133739599": String(entry.group || ""),
+        "entry.1870108658": String(entry.modules || ""),
+        "entry.1488326839": String(entry.status || ""),
+        "entry.1350987115": String(entry.correct != null ? entry.correct : 0),
+        "entry.1648819030": String(entry.total != null ? entry.total : 0),
+        "entry.16642559": String(entry.pct != null ? entry.pct : 0),
+        "entry.1821650528": String(entry.xp != null ? entry.xp : 0),
+        "entry.1044125679": String(entry.duration != null ? entry.duration : 0)
       });
-      const url = SHEETS_SCRIPT_URL + (SHEETS_SCRIPT_URL.indexOf("?") >= 0 ? "&" : "?") + params.toString();
-      try { const img = new Image(); img.src = url; } catch (_) {}
-      try { fetch(url, { method: "GET", mode: "no-cors", keepalive: true, cache: "no-store" }).catch(function () {}); } catch (_) {}
+      fetch(GOOGLE_FORM_URL, {
+        method: "POST",
+        mode: "no-cors",
+        keepalive: true,
+        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+        body: body.toString()
+      }).catch(function () {});
     } catch (_) {}
   }
   function saveResult() {
