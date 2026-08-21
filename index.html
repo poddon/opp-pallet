@@ -153,19 +153,6 @@
     </div>
   </div>
 
-  <div id="scan" class="wrap hidden">
-    <div class="card">
-      <h1>Модуль 2 · Выход на производство</h1>
-      <p class="sub">Наведите камеру на QR у линии. После сканирования модуль засчитается.</p>
-      <div class="scan-box"><video id="cam" playsinline muted autoplay></video><div class="scan-frame"></div></div>
-      <p class="hint" id="scanmsg">Ищем код линии…</p>
-      <label class="btn ghost" style="display:block">Сфотографировать QR
-        <input id="camfile" type="file" accept="image/*" capture="environment" class="hidden" />
-      </label>
-      <button class="btn ghost" id="scanback" type="button">Назад</button>
-    </div>
-  </div>
-
   <div id="result" class="wrap hidden">
     <div class="card" style="text-align:center">
       <div class="sub">Смена закрыта</div>
@@ -188,24 +175,18 @@
       <div id="astats" class="stats" style="grid-template-columns:1fr 1fr"></div>
       <div class="box">
         <p style="font-weight:700;font-size:.82rem">Доступ к модулям</p>
-        <p class="sub">Откройте только тот модуль, который сейчас на паре.</p>
+        <p class="sub">Нажмите модуль, чтобы открыть его на паре. Затем скопируйте ссылку и откройте её на телефонах студентов.</p>
         <div id="accbtns"></div>
+        <p id="accmsg" class="sub" style="margin-top:8px"></p>
+        <input id="classlink" readonly style="margin-top:8px;font-size:.75rem" />
+        <button class="btn" id="copylink" type="button">Скопировать ссылку для студентов</button>
       </div>
       <div class="box">
-        <p style="font-weight:700;font-size:.82rem">LMS поддонов · группы</p>
+        <p style="font-weight:700;font-size:.82rem">Открыть группе</p>
         <input id="agrp" placeholder="ПРОМРОБО 25-3" style="text-transform:uppercase;margin-top:8px" />
         <div class="row3" id="asopen"></div>
         <div class="row3" id="asclose"></div>
         <ul id="alist" class="sub" style="margin-top:8px"></ul>
-      </div>
-      <div class="box">
-        <p style="font-weight:700;font-size:.82rem">QR модуля 2 · линия</p>
-        <p class="sub">Распечатайте и повесьте у входа на производство.</p>
-        <img id="qrimg" alt="QR" width="220" height="220" style="display:block;margin:12px auto;background:#fff;padding:8px;border-radius:12px" />
-        <p id="qrtxt" style="text-align:center;font-weight:700;font-size:.82rem"></p>
-        <button class="btn" id="qrdl" type="button">Скачать QR</button>
-        <a class="btn ghost" id="qrgen" href="https://qrcoder.ru/" target="_blank" rel="noreferrer" style="display:flex;align-items:center;justify-content:center;text-decoration:none">Открыть генератор</a>
-        <button class="btn ghost" id="qrrot" type="button">Сменить QR</button>
       </div>
       <div class="tbl"><table><thead><tr><th>Дата</th><th>ФИО</th><th>%</th><th>Статус</th></tr></thead><tbody id="abody"></tbody></table></div>
       <button class="btn" id="exp" type="button">Скачать Excel</button>
@@ -221,8 +202,8 @@
   </div>
 
   <script src="matter.min.js"></script>
-  <script src="questions.js?v=lms6"></script>
-  <script src="factory.js?v=lms8"></script>
-  <script src="app.js?v=lms7"></script>
+  <script src="questions.js?v=lms9"></script>
+  <script src="factory.js?v=lms9"></script>
+  <script src="app.js?v=lms9"></script>
 </body>
 </html>
