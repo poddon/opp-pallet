@@ -58,11 +58,16 @@ function startFactory() {
       ctx.fillStyle = g; ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.fill();
       ctx.fillStyle = "#1E6FD4"; ctx.beginPath(); ctx.arc(x, y, r * 0.34, 0, Math.PI * 2); ctx.fill();
     }
-    function board(cx, cy, bw, bh, dark) {
-      const g = ctx.createLinearGradient(cx, cy - bh / 2, cx, cy + bh / 2);
+    function board(cx, cy, bw, bh, dark, rot) {
+      ctx.save();
+      ctx.translate(cx, cy);
+      if (rot) ctx.rotate(rot);
+      const g = ctx.createLinearGradient(0, -bh / 2, 0, bh / 2);
       g.addColorStop(0, dark ? "#8B5A2A" : "#E8B86A");
       g.addColorStop(1, dark ? "#5A3514" : "#A86A28");
-      ctx.fillStyle = g; rr(cx - bw / 2, cy - bh / 2, bw, bh, 2); ctx.fill();
+      ctx.fillStyle = g; rr(-bw / 2, -bh / 2, bw, bh, 2); ctx.fill();
+      ctx.strokeStyle = "rgba(0,0,0,.22)"; ctx.lineWidth = 1; ctx.stroke();
+      ctx.restore();
     }
     function solve(tx, ty, sx, sy, l1, l2) {
       let dx = tx - sx, dy = ty - sy, dist = Math.hypot(dx, dy);
@@ -77,42 +82,21 @@ function startFactory() {
       const c2 = { a1: ang + da1, a2: interior - Math.PI };
       return (sy + Math.sin(c1.a1) * l1 <= sy + Math.sin(c2.a1) * l1) ? c1 : c2;
     }
-    function drawCrate(cx, bottom, s, stack) {
-      const bw = 108 * s, bh = 46 * s, d = 18 * s;
-      const left = cx - bw / 2, top = bottom - bh;
-      ctx.fillStyle = "rgba(0,0,0,.28)";
-      ctx.beginPath(); ctx.ellipse(cx, bottom + 6 * s, bw * 0.42, 7 * s, 0, 0, Math.PI * 2); ctx.fill();
-      ctx.fillStyle = "#6B3E18";
-      ctx.beginPath();
-      ctx.moveTo(left + bw, top); ctx.lineTo(left + bw + d * 0.45, top - d * 0.22);
-      ctx.lineTo(left + bw + d * 0.45, bottom - d * 0.22); ctx.lineTo(left + bw, bottom); ctx.fill();
-      const g = ctx.createLinearGradient(left, top, left, bottom);
-      g.addColorStop(0, "#C47A32"); g.addColorStop(1, "#7A4316");
-      ctx.fillStyle = g; ctx.fillRect(left, top, bw, bh);
-      ctx.strokeStyle = "#5A3010"; ctx.lineWidth = 2;
-      ctx.strokeRect(left, top, bw, bh);
-      ctx.fillStyle = "#3A220C";
-      ctx.fillRect(left + 6 * s, top + 6 * s, bw - 12 * s, bh - 12 * s);
-      ctx.fillStyle = "#E8B020";
-      ctx.font = "800 " + 10 * s + "px Manrope,sans-serif";
-      ctx.textAlign = "center"; ctx.textBaseline = "middle";
-      ctx.fillText("ТАРА", cx, top - 10 * s);
-      stack.forEach((kind, i) => {
-        const dark = kind === "stringer";
-        const y = bottom - 10 * s - i * 6 * s;
-        board(cx, y, dark ? 86 * s : 78 * s, dark ? 8 * s : 6 * s, dark);
-      });
+    function sizeOf(kind, s) {
+      return kind === "stringer" ? { bw: 86 * s, bh: 12 * s } : { bw: 78 * s, bh: 9 * s };
     }
 
     let phase = "wait", phaseT = 0, held = null, a1 = -2.4, a2 = 2.1, gripVis = 0.12;
-    let belt = null, bin = [], binSlide = 0, nextKind = 0, firstBoard = true;
-    const DUR = { wait: 0.15, down: 0.4, grip: 0.45, up: 0.36, move: 0.7, downPlace: 0.4, release: 0.4, upPlace: 0.34 };
+    let belt = null, fly = null, stack = [], crateX = 0, crateVx = 0, crateOut = false;
+    let nextKind = 0, firstBoard = true, crateInited = false;
+    const DUR = { wait: 0.12, down: 0.38, grip: 0.42, up: 0.34, move: 0.62, downPlace: 0.36, release: 0.28, upPlace: 0.3 };
 
     function frame(now) {
       if (document.hidden) { requestAnimationFrame(frame); return; }
       if (mobile && (++skip & 1)) { requestAnimationFrame(frame); return; }
       const dt = Math.min(0.033, (now - t0) / 1000); t0 = now;
       const s = Math.min(w, h) / 520;
+      const G = 920 * s;
       const sky = ctx.createLinearGradient(0, 0, 0, h);
       sky.addColorStop(0, "#0C3D78"); sky.addColorStop(0.7, "#0A2F5C"); sky.addColorStop(1, "#071E3E");
       ctx.fillStyle = sky; ctx.fillRect(0, 0, w, h);
@@ -131,7 +115,15 @@ function startFactory() {
         ctx.fillStyle = x % 56 === 0 ? "#E8B020" : "#111";
         ctx.fillRect(x, floorY, 14, 8);
       }
-      const convX = w * 0.04, convLen = w * 0.62, convY = floorY - 52 * s;
+
+      const convX = w * 0.04, convLen = w * 0.92, convY = floorY - 52 * s;
+      const beltTop = convY - 2 * s;
+      const pickX = convX + convLen * 0.28;
+      const spawnX = convX + 36 * s;
+      const cratePark = convX + convLen * 0.68;
+      const crateW = 118 * s, crateH = 42 * s;
+      if (!crateInited) { crateX = cratePark; crateInited = true; }
+
       const frameH = 20 * s;
       for (let lx = convX + 16 * s; lx < convX + convLen - 12 * s; lx += 64 * s) {
         ctx.fillStyle = "#3A4E64"; ctx.fillRect(lx, convY + frameH - 2 * s, 7 * s, floorY - (convY + frameH) + 2 * s);
@@ -141,78 +133,111 @@ function startFactory() {
       ctx.fillStyle = "#24364A"; ctx.fillRect(convX + 5 * s, convY + 3 * s, convLen - 10 * s, 13 * s);
       ctx.fillStyle = "#E8B020"; ctx.fillRect(convX, convY - 3 * s, convLen, 4 * s);
       const nRoll = Math.max(8, Math.floor((convLen - 24 * s) / (15 * s)));
-      const rollSpin = held || (belt && belt.x < convX + convLen * 0.42 - 10 * s) ? now / 180 : 0;
+      const beltRunBoards = !!(belt && belt.x < pickX - 4 * s);
+      const beltRunCrate = crateOut;
+      const spin = (beltRunBoards || beltRunCrate) ? now / 160 : 0;
       for (let i = 0; i < nRoll; i++) {
         const rx = convX + 16 * s + i * 15 * s;
         ctx.fillStyle = "#8FA3B8";
         ctx.beginPath(); ctx.ellipse(rx, convY + 10 * s, 6 * s, 6 * s, 0, 0, Math.PI * 2); ctx.fill();
-        if (rollSpin) {
+        if (spin) {
           ctx.strokeStyle = "rgba(255,255,255,.35)"; ctx.lineWidth = 1.4;
-          ctx.beginPath(); ctx.arc(rx, convY + 10 * s, 2.4 * s, rollSpin + i, rollSpin + i + 1.4); ctx.stroke();
+          ctx.beginPath(); ctx.arc(rx, convY + 10 * s, 2.4 * s, spin + i, spin + i + 1.4); ctx.stroke();
         }
       }
 
-      const pickX = convX + convLen * 0.62;
-      const spawnX = convX + 36 * s;
-      const crateX = w * 0.82;
-      const crateBottom = floorY - 4 * s;
-      const beltTop = convY - 2 * s;
-      const travelY = convY - 56 * s;
-      const sizeOf = (kind) => kind === "stringer" ? { bw: 90 * s, bh: 14 * s } : { bw: 82 * s, bh: 10 * s };
+      const travelY = convY - 58 * s;
       const cupReach = (g) => 16 * s + lerp(15 * s, 6 * s, g);
       const wristAt = (top, g) => top - cupReach(g);
+      const crateInner = beltTop - 8 * s;
+      const stackTop = crateInner - stack.length * 7 * s;
 
-      if (!belt && !held && phase === "wait") {
-        const kind = KINDS[nextKind % KINDS.length];
-        belt = { x: firstBoard ? pickX : spawnX, kind };
+      if (!belt && !held && !fly && phase === "wait" && !crateOut) {
+        belt = { x: firstBoard ? pickX : spawnX, y: 0, kind: KINDS[nextKind % KINDS.length] };
         firstBoard = false;
       }
-      if (!belt && held && (phase === "up" || phase === "move" || phase === "downPlace")) {
-        const kind = KINDS[nextKind % KINDS.length];
-        belt = { x: spawnX, kind };
+      if (!belt && held && (phase === "up" || phase === "move") && !crateOut) {
+        belt = { x: spawnX, y: 0, kind: KINDS[nextKind % KINDS.length] };
       }
 
       const atSensor = !!(belt && pickX - belt.x < 6 * s);
-      const beltRun = !!(belt && !atSensor);
-      if (beltRun) {
-        belt.x = Math.min(pickX, belt.x + 70 * s * dt);
+      if (belt && !atSensor) belt.x = Math.min(pickX, belt.x + 78 * s * dt);
+
+      if (crateOut) {
+        crateVx = lerp(crateVx, 110 * s, 1 - Math.exp(-6 * dt));
+        crateX += crateVx * dt;
+        if (crateX > convX + convLen + 80 * s) {
+          crateOut = false; crateVx = 0; crateX = cratePark; stack = [];
+        }
+      } else {
+        crateVx *= Math.exp(-8 * dt);
+        crateX += crateVx * dt;
+        crateX = lerp(crateX, cratePark, 1 - Math.exp(-5 * dt));
       }
 
       const workKind = held || (belt && belt.kind) || "deck";
-      const work = sizeOf(workKind);
+      const work = sizeOf(workKind, s);
       const pickTop = beltTop - work.bh;
-      const stackH = bin.length * 6 * s;
-      const placeTop = crateBottom - 38 * s - stackH - work.bh;
       const placeX = crateX;
+      const placeTop = stackTop - work.bh - 4 * s;
 
-      if (phase === "wait") {
-        if (atSensor && !held) { phase = "down"; phaseT = 0; }
-      } else {
-        phaseT += dt / DUR[phase];
-        if (phaseT >= 1) {
-          phaseT = 0;
-          if (phase === "down") phase = "grip";
-          else if (phase === "grip") phase = "up";
-          else if (phase === "up") phase = "move";
-          else if (phase === "move") phase = "downPlace";
-          else if (phase === "downPlace") phase = "release";
-          else if (phase === "release") phase = "upPlace";
-          else if (phase === "upPlace") phase = "wait";
+      if (!crateOut) {
+        if (phase === "wait") {
+          if (atSensor && !held && !fly) { phase = "down"; phaseT = 0; }
+        } else {
+          phaseT += dt / DUR[phase];
+          if (phaseT >= 1) {
+            phaseT = 0;
+            if (phase === "down") phase = "grip";
+            else if (phase === "grip") phase = "up";
+            else if (phase === "up") phase = "move";
+            else if (phase === "move") phase = "downPlace";
+            else if (phase === "downPlace") phase = "release";
+            else if (phase === "release") phase = "upPlace";
+            else if (phase === "upPlace") phase = "wait";
+          }
         }
       }
       if (phase === "grip" && !held && belt && phaseT > 0.4) {
-        held = belt.kind;
-        belt = null;
-        nextKind += 1;
+        held = belt.kind; belt = null; nextKind += 1;
       }
-      if (phase === "release" && held && phaseT > 0.45) {
-        bin.push(held);
+      if (phase === "release" && held && !fly && phaseT > 0.2) {
+        const hs = sizeOf(held, s);
+        fly = {
+          x: placeX + (Math.random() - 0.5) * 8 * s,
+          y: placeTop + hs.bh / 2,
+          vx: (Math.random() - 0.5) * 24 * s,
+          vy: 18 * s,
+          rot: (Math.random() - 0.5) * 0.18,
+          vrot: (Math.random() - 0.5) * 1.4,
+          kind: held,
+        };
         held = null;
-        if (bin.length >= 8) binSlide = 0.01;
       }
-      if (binSlide > 0) {
-        binSlide += dt * 0.7;
-        if (binSlide > 1.6) { bin = []; binSlide = 0; }
+
+      if (fly) {
+        fly.vy += G * dt;
+        fly.vx *= Math.exp(-0.6 * dt);
+        fly.x += fly.vx * dt;
+        fly.y += fly.vy * dt;
+        fly.rot += fly.vrot * dt;
+        fly.vrot *= Math.exp(-2.2 * dt);
+        const wallL = crateX - crateW * 0.38, wallR = crateX + crateW * 0.38;
+        const hs = sizeOf(fly.kind, s);
+        if (fly.x - hs.bw / 2 < wallL) { fly.x = wallL + hs.bw / 2; fly.vx = Math.abs(fly.vx) * 0.25; }
+        if (fly.x + hs.bw / 2 > wallR) { fly.x = wallR - hs.bw / 2; fly.vx = -Math.abs(fly.vx) * 0.25; }
+        const restY = crateInner - hs.bh / 2 - stack.length * 7 * s;
+        if (fly.y > restY) {
+          fly.y = restY;
+          if (fly.vy > 40 * s) {
+            fly.vy *= -0.22;
+            fly.vrot *= 0.4;
+          } else {
+            stack.push({ x: fly.x - crateX, y: restY, rot: fly.rot * 0.35, kind: fly.kind });
+            fly = null;
+            if (stack.length >= 8) crateOut = true;
+          }
+        }
       }
 
       const k = ease(clamp(phaseT, 0, 1));
@@ -226,14 +251,15 @@ function startFactory() {
       else if (phase === "release") { grip = lerp(1, 0.12, k); target = { x: placeX, y: wristAt(placeTop, grip) }; }
       else if (phase === "upPlace") target = { x: placeX, y: lerp(wristAt(placeTop, 0.12), travelY, k) };
 
-      if (window.OPP_FACTORY.cue === "drop" && now < window.OPP_FACTORY.cueUntil) {
+      if (window.OPP_FACTORY.cue === "drop" && now < window.OPP_FACTORY.cueUntil && held) {
+        const hs = sizeOf(held, s);
+        fly = { x: target.x, y: target.y + 20 * s, vx: 30 * s, vy: 40 * s, rot: 0.2, vrot: 2, kind: held };
         held = null; grip = 0.1; phase = "wait"; phaseT = 0;
       }
-      const xMin = convX + 40 * s, xMax = w - 40 * s;
-      target.x = clamp(target.x, xMin, xMax);
+      target.x = clamp(target.x, convX + 40 * s, convX + convLen - 40 * s);
       target.y = Math.min(target.y, convY - 28 * s);
 
-      const baseX = w * 0.46, baseY = floorY - 4 * s;
+      const baseX = w * 0.42, baseY = floorY - 4 * s;
       const sx = baseX, sy = baseY - 78 * s, l1 = 128 * s, l2 = 114 * s;
       const ik = solve(target.x, target.y, sx, sy, l1, l2);
       const follow = 1 - Math.exp(-10 * dt);
@@ -270,14 +296,14 @@ function startFactory() {
         ctx.beginPath(); ctx.ellipse(ox, 16 * s + cupH, cupW + 1.5 * s, 2.4 * s, 0, 0, Math.PI * 2); ctx.fill();
       }
       if (held) {
-        const hs = sizeOf(held);
-        board(0, 16 * s + cupH + 2.2 * s + hs.bh / 2, hs.bw, hs.bh, held === "stringer");
+        const hs = sizeOf(held, s);
+        board(0, 16 * s + cupH + 2.2 * s + hs.bh / 2, hs.bw, hs.bh, held === "stringer", 0);
       }
       ctx.restore();
 
       if (belt) {
-        const sz = sizeOf(belt.kind);
-        board(belt.x, beltTop - sz.bh / 2, sz.bw, sz.bh, belt.kind === "stringer");
+        const sz = sizeOf(belt.kind, s);
+        board(belt.x, beltTop - sz.bh / 2, sz.bw, sz.bh, belt.kind === "stringer", 0);
       }
 
       const senX = pickX, senY = convY - 34 * s;
@@ -285,17 +311,37 @@ function startFactory() {
       ctx.fillStyle = "#1E2A38"; rr(senX - 10 * s, senY, 20 * s, 14 * s, 3); ctx.fill();
       ctx.fillStyle = busy ? "#FF3B3B" : "#2FD37A";
       ctx.beginPath(); ctx.arc(senX, senY + 7 * s, 4 * s, 0, Math.PI * 2); ctx.fill();
-      ctx.strokeStyle = busy ? "rgba(255,70,70,.7)" : "rgba(47,211,122,.45)";
+      ctx.strokeStyle = busy ? "rgba(255,70,70,.65)" : "rgba(47,211,122,.4)";
       ctx.lineWidth = 2; ctx.setLineDash([5, 4]);
       ctx.beginPath(); ctx.moveTo(senX, senY + 14 * s); ctx.lineTo(senX, convY); ctx.stroke();
       ctx.setLineDash([]);
       ctx.fillStyle = busy ? "#ffb4b4" : "#b7f0d0";
       ctx.font = "700 " + 9 * s + "px Manrope,sans-serif";
       ctx.textAlign = "center";
-      ctx.fillText(busy ? "ДАТЧИК" : "ДАТЧИК", senX, senY - 6 * s);
+      ctx.fillText("ДАТЧИК", senX, senY - 6 * s);
 
-      const crateDrawX = crateX + (binSlide > 0 ? binSlide * 180 * s : 0);
-      if (binSlide < 1.4) drawCrate(crateDrawX, crateBottom, s, bin);
+      const cLeft = crateX - crateW / 2, cTop = beltTop - crateH;
+      ctx.fillStyle = "rgba(0,0,0,.22)";
+      ctx.beginPath(); ctx.ellipse(crateX, beltTop + 6 * s, crateW * 0.4, 5 * s, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = "#6B3E18";
+      ctx.fillRect(cLeft + crateW - 4 * s, cTop, 8 * s, crateH);
+      const cg = ctx.createLinearGradient(cLeft, cTop, cLeft, beltTop);
+      cg.addColorStop(0, "#C47A32"); cg.addColorStop(1, "#7A4316");
+      ctx.fillStyle = cg; ctx.fillRect(cLeft, cTop, crateW, crateH);
+      ctx.strokeStyle = "#4A280C"; ctx.lineWidth = 2; ctx.strokeRect(cLeft, cTop, crateW, crateH);
+      ctx.fillStyle = "#3A220C";
+      ctx.fillRect(cLeft + 7 * s, cTop + 7 * s, crateW - 14 * s, crateH - 14 * s);
+      ctx.fillStyle = "#E8B020";
+      ctx.font = "800 " + 10 * s + "px Manrope,sans-serif";
+      ctx.fillText("ТАРА", crateX, cTop - 9 * s);
+      stack.forEach((p) => {
+        const sz = sizeOf(p.kind, s);
+        board(crateX + p.x, p.y, sz.bw * 0.92, sz.bh, p.kind === "stringer", p.rot);
+      });
+      if (fly) {
+        const sz = sizeOf(fly.kind, s);
+        board(fly.x, fly.y, sz.bw, sz.bh, fly.kind === "stringer", fly.rot);
+      }
 
       requestAnimationFrame(frame);
     }
