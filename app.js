@@ -343,7 +343,6 @@
   $("cabback").onclick = () => show("start");
   $("scanback").onclick = () => { stopCam(); show("cabinet"); };
   $("again").onclick = () => { show("start"); mod = null; };
-  $("rescab").onclick = () => { renderCab(); show("cabinet"); };
   $("back").onclick = () => show("start");
   $("camfile").onchange = (e) => {
     const file = e.target.files && e.target.files[0];
