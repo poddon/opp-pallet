@@ -36,8 +36,7 @@
     .boot { min-height: 100dvh; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; padding: 0 24px 64px; text-align: center; }
     .boot h1 { font-size: 1.5rem; color: #fff; }
     .bar { width: 210px; height: 6px; border-radius: 99px; background: rgba(255,255,255,.15); margin-top: 28px; overflow: hidden; }
-    .bar > i { display: block; height: 100%; width: 0; background: linear-gradient(90deg,var(--c),#fff); animation: load 1.5s ease forwards; }
-    @keyframes load { to { width: 100%; } }
+    .bar > i { display: block; height: 100%; width: 0; background: linear-gradient(90deg,var(--c),#fff); transition: width .5s cubic-bezier(.22,1,.36,1); }
     .top { display: flex; flex-wrap: wrap; gap: 8px; justify-content: space-between; margin-bottom: 10px; }
     .chip { background: rgba(255,255,255,.12); border: 1px solid rgba(255,255,255,.18); padding: 6px 12px; border-radius: 99px; font-size: .8rem; font-weight: 600; }
     .prog { height: 8px; background: rgba(255,255,255,.15); border-radius: 99px; overflow: hidden; margin-bottom: 12px; }
@@ -66,10 +65,12 @@
   <canvas id="fx" aria-hidden="true"></canvas>
 
   <div id="boot" class="boot">
-    <div class="sub" style="color:#9ad7ff;letter-spacing:.2em;text-transform:uppercase;font-size:.75rem">Алабуга · ОПП</div>
-    <h1 style="margin-top:10px;max-width:360px">Опытное производство поддонов</h1>
-    <p class="sub" style="color:rgba(255,255,255,.75);margin-top:8px">Белый KUKA собирает слой</p>
-    <div class="bar"><i></i></div>
+    <div class="sub" style="color:#9ad7ff;letter-spacing:.2em;text-transform:uppercase;font-size:.75rem">Алабуга</div>
+    <div class="mark" style="margin:18px auto 0;width:64px;height:64px;border-radius:18px;font-size:1.6rem">А</div>
+    <h1 style="margin-top:14px;max-width:360px">Тестирование опытного производства поддонов</h1>
+    <p class="sub" id="bootmsg" style="color:rgba(255,255,255,.75);margin-top:10px;min-height:20px">Питание ячейки…</p>
+    <div class="bar" style="width:min(280px,80%)"><i id="bootbar"></i></div>
+    <p class="sub" id="bootpct" style="color:rgba(255,255,255,.55);margin-top:8px;font-variant-numeric:tabular-nums">0%</p>
   </div>
 
   <div id="start" class="wrap start hidden">
@@ -84,7 +85,7 @@
       <label for="fio">ФИО</label>
       <input id="fio" placeholder="Иванов Иван Иванович" autocomplete="name" />
       <label for="group">Направление и номер группы</label>
-      <input id="group" placeholder="ПРОМРОБО 25-3" />
+      <input id="group" placeholder="ПРОМРОБО 25-3" style="text-transform:uppercase" />
       <label>Выберите модуль</label>
       <div class="mod" data-m="1"><div class="ico">1</div><div><strong>Модуль 1</strong><div class="sub">Роботизированное производство поддонов</div></div></div>
       <div class="mod" data-m="3"><div class="ico g">3</div><div><strong>Модуль 3</strong><div class="sub">Экономика опытного производства</div></div></div>
@@ -134,6 +135,17 @@
     <div class="card" style="width:min(560px,100%)">
       <div class="brand"><div class="mark">A</div><div><h1>Админ-панель</h1><div class="sub">Лукьянчиков Егор Игоревич</div></div></div>
       <div id="astats" class="stats" style="grid-template-columns:1fr 1fr"></div>
+      <div class="pwd" style="margin-top:12px">
+        <p style="font-weight:700;font-size:.82rem">Synology Drive</p>
+        <p class="sub" style="margin:6px 0 8px">Веб-станция + PHP 8. Положите save.php на NAS и вставьте HTTPS-адрес.</p>
+        <label for="synurl">Адрес save.php</label>
+        <input id="synurl" placeholder="https://nas.example.com/opp/save.php" />
+        <label for="syntoken">Токен</label>
+        <input id="syntoken" value="OppPalletSave" />
+        <div id="synmsg" class="sub" style="margin-top:8px"></div>
+        <button class="btn" id="synsave" type="button" style="margin-top:10px">Сохранить и проверить</button>
+        <button class="btn ghost" id="syndl" type="button">Скачать save.php для NAS</button>
+      </div>
       <div class="tbl"><table><thead><tr><th>Дата</th><th>ФИО</th><th>%</th><th>Статус</th></tr></thead><tbody id="abody"></tbody></table></div>
       <button class="btn" id="exp" type="button">Скачать Excel</button>
       <button class="btn ghost" id="back" type="button">На главную</button>
@@ -142,6 +154,7 @@
 
   <div id="cheat" class="hidden"><div><h2>Списывание обнаружено</h2><p>Вы списали. Обратитесь к преподавателю.</p></div></div>
 
+  <script src="synology-config.js"></script>
   <script src="questions.js"></script>
   <script src="app.js"></script>
 </body>
