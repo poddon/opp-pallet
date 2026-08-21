@@ -372,22 +372,27 @@
     const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = "результаты.csv"; a.click();
   };
 
-  if (typeof startFactory === "function") startFactory();
+  if (typeof startFactory === "function") {
+    try { startFactory(); } catch (e) {}
+  }
   watchCheat();
   (function boot() {
-    const steps = [
-      [0, 6, "Питание ячейки…"],
-      [700, 22, "Калибровка осей KUKA…"],
-      [1500, 44, "Проверка вакуумного захвата…"],
-      [2300, 67, "Загрузка модулей теста…"],
-      [3200, 86, "Синхронизация линии…"],
-      [4000, 100, "Готово к смене"],
-    ];
+    const fast = Math.min(innerWidth, innerHeight) < 820;
+    const steps = fast
+      ? [[0, 20, "Питание ячейки…"], [400, 60, "Загрузка модулей…"], [900, 100, "Готово к смене"]]
+      : [
+          [0, 6, "Питание ячейки…"],
+          [700, 22, "Калибровка осей KUKA…"],
+          [1500, 44, "Проверка вакуумного захвата…"],
+          [2300, 67, "Загрузка модулей теста…"],
+          [3200, 86, "Синхронизация линии…"],
+          [4000, 100, "Готово к смене"],
+        ];
     steps.forEach(([t, p, m]) => setTimeout(() => {
       $("bootmsg").textContent = m;
       $("bootpct").textContent = p + "%";
       $("bootbar").style.width = p + "%";
     }, t));
-    setTimeout(() => show("start"), 4600);
+    setTimeout(() => show("start"), fast ? 1400 : 4600);
   })();
 })();
