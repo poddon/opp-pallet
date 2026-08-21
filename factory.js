@@ -16,6 +16,19 @@ function startFactory() {
     const unwrap = (from, to) => {
       let d = to - from; while (d > Math.PI) d -= Math.PI * 2; while (d < -Math.PI) d += Math.PI * 2; return from + d;
     };
+    function accel1d(pos, vel, goal, dt, vmax, amax) {
+      const d = goal - pos;
+      if (Math.abs(d) < 0.6 && Math.abs(vel) < 6) return { pos: goal, vel: 0 };
+      const stop = (vel * vel) / (2 * Math.max(amax, 1e-4));
+      const same = vel * d > 0;
+      let a;
+      if (same && stop >= Math.abs(d)) a = -Math.sign(vel) * amax;
+      else a = Math.sign(d || 1) * amax;
+      vel = clamp(vel + a * dt, -vmax, vmax);
+      pos += vel * dt;
+      if (d * (goal - pos) <= 0) return { pos: goal, vel: 0 };
+      return { pos, vel };
+    }
 
     const engine = Engine.create();
     engine.world.gravity.y = 1.05;
@@ -27,7 +40,7 @@ function startFactory() {
     let conv = { x: 0, y: 0, len: 0, pickX: 0, spawnX: 0, park: 0, top: 0 };
     let crateX = 0, crateOut = false, nextKind = 0, firstBoard = true;
     let phase = "wait", phaseT = 0, held = null, a1 = -2.4, a2 = 2.1, gripVis = 0.12;
-    let aimX = 0, aimY = 0, aimReady = false;
+    let aimX = 0, aimY = 0, vAimX = 0, vAimY = 0, aimReady = false, crateV = 0;
     const DUR = { wait: 0.18, down: 0.55, grip: 0.5, up: 0.55, move: 1.05, downPlace: 0.52, release: 0.32, upPlace: 0.5 };
 
     function sz(kind) {
@@ -69,6 +82,7 @@ function startFactory() {
       phase = "wait";
       phaseT = 0;
       aimReady = false;
+      vAimX = 0; vAimY = 0; crateV = 0;
     }
     function buildCrate(x) {
       crateParts.forEach((p) => Composite.remove(world, p));
@@ -118,23 +132,32 @@ function startFactory() {
     addEventListener("resize", resize);
 
     Events.on(engine, "beforeUpdate", () => {
-      const speed = 1.65;
+      const vmax = 1.7, acc = 0.05;
       boards.forEach((b) => {
         const p = b.body.position;
         const on = !b.inCrate && Math.abs(p.y - (conv.top - sz(b.kind).bh / 2)) < 14 * s && p.x < conv.pickX + 20 * s;
         b.onBelt = on;
-        if (on && p.x < conv.pickX - 4 * s && !held) {
-          Body.setVelocity(b.body, { x: speed, y: Math.min(b.body.velocity.y, 0.15) });
+        if (on && p.x < conv.pickX - 3 * s && !held) {
+          const dist = conv.pickX - 3 * s - p.x;
+          let vx = b.body.velocity.x;
+          const stop = (vx * vx) / (2 * acc);
+          if (stop >= dist) vx = Math.max(0.02, vx - acc);
+          else vx = Math.min(vmax, vx + acc);
+          Body.setVelocity(b.body, { x: vx, y: Math.min(b.body.velocity.y, 0.15) });
           Body.setAngularVelocity(b.body, b.body.angularVelocity * 0.9);
         }
-        if (on && p.x >= conv.pickX - 4 * s && !held && phase === "wait") {
-          Body.setVelocity(b.body, { x: 0, y: 0 });
-          Body.setPosition(b.body, { x: conv.pickX, y: conv.top - sz(b.kind).bh / 2 });
-          Body.setAngle(b.body, 0);
-          Body.setAngularVelocity(b.body, 0);
+        if (on && p.x >= conv.pickX - 3 * s && !held && phase === "wait") {
+          const vx = b.body.velocity.x;
+          if (vx > 0.08) Body.setVelocity(b.body, { x: vx * 0.82, y: 0 });
+          else {
+            Body.setVelocity(b.body, { x: 0, y: 0 });
+            Body.setPosition(b.body, { x: conv.pickX, y: conv.top - sz(b.kind).bh / 2 });
+            Body.setAngle(b.body, 0);
+            Body.setAngularVelocity(b.body, 0);
+          }
         }
         if (b.inCrate && crateOut) {
-          Body.setVelocity(b.body, { x: 2.4, y: b.body.velocity.y });
+          Body.setVelocity(b.body, { x: Math.min(2.6, b.body.velocity.x + 0.06), y: b.body.velocity.y });
         }
       });
     });
@@ -268,42 +291,6 @@ function startFactory() {
       const crateLip = conv.top - 48 * s;
       const placeTop = crateLip - 10 * s;
 
-      if (!crateOut) {
-        if (phase === "wait") {
-          if (wait && !held) { phase = "down"; phaseT = 0; }
-        } else {
-          phaseT += dt / DUR[phase];
-          if (phaseT >= 1) {
-            phaseT = 0;
-            if (phase === "down") phase = "grip";
-            else if (phase === "grip") phase = "up";
-            else if (phase === "up") phase = "move";
-            else if (phase === "move") phase = "downPlace";
-            else if (phase === "downPlace") phase = "release";
-            else if (phase === "release") phase = "upPlace";
-            else if (phase === "upPlace") phase = "wait";
-          }
-        }
-      }
-
-      if (phase === "grip" && !held && wait && phaseT > 0.4) {
-        held = wait;
-        Composite.remove(world, wait.body);
-        boards = boards.filter((b) => b !== wait);
-        nextKind += 1;
-      }
-      if (phase === "release" && held && phaseT > 0.15) {
-        const rec = spawnBoard(placeX, held.kind, {
-          vx: (Math.random() - 0.5) * 0.6,
-          vy: 0.4,
-          spin: (Math.random() - 0.5) * 0.08,
-        });
-        Body.setPosition(rec.body, { x: placeX + (Math.random() - 0.5) * 6 * s, y: placeTop + work.bh / 2 });
-        rec.inCrate = true;
-        rec.onBelt = false;
-        held = null;
-      }
-
       boards.forEach((b) => {
         if (!b.inCrate && b.body.position.x > crateX - 60 * s && b.body.position.y < conv.top + 8 * s && b.body.position.x < crateX + 60 * s && b.body.position.y > conv.top - 50 * s && phase !== "grip") {
           if (Math.abs(b.body.position.x - crateX) < 50 * s && b.body.position.y > conv.top - 40 * s) b.inCrate = true;
@@ -311,46 +298,82 @@ function startFactory() {
       });
       if (!crateOut && crateCount() >= 8) crateOut = true;
       if (crateOut) {
-        moveCrate(crateX + 140 * s * dt);
+        crateV = Math.min(210 * s, crateV + 260 * s * dt);
+        moveCrate(crateX + crateV * dt);
         if (crateX > conv.x + conv.len + 90 * s) {
           boards.filter((b) => b.inCrate).forEach((b) => Composite.remove(world, b.body));
           boards = boards.filter((b) => !b.inCrate);
           crateOut = false;
+          crateV = 0;
           buildCrate(conv.park);
         }
-      }
+      } else crateV = 0;
 
-      const k = ease(clamp(phaseT, 0, 1));
       let grip = 0.12;
       let target = { x: conv.pickX, y: travelY };
-      if (phase === "down") target = { x: conv.pickX, y: lerp(travelY, wristAt(pickTop, 0.12), k) };
-      else if (phase === "grip") { grip = lerp(0.12, 1, k); target = { x: conv.pickX, y: wristAt(pickTop, grip) }; }
-      else if (phase === "up") { grip = 1; target = { x: conv.pickX, y: lerp(wristAt(pickTop, 1), travelY, k) }; }
-      else if (phase === "move") {
-        grip = 1;
-        target = {
-          x: lerp(conv.pickX, placeX, k),
-          y: travelY - Math.sin(k * Math.PI) * 22 * s,
-        };
+      if (phase === "down" || phase === "grip") {
+        target = { x: conv.pickX, y: wristAt(pickTop, phase === "grip" ? 1 : 0.12) };
+        if (phase === "grip") grip = 1;
+      } else if (phase === "up") {
+        grip = 1; target = { x: conv.pickX, y: travelY };
+      } else if (phase === "move") {
+        grip = 1; target = { x: placeX, y: travelY - 16 * s };
+      } else if (phase === "downPlace" || phase === "release") {
+        grip = phase === "release" ? 0.12 : 1;
+        target = { x: placeX, y: wristAt(placeTop, grip) };
+      } else if (phase === "upPlace") {
+        target = { x: placeX, y: travelY };
       }
-      else if (phase === "downPlace") { grip = 1; target = { x: placeX, y: lerp(travelY, wristAt(placeTop, 1), k) }; }
-      else if (phase === "release") { grip = lerp(1, 0.12, k); target = { x: placeX, y: wristAt(placeTop, grip) }; }
-      else if (phase === "upPlace") target = { x: placeX, y: lerp(wristAt(placeTop, 0.12), travelY, k) };
 
       if (window.OPP_FACTORY.cue === "drop" && now < window.OPP_FACTORY.cueUntil && held) {
-        const rec = spawnBoard(target.x, held.kind, { vx: 1.2, vy: 0.8, spin: 0.12 });
-        Body.setPosition(rec.body, { x: target.x, y: target.y + 18 * s });
-        held = null; grip = 0.1; phase = "wait"; phaseT = 0;
+        const rec = spawnBoard(aimX, held.kind, { vx: 1.2, vy: 0.8, spin: 0.12 });
+        Body.setPosition(rec.body, { x: aimX, y: aimY + 18 * s });
+        held = null; grip = 0.1; phase = "wait"; phaseT = 0; vAimX = 0; vAimY = 0;
       }
       target.x = clamp(target.x, conv.x + 40 * s, conv.x + conv.len - 40 * s);
       if (phase === "move" || phase === "up" || phase === "upPlace" || phase === "wait") {
         target.y = Math.min(target.y, crateLip - 18 * s);
       }
       target.y = Math.min(target.y, conv.y - 36 * s);
-      if (!aimReady) { aimX = target.x; aimY = target.y; aimReady = true; }
-      const aimFollow = 1 - Math.exp(-3.1 * dt);
-      aimX = lerp(aimX, target.x, aimFollow);
-      aimY = lerp(aimY, target.y, aimFollow);
+      if (!aimReady) { aimX = target.x; aimY = target.y; aimReady = true; vAimX = 0; vAimY = 0; }
+      const vmax = 280 * s, amax = 360 * s;
+      const nx = accel1d(aimX, vAimX, target.x, dt, vmax, amax);
+      const ny = accel1d(aimY, vAimY, target.y, dt, vmax * 0.9, amax);
+      aimX = nx.pos; vAimX = nx.vel;
+      aimY = ny.pos; vAimY = ny.vel;
+      const arrived = Math.hypot(aimX - target.x, aimY - target.y) < 5 * s && Math.hypot(vAimX, vAimY) < 18 * s;
+
+      if (!crateOut) {
+        if (phase === "wait") {
+          if (wait && !held) { phase = "down"; phaseT = 0; }
+        } else if (phase === "grip" || phase === "release") {
+          phaseT += dt / (phase === "grip" ? 0.48 : 0.34);
+          if (phase === "grip" && !held && wait && phaseT > 0.35) {
+            held = wait;
+            Composite.remove(world, wait.body);
+            boards = boards.filter((b) => b !== wait);
+            nextKind += 1;
+          }
+          if (phase === "release" && held && phaseT > 0.12) {
+            const rec = spawnBoard(placeX, held.kind, {
+              vx: (Math.random() - 0.5) * 0.35,
+              vy: 0.25,
+              spin: (Math.random() - 0.5) * 0.05,
+            });
+            Body.setPosition(rec.body, { x: placeX, y: placeTop + work.bh / 2 });
+            rec.inCrate = true;
+            rec.onBelt = false;
+            held = null;
+          }
+          if (phaseT >= 1) { phase = phase === "grip" ? "up" : "upPlace"; phaseT = 0; }
+        } else if (arrived) {
+          if (phase === "down") { phase = "grip"; phaseT = 0; }
+          else if (phase === "up") phase = "move";
+          else if (phase === "move") phase = "downPlace";
+          else if (phase === "downPlace") { phase = "release"; phaseT = 0; }
+          else if (phase === "upPlace") phase = "wait";
+        }
+      }
 
       const baseX = w * 0.42, baseY = floorY - 4 * s;
       const sx = baseX, sy = baseY - 78 * s, l1 = 128 * s, l2 = 114 * s;
@@ -358,7 +381,7 @@ function startFactory() {
       const follow = 1 - Math.exp(-5.2 * dt);
       a1 = lerp(a1, unwrap(a1, ik.a1), follow);
       a2 = lerp(a2, unwrap(a2, ik.a2), follow);
-      gripVis = lerp(gripVis, grip, 1 - Math.exp(-14 * dt));
+      gripVis = lerp(gripVis, grip, 1 - Math.exp(-6 * dt));
       const ex = sx + Math.cos(a1) * l1, ey = sy + Math.sin(a1) * l1;
       const wx = ex + Math.cos(a1 + a2) * l2, wy = ey + Math.sin(a1 + a2) * l2;
 
