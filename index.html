@@ -2,63 +2,91 @@
 <html lang="ru">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <title>Тестирование опытного производства поддонов</title>
-  <link rel="preconnect" href="https://fonts.bunny.net" crossorigin />
-  <link href="https://fonts.bunny.net/css?family=manrope:500,600,700,800" rel="stylesheet" />
   <style>
     :root { --b:#0A2F5C; --a:#1457A8; --c:#3EC6FF; --ink:#0E1C2F; --muted:#5A6F88; --ok:#12A36A; --bad:#E23B4A; --line:#D5E2F0; }
     * { box-sizing: border-box; margin: 0; padding: 0; }
     html, body { min-height: 100%; }
-    body { font-family: Manrope, system-ui, sans-serif; background: #061B36; color: #fff; overflow-x: hidden; }
+    html { -webkit-text-size-adjust: 100%; }
+    body {
+      font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+      background: #061B36; color: #fff; overflow-x: hidden;
+      -webkit-overflow-scrolling: touch;
+    }
+    button, [role=button] { cursor: pointer; touch-action: manipulation; -webkit-tap-highlight-color: transparent; }
     canvas#fx { position: fixed; inset: 0; width: 100%; height: 100%; z-index: 0; pointer-events: none; }
-    .wrap { position: relative; z-index: 1; min-height: 100dvh; display: flex; align-items: center; justify-content: center; padding: 16px; }
-    @media (min-width: 980px) { .wrap.start { justify-content: flex-end; padding-right: 7%; } }
+    .wrap {
+      position: relative; z-index: 1; min-height: 100svh;
+      display: flex; align-items: flex-start; justify-content: center;
+      padding: max(16px, env(safe-area-inset-top)) 16px max(28px, env(safe-area-inset-bottom));
+    }
+    @media (min-width: 980px) {
+      .wrap { align-items: center; }
+      .wrap.start { justify-content: flex-end; padding-right: 7%; }
+    }
     .hidden { display: none !important; }
-    .card { width: min(420px, 100%); background: #fff; color: var(--ink); border-radius: 24px; padding: 22px 20px; box-shadow: 0 22px 60px rgba(4,16,36,.38); }
-    .qcard { width: min(560px, 100%); }
+    .card { width: min(440px, 100%); background: #fff; color: var(--ink); border-radius: 24px; padding: 22px 20px; box-shadow: 0 22px 60px rgba(4,16,36,.38); }
+    .qcard { width: min(560px, 100%); position: relative; overflow: hidden; }
+    .wide { width: min(560px, 100%); }
     .brand { display: flex; gap: 12px; align-items: center; margin-bottom: 14px; }
     .mark { width: 44px; height: 44px; border-radius: 12px; background: linear-gradient(135deg,#0D3F7A,#1E6FD4); color: #fff; display: grid; place-items: center; font-weight: 800; font-size: 1.15rem; flex-shrink: 0; }
     h1 { font-size: 1.05rem; line-height: 1.3; }
     .sub { font-size: .78rem; color: var(--muted); }
     label { display: block; font-size: .78rem; font-weight: 600; color: var(--muted); margin: 12px 0 6px; }
-    input { width: 100%; padding: 12px 14px; border: 1.5px solid var(--line); border-radius: 12px; font: inherit; font-size: 16px; min-height: 44px; color: var(--ink); background: #fff; }
+    input { width: 100%; padding: 12px 14px; border: 1.5px solid var(--line); border-radius: 12px; font: inherit; font-size: 16px; min-height: 48px; color: var(--ink); background: #fff; }
     input:focus { outline: none; border-color: var(--a); box-shadow: 0 0 0 3px rgba(30,111,212,.16); }
-    .mod { display: flex; gap: 12px; align-items: center; padding: 10px 12px; border: 1.5px solid var(--line); border-radius: 14px; margin-top: 8px; cursor: pointer; background: #fff; min-height: 54px; }
+    .mod { display: flex; gap: 12px; align-items: center; padding: 10px 12px; border: 1.5px solid var(--line); border-radius: 14px; margin-top: 8px; background: #fff; min-height: 54px; width: 100%; text-align: left; color: inherit; font: inherit; }
     .mod.on { border-color: var(--a); background: linear-gradient(135deg,#EAF3FF,#F7FBFF); box-shadow: 0 0 0 3px rgba(30,111,212,.12); }
+    .mod:disabled { opacity: .55; }
     .ico { width: 40px; height: 40px; border-radius: 10px; display: grid; place-items: center; color: #fff; font-weight: 800; background: linear-gradient(135deg,#0D3F7A,#1E6FD4); flex-shrink: 0; }
     .ico.g { background: linear-gradient(135deg,#0A6E5C,#12A36A); }
     .ico.p { background: linear-gradient(135deg,#1A3A6B,#3D5A9A); }
-    .btn { width: 100%; margin-top: 16px; min-height: 48px; border: 0; border-radius: 14px; font: inherit; font-weight: 700; color: #fff; cursor: pointer; background: linear-gradient(135deg,#1457A8,#1E6FD4); box-shadow: 0 10px 28px rgba(20,87,168,.35); }
+    .ico.m { background: linear-gradient(135deg,#9A5B12,#E8A318); }
+    .btn { width: 100%; margin-top: 16px; min-height: 48px; border: 0; border-radius: 14px; font: inherit; font-weight: 700; color: #fff; background: linear-gradient(135deg,#1457A8,#1E6FD4); box-shadow: 0 10px 28px rgba(20,87,168,.35); }
     .btn:disabled { opacity: .45; cursor: not-allowed; }
     .btn.ghost { background: transparent; color: #0D3F7A; border: 1.5px solid #C5D7EC; box-shadow: none; margin-top: 8px; }
     .hint { text-align: center; font-size: .75rem; color: var(--muted); margin-top: 12px; }
-    .boot { min-height: 100dvh; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; padding: 0 24px 64px; text-align: center; }
+    .boot { position: relative; z-index: 1; min-height: 100svh; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; padding: 0 24px max(64px, env(safe-area-inset-bottom)); text-align: center; }
     .boot h1 { font-size: 1.5rem; color: #fff; }
-    .bar { width: 210px; height: 6px; border-radius: 99px; background: rgba(255,255,255,.15); margin-top: 28px; overflow: hidden; }
+    .bar { width: min(280px,80%); height: 6px; border-radius: 99px; background: rgba(255,255,255,.15); margin-top: 28px; overflow: hidden; }
     .bar > i { display: block; height: 100%; width: 0; background: linear-gradient(90deg,var(--c),#fff); transition: width .5s cubic-bezier(.22,1,.36,1); }
     .top { display: flex; flex-wrap: wrap; gap: 8px; justify-content: space-between; margin-bottom: 10px; }
     .chip { background: rgba(255,255,255,.12); border: 1px solid rgba(255,255,255,.18); padding: 6px 12px; border-radius: 99px; font-size: .8rem; font-weight: 600; }
     .prog { height: 8px; background: rgba(255,255,255,.15); border-radius: 99px; overflow: hidden; margin-bottom: 12px; }
     .prog > i { display: block; height: 100%; width: 0; background: linear-gradient(90deg,var(--c),#fff); transition: width .3s; }
     .strip { height: 56px; border-radius: 14px; background: linear-gradient(135deg,#0A2F5C,#1457A8); display: grid; place-items: center; color: #fff; font-size: .9rem; margin-bottom: 12px; }
+    .strip.ok { background: linear-gradient(135deg,#0A6E5C,#12A36A); }
+    .strip.bad { background: linear-gradient(135deg,#8A1A24,#E23B4A); }
     .qmeta { display: flex; justify-content: space-between; font-size: .78rem; color: var(--muted); margin-bottom: 8px; }
     .qtext { font-size: 1.05rem; font-weight: 700; line-height: 1.4; margin-bottom: 14px; }
-    .opt { display: block; width: 100%; text-align: left; padding: 13px 14px; border-radius: 12px; border: 1.5px solid var(--line); background: #fff; font: inherit; margin-bottom: 8px; cursor: pointer; color: var(--ink); min-height: 48px; }
-    .opt:hover { border-color: var(--a); }
-    .opt.ok { border-color: var(--ok); background: #E6F8F0; }
-    .opt.bad { border-color: var(--bad); background: #FDECEE; }
+    .opt { display: flex; align-items: center; width: 100%; text-align: left; padding: 13px 14px; border-radius: 12px; border: 1.5px solid var(--line); background: #fff; font: inherit; margin-bottom: 8px; color: var(--ink); min-height: 48px; }
+    .opt.ok { border-color: var(--ok); background: #E6F8F0; animation: okPulse .65s cubic-bezier(.2,1.4,.3,1); }
+    .opt.bad { border-color: var(--bad); background: #FDECEE; animation: badShake .5s ease; }
+    .opt.dim { opacity: .38; }
     .stats { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; margin: 16px 0; }
     .stat { background: #F0F6FC; border-radius: 12px; padding: 12px 8px; text-align: center; }
     .stat b { display: block; font-size: 1.15rem; color: var(--b); }
     .stat span { font-size: .72rem; color: var(--muted); }
     .score { font-size: 3rem; font-weight: 800; color: var(--a); text-align: center; }
-    #cheat { position: fixed; inset: 0; z-index: 50; background: rgba(106,16,24,.95); color: #fff; display: flex; align-items: center; justify-content: center; text-align: center; padding: 24px; }
+    .err { color: var(--bad); font-size: .8rem; margin-top: 6px; }
+    .box { margin-top: 12px; padding: 12px; background: #F0F6FC; border-radius: 12px; }
+    .scan-box { position: relative; overflow: hidden; border-radius: 16px; background: #0a1a2e; aspect-ratio: 3/4; margin-top: 12px; }
+    .scan-box video { width: 100%; height: 100%; object-fit: cover; }
+    .scan-frame { position: absolute; inset: 18%; border: 3px solid rgba(62,198,255,.9); border-radius: 18px; pointer-events: none; box-shadow: 0 0 0 200vmax rgba(4,16,36,.45); }
+    #cheat { position: fixed; inset: 0; z-index: 80; overflow: hidden; background: #4a050c; color: #fff; display: flex; align-items: center; justify-content: center; text-align: center; padding: 24px; animation: cheatShake .55s ease-out; }
+    .cheat-stamp { position: relative; z-index: 2; max-width: 26rem; padding: 28px 24px; border: 4px solid #ffe08a; background: rgba(90,8,14,.88); transform: rotate(-3deg); }
+    .cheat-stamp h2 { font-size: 2.6rem; letter-spacing: .12em; }
     table { width: 100%; border-collapse: collapse; font-size: .78rem; }
     th, td { padding: 8px; text-align: left; border-bottom: 1px solid var(--line); }
-    .tbl { max-height: 280px; overflow: auto; border: 1px solid var(--line); border-radius: 12px; margin-top: 12px; }
-    .err { color: var(--bad); font-size: .8rem; margin-top: 6px; }
-    .pwd { margin-top: 12px; padding: 12px; background: #F0F6FC; border-radius: 12px; }
+    .tbl { max-height: 220px; overflow: auto; border: 1px solid var(--line); border-radius: 12px; margin-top: 12px; }
+    .row3 { display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap: 6px; margin-top: 8px; }
+    .verdict { position: absolute; left: 50%; top: 72px; transform: translateX(-50%); z-index: 3; padding: 6px 16px; border-radius: 99px; font-weight: 800; color: #fff; pointer-events: none; }
+    .verdict.ok { background: #12A36A; }
+    .verdict.bad { background: #E23B4A; }
+    @keyframes okPulse { 0%{transform:scale(.94)} 55%{transform:scale(1.03)} 100%{transform:scale(1)} }
+    @keyframes badShake { 0%,100%{transform:translateX(0)} 20%{transform:translateX(-9px)} 40%{transform:translateX(8px)} 60%{transform:translateX(-5px)} }
+    @keyframes cheatShake { 20%{transform:translate(-10px,4px)} 40%{transform:translate(8px,-6px)} 100%{transform:none} }
   </style>
 </head>
 <body>
@@ -69,8 +97,8 @@
     <div class="mark" style="margin:18px auto 0;width:64px;height:64px;border-radius:18px;font-size:1.6rem">А</div>
     <h1 style="margin-top:14px;max-width:360px">Тестирование опытного производства поддонов</h1>
     <p class="sub" id="bootmsg" style="color:rgba(255,255,255,.75);margin-top:10px;min-height:20px">Питание ячейки…</p>
-    <div class="bar" style="width:min(280px,80%)"><i id="bootbar"></i></div>
-    <p class="sub" id="bootpct" style="color:rgba(255,255,255,.55);margin-top:8px;font-variant-numeric:tabular-nums">0%</p>
+    <div class="bar"><i id="bootbar"></i></div>
+    <p class="sub" id="bootpct" style="color:rgba(255,255,255,.55);margin-top:8px">0%</p>
   </div>
 
   <div id="start" class="wrap start hidden">
@@ -79,24 +107,32 @@
         <div class="mark">А</div>
         <div>
           <h1>Тестирование опытного производства поддонов</h1>
-          <div class="sub">Один модуль · 30 вопросов · линия не скучает</div>
+          <div class="sub">Один модуль · линия не скучает</div>
         </div>
       </div>
       <label for="fio">ФИО</label>
       <input id="fio" placeholder="Иванов Иван Иванович" autocomplete="name" />
       <label for="group">Направление и номер группы</label>
       <input id="group" placeholder="ПРОМРОБО 25-3" style="text-transform:uppercase" />
-      <label>Выберите модуль</label>
-      <div class="mod" data-m="1"><div class="ico">1</div><div><strong>Модуль 1</strong><div class="sub">Роботизированное производство поддонов</div></div></div>
-      <div class="mod" data-m="3"><div class="ico g">3</div><div><strong>Модуль 3</strong><div class="sub">Экономика опытного производства</div></div></div>
-      <div class="mod" data-m="4"><div class="ico p">4</div><div><strong>Модуль 4</strong><div class="sub">MES, SCADA, прослеживаемость</div></div></div>
-      <div id="pwdbox" class="pwd hidden">
+      <div id="pwdbox" class="box hidden">
         <label for="pwd">Пароль администратора</label>
         <input id="pwd" type="password" placeholder="••••••••" />
         <div id="pwderr" class="err"></div>
       </div>
-      <button class="btn" id="go" type="button">Начать тест</button>
+      <div id="starterr" class="err"></div>
+      <button class="btn" id="go" type="button">Войти в LMS</button>
       <p class="hint">Не уходите со страницы — это будет засчитано как списывание</p>
+    </div>
+  </div>
+
+  <div id="cabinet" class="wrap hidden">
+    <div class="card wide">
+      <h1>Кабинет студента</h1>
+      <p class="sub" id="cabwho"></p>
+      <div id="caberr" class="err"></div>
+      <div id="cabmods"></div>
+      <p class="hint">Модуль доступен только если преподаватель назначил его вашей группе.</p>
+      <button class="btn ghost" id="cabback" type="button">Сменить группу</button>
     </div>
   </div>
 
@@ -108,11 +144,25 @@
       <span class="chip hidden" id="qs">серия 0</span>
     </div>
     <div class="prog"><i id="pb"></i></div>
-    <div class="card qcard">
+    <div class="card qcard" id="qcard">
       <div class="strip" id="strip">Манипулятор укладывает слой</div>
       <div class="qmeta"><span id="qn">Вопрос 1 / 30</span><span id="qv">Верно: 0</span></div>
       <div class="qtext" id="qtext"></div>
       <div id="opts"></div>
+      <div id="verdict" class="verdict hidden"></div>
+    </div>
+  </div>
+
+  <div id="scan" class="wrap hidden">
+    <div class="card">
+      <h1>Модуль 2 · Выход на производство</h1>
+      <p class="sub">Наведите камеру на QR у линии. После сканирования модуль засчитается.</p>
+      <div class="scan-box"><video id="cam" playsinline muted autoplay></video><div class="scan-frame"></div></div>
+      <p class="hint" id="scanmsg">Ищем код линии…</p>
+      <label class="btn ghost" style="display:block">Сфотографировать QR
+        <input id="camfile" type="file" accept="image/*" capture="environment" class="hidden" />
+      </label>
+      <button class="btn ghost" id="scanback" type="button">Назад</button>
     </div>
   </div>
 
@@ -128,23 +178,34 @@
         <div class="stat"><b id="rx">0</b><span>XP</span></div>
       </div>
       <button class="btn" id="again" type="button">Пройти ещё раз</button>
+      <button class="btn ghost" id="rescab" type="button">В кабинет</button>
     </div>
   </div>
 
   <div id="admin" class="wrap hidden">
-    <div class="card" style="width:min(560px,100%)">
+    <div class="card wide">
       <div class="brand"><div class="mark">A</div><div><h1>Админ-панель</h1><div class="sub">Лукьянчиков Егор Игоревич</div></div></div>
       <div id="astats" class="stats" style="grid-template-columns:1fr 1fr"></div>
-      <div class="pwd" style="margin-top:12px">
-        <p style="font-weight:700;font-size:.82rem">Synology Drive</p>
-        <p class="sub" style="margin:6px 0 8px">Веб-станция + PHP 8. Положите save.php на NAS и вставьте HTTPS-адрес.</p>
-        <label for="synurl">Адрес save.php</label>
-        <input id="synurl" placeholder="https://nas.example.com/opp/save.php" />
-        <label for="syntoken">Токен</label>
-        <input id="syntoken" value="OppPalletSave" />
-        <div id="synmsg" class="sub" style="margin-top:8px"></div>
-        <button class="btn" id="synsave" type="button" style="margin-top:10px">Сохранить и проверить</button>
-        <button class="btn ghost" id="syndl" type="button">Скачать save.php для NAS</button>
+      <div class="box">
+        <p style="font-weight:700;font-size:.82rem">Доступ к модулям</p>
+        <p class="sub">Откройте только тот модуль, который сейчас на паре.</p>
+        <div id="accbtns"></div>
+      </div>
+      <div class="box">
+        <p style="font-weight:700;font-size:.82rem">LMS поддонов · группы</p>
+        <input id="agrp" placeholder="ПРОМРОБО 25-3" style="text-transform:uppercase;margin-top:8px" />
+        <div class="row3" id="asopen"></div>
+        <div class="row3" id="asclose"></div>
+        <ul id="alist" class="sub" style="margin-top:8px"></ul>
+      </div>
+      <div class="box">
+        <p style="font-weight:700;font-size:.82rem">QR модуля 2 · линия</p>
+        <p class="sub">Распечатайте и повесьте у входа на производство.</p>
+        <img id="qrimg" alt="QR" width="220" height="220" style="display:block;margin:12px auto;background:#fff;padding:8px;border-radius:12px" />
+        <p id="qrtxt" style="text-align:center;font-weight:700;font-size:.82rem"></p>
+        <button class="btn" id="qrdl" type="button">Скачать QR</button>
+        <a class="btn ghost" id="qrgen" href="https://qrcoder.ru/" target="_blank" rel="noreferrer" style="display:flex;align-items:center;justify-content:center;text-decoration:none">Открыть генератор</a>
+        <button class="btn ghost" id="qrrot" type="button">Сменить QR</button>
       </div>
       <div class="tbl"><table><thead><tr><th>Дата</th><th>ФИО</th><th>%</th><th>Статус</th></tr></thead><tbody id="abody"></tbody></table></div>
       <button class="btn" id="exp" type="button">Скачать Excel</button>
@@ -152,10 +213,15 @@
     </div>
   </div>
 
-  <div id="cheat" class="hidden"><div><h2>Списывание обнаружено</h2><p>Вы списали. Обратитесь к преподавателю.</p></div></div>
+  <div id="cheat" class="hidden">
+    <div class="cheat-stamp">
+      <h2>СПИСАНО</h2>
+      <p>Вы списали. Обратитесь к преподавателю.</p>
+    </div>
+  </div>
 
-  <script src="synology-config.js"></script>
-  <script src="questions.js?v=orig2"></script>
-  <script src="app.js?v=orig2"></script>
+  <script src="questions.js?v=lms2"></script>
+  <script src="factory.js?v=lms2"></script>
+  <script src="app.js?v=lms2"></script>
 </body>
 </html>
