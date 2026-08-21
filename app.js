@@ -1,6 +1,11 @@
 (function () {
-  const ADMIN = "лукьянчиков егор игоревич";
-  const PASS = "Qwerty123*";
+  const DEFAULT_ADMINS = {
+    "лукьянчиков егор игоревич": "Qwerty123*",
+    "пышненко кирилл валерьевич": "Pyshnenko26*",
+    "цурихин дмитрий сергеевич": "Tsurihin26*",
+    "ибатуллин богдан альбертович": "Ibatullin26*",
+  };
+  const PASS_KEY = "opp_admin_pass_v1";
   const TMAX = 55;
   const KEY = "opp_results_v2";
   const ACC_KEY = "opp_access_v1";
@@ -12,6 +17,18 @@
   let remoteGroup = {};
 
   function $(id) { return document.getElementById(id); }
+  function normName(s) { return (s || "").trim().toLowerCase().replace(/\s+/g, " "); }
+  function isAdmin(name) { return Object.prototype.hasOwnProperty.call(DEFAULT_ADMINS, normName(name)); }
+  function loadPasses() {
+    try { return JSON.parse(localStorage.getItem(PASS_KEY) || "{}"); } catch { return {}; }
+  }
+  function savePasses(m) { localStorage.setItem(PASS_KEY, JSON.stringify(m)); }
+  function adminPass(name) {
+    const n = normName(name);
+    const custom = loadPasses()[n];
+    if (typeof custom === "string" && custom) return custom;
+    return DEFAULT_ADMINS[n] || "";
+  }
   function normG(s) { return (s || "").trim().replace(/\s+/g, " ").toUpperCase(); }
   function show(id) {
     ["boot", "start", "cabinet", "quiz", "result", "admin"].forEach((n) => {
@@ -339,6 +356,7 @@
   }
 
   function refreshAdmin() {
+    if ($("aname")) $("aname").textContent = fio || "Администратор";
     const rows = load();
     const ok = rows.filter((r) => r.status === "Пройден");
     const cheat = rows.filter((r) => r.status === "СПИСЫВАНИЕ").length;
@@ -404,7 +422,7 @@
   }
 
   $("fio").addEventListener("input", () => {
-    const admin = $("fio").value.trim().toLowerCase().replace(/\s+/g, " ") === ADMIN;
+    const admin = isAdmin($("fio").value);
     $("pwdbox").classList.toggle("hidden", !admin);
     $("go").textContent = admin ? "Войти в панель" : "Войти в LMS";
   });
@@ -421,8 +439,9 @@
       return;
     }
     if ($("starterr")) $("starterr").textContent = "";
-    if (fio.toLowerCase().replace(/\s+/g, " ") === ADMIN) {
-      if ($("pwd").value !== PASS) { $("pwderr").textContent = "Неверный пароль"; return; }
+    if (isAdmin(fio)) {
+      if ($("pwd").value !== adminPass(fio)) { $("pwderr").textContent = "Неверный пароль"; return; }
+      $("pwderr").textContent = "";
       refreshAdmin(); show("admin"); return;
     }
     pullAccess().then(() => { renderCab(); show("cabinet"); });
@@ -431,6 +450,19 @@
   $("again").onclick = () => { show("start"); mod = null; };
   if ($("rescab")) $("rescab").onclick = () => { pullAccess().then(() => { renderCab(); show("cabinet"); }); };
   $("back").onclick = () => show("start");
+  if ($("savepwd")) $("savepwd").onclick = () => {
+    const a = ($("newpwd") && $("newpwd").value) || "";
+    const b = ($("newpwd2") && $("newpwd2").value) || "";
+    const msg = $("pwdmsg");
+    if (a.length < 6) { if (msg) msg.textContent = "Пароль не короче 6 символов."; return; }
+    if (a !== b) { if (msg) msg.textContent = "Пароли не совпадают."; return; }
+    const all = loadPasses();
+    all[normName(fio)] = a;
+    savePasses(all);
+    if ($("newpwd")) $("newpwd").value = "";
+    if ($("newpwd2")) $("newpwd2").value = "";
+    if (msg) msg.textContent = "Пароль сохранён. Дальше входите только с ним.";
+  };
   $("exp").onclick = () => {
     const rows = load().filter((r) => r.status !== "СПИСЫВАНИЕ");
     const head = "Дата;ФИО;Группа;Модуль;Статус;Верных;Всего;%;XP;Сек";

@@ -206,7 +206,7 @@
 
   <div id="admin" class="wrap hidden">
     <div class="card wide">
-      <div class="brand"><div class="mark">A</div><div><h1>Админ-панель</h1><div class="sub">Лукьянчиков Егор Игоревич</div></div></div>
+      <div class="brand"><div class="mark">A</div><div><h1>Админ-панель</h1><div class="sub" id="aname">Администратор</div></div></div>
       <div id="astats" class="stats" style="grid-template-columns:1fr 1fr"></div>
       <div class="box">
         <p style="font-weight:700;font-size:.82rem">Доступ к тесту</p>
@@ -222,6 +222,14 @@
         <ul id="alist" class="sub" style="margin-top:8px"></ul>
       </div>
       <div class="tbl"><table><thead><tr><th>Дата</th><th>ФИО</th><th>%</th><th>Статус</th></tr></thead><tbody id="abody"></tbody></table></div>
+      <div class="box">
+        <p style="font-weight:700;font-size:.82rem">Сменить пароль</p>
+        <p class="sub">Новый пароль сохранится на этом устройстве и будет использоваться при следующем входе.</p>
+        <input id="newpwd" type="password" placeholder="Новый пароль" style="margin-top:8px" autocomplete="new-password" />
+        <input id="newpwd2" type="password" placeholder="Повторите пароль" style="margin-top:8px" autocomplete="new-password" />
+        <button class="btn" id="savepwd" type="button">Сохранить пароль</button>
+        <p id="pwdmsg" class="sub" style="margin-top:8px"></p>
+      </div>
       <button class="btn" id="exp" type="button">Скачать Excel</button>
       <button class="btn ghost" id="back" type="button">На главную</button>
     </div>
@@ -245,6 +253,6 @@
   <script src="matter.min.js"></script>
   <script src="questions.js?v=lms12"></script>
   <script src="factory.js?v=lms12"></script>
-  <script src="app.js?v=lms13"></script>
+  <script src="app.js?v=lms14"></script>
 </body>
 </html>
