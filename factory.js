@@ -132,23 +132,25 @@ function startFactory() {
     addEventListener("resize", resize);
 
     Events.on(engine, "beforeUpdate", () => {
-      const vmax = 1.7, acc = 0.05;
+      const vmax = 5.6, acc = 0.2;
+      const occupied = boards.some((b) => !b.inCrate && Math.abs(b.body.position.x - conv.pickX) < 10 * s);
       boards.forEach((b) => {
         const p = b.body.position;
-        const on = !b.inCrate && Math.abs(p.y - (conv.top - sz(b.kind).bh / 2)) < 14 * s && p.x < conv.pickX + 20 * s;
+        const on = !b.inCrate && p.x < conv.pickX + 24 * s;
         b.onBelt = on;
-        if (on && p.x < conv.pickX - 3 * s && !held) {
-          const dist = conv.pickX - 3 * s - p.x;
+        const here = Math.abs(p.x - conv.pickX) < 10 * s;
+        if (on && !here) {
+          const dist = conv.pickX - 4 * s - p.x;
           let vx = b.body.velocity.x;
           const stop = (vx * vx) / (2 * acc);
-          if (stop >= dist) vx = Math.max(0.02, vx - acc);
+          if (occupied && stop >= dist) vx = Math.max(0.05, vx - acc);
           else vx = Math.min(vmax, vx + acc);
-          Body.setVelocity(b.body, { x: vx, y: Math.min(b.body.velocity.y, 0.15) });
-          Body.setAngularVelocity(b.body, b.body.angularVelocity * 0.9);
+          Body.setVelocity(b.body, { x: vx, y: Math.min(b.body.velocity.y, 0.2) });
+          Body.setAngularVelocity(b.body, b.body.angularVelocity * 0.85);
         }
-        if (on && p.x >= conv.pickX - 3 * s && !held && phase === "wait") {
+        if (on && here && !held) {
           const vx = b.body.velocity.x;
-          if (vx > 0.08) Body.setVelocity(b.body, { x: vx * 0.82, y: 0 });
+          if (vx > 0.12) Body.setVelocity(b.body, { x: vx * 0.72, y: 0 });
           else {
             Body.setVelocity(b.body, { x: 0, y: 0 });
             Body.setPosition(b.body, { x: conv.pickX, y: conv.top - sz(b.kind).bh / 2 });
@@ -157,7 +159,7 @@ function startFactory() {
           }
         }
         if (b.inCrate && crateOut) {
-          Body.setVelocity(b.body, { x: Math.min(2.6, b.body.velocity.x + 0.06), y: b.body.velocity.y });
+          Body.setVelocity(b.body, { x: Math.min(5.2, b.body.velocity.x + 0.14), y: b.body.velocity.y });
         }
       });
     });
@@ -262,7 +264,7 @@ function startFactory() {
       ctx.fillStyle = "#E8B020"; ctx.fillRect(conv.x, conv.y - 3 * s, conv.len, 4 * s);
       const nRoll = Math.max(8, Math.floor((conv.len - 24 * s) / (15 * s)));
       const wait = waitingBoard();
-      const spin = (!wait || held || crateOut) ? now / 160 : 0;
+      const spin = now / 55;
       for (let i = 0; i < nRoll; i++) {
         const rx = conv.x + 16 * s + i * 15 * s;
         ctx.fillStyle = "#8FA3B8";
@@ -274,11 +276,11 @@ function startFactory() {
       }
 
       if (!boardOnBelt() && !held && phase === "wait" && !crateOut) {
-        spawnBoard(firstBoard ? conv.pickX : conv.spawnX, KINDS[nextKind % KINDS.length]);
+        spawnBoard(conv.spawnX, KINDS[nextKind % KINDS.length], { vx: 2.8 });
         firstBoard = false;
       }
       if (!boardOnBelt() && held && (phase === "up" || phase === "move") && !crateOut) {
-        spawnBoard(conv.spawnX, KINDS[nextKind % KINDS.length]);
+        spawnBoard(conv.spawnX, KINDS[nextKind % KINDS.length], { vx: 2.8 });
       }
 
       const travelY = conv.y - 78 * s;
@@ -298,7 +300,7 @@ function startFactory() {
       });
       if (!crateOut && crateCount() >= 8) crateOut = true;
       if (crateOut) {
-        crateV = Math.min(210 * s, crateV + 260 * s * dt);
+        crateV = Math.min(320 * s, crateV + 420 * s * dt);
         moveCrate(crateX + crateV * dt);
         if (crateX > conv.x + conv.len + 90 * s) {
           boards.filter((b) => b.inCrate).forEach((b) => Composite.remove(world, b.body));
