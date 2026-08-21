@@ -1,8 +1,12 @@
 window.OPP_FACTORY = { cue: "idle", cueUntil: 0 };
 function startFactory() {
+  try {
     const canvas = document.getElementById("fx");
+    if (!canvas) return;
     const ctx = canvas.getContext("2d", { alpha: false });
-    let w = 0, h = 0, t0 = performance.now();
+    if (!ctx) return;
+    const mobile = Math.min(screen.width || innerWidth, screen.height || innerHeight) < 820;
+    let w = 0, h = 0, t0 = performance.now(), skip = 0;
     const PATTERN = [
       { kind: "stringer", ox: -0.38 }, { kind: "stringer", ox: 0 }, { kind: "stringer", ox: 0.38 },
       { kind: "deck", ox: -0.4 }, { kind: "deck", ox: -0.2 }, { kind: "deck", ox: 0 },
@@ -18,9 +22,10 @@ function startFactory() {
       let d = to - from; while (d > Math.PI) d -= Math.PI * 2; while (d < -Math.PI) d += Math.PI * 2; return from + d;
     };
     function resize() {
-      const dpr = Math.min(devicePixelRatio || 1, 2);
+      const dpr = mobile ? 1 : Math.min(devicePixelRatio || 1, 1.5);
       w = canvas.clientWidth || innerWidth;
       h = canvas.clientHeight || innerHeight;
+      if (!w || !h) return;
       canvas.width = Math.floor(w * dpr);
       canvas.height = Math.floor(h * dpr);
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
@@ -108,6 +113,8 @@ function startFactory() {
       return (sy + Math.sin(c1.a1) * l1 <= sy + Math.sin(c2.a1) * l1) ? c1 : c2;
     }
     function frame(now) {
+      if (document.hidden) { requestAnimationFrame(frame); return; }
+      if (mobile && (++skip & 1)) { requestAnimationFrame(frame); return; }
       const dt = Math.min(0.033, (now - t0) / 1000); t0 = now;
       const s = Math.min(w, h) / 520;
       const u = ((now / 1000) % 7.2) / 7.2;
@@ -116,8 +123,8 @@ function startFactory() {
       const sky = ctx.createLinearGradient(0, 0, 0, h);
       sky.addColorStop(0, "#0C3D78"); sky.addColorStop(0.7, "#0A2F5C"); sky.addColorStop(1, "#071E3E");
       ctx.fillStyle = sky; ctx.fillRect(0, 0, w, h);
-      for (let i = 0; i < 4; i++) {
-        const lx = w * (0.16 + i * 0.23), ly = h * 0.055;
+      for (let i = 0; i < (mobile ? 2 : 4); i++) {
+        const lx = w * (0.16 + i * (mobile ? 0.45 : 0.23)), ly = h * 0.055;
         const cone = ctx.createRadialGradient(lx, ly, 6, lx, h * 0.58, h * 0.48);
         cone.addColorStop(0, "rgba(220,236,255,.2)"); cone.addColorStop(1, "rgba(220,236,255,0)");
         ctx.fillStyle = cone;
@@ -268,7 +275,8 @@ function startFactory() {
       requestAnimationFrame(frame);
     }
     requestAnimationFrame(frame);
-  }
+  } catch (e) { /* фон не должен ломать тест на телефоне */ }
+}
 
 
 window.startFactory = startFactory;
