@@ -7,14 +7,7 @@ function startFactory() {
     if (!ctx) return;
     const mobile = Math.min(screen.width || innerWidth, screen.height || innerHeight) < 820;
     let w = 0, h = 0, t0 = performance.now(), skip = 0;
-    const PATTERN = [
-      { kind: "stringer", ox: -0.38 }, { kind: "stringer", ox: 0 }, { kind: "stringer", ox: 0.38 },
-      { kind: "deck", ox: -0.4 }, { kind: "deck", ox: -0.2 }, { kind: "deck", ox: 0 },
-      { kind: "deck", ox: 0.2 }, { kind: "deck", ox: 0.4 }
-    ];
-    const placed = PATTERN.map(() => false);
-    let nextPart = 0, cyclePart = 0, prevU = 0, holdKind = null, gripped = false, outgoing = 0, a1 = -2.4, a2 = 2.1, gripVis = 0.12;
-    const sparks = [];
+    const KINDS = ["stringer", "stringer", "stringer", "deck", "deck", "deck", "deck", "deck"];
     const clamp = (n, a, b) => Math.max(a, Math.min(b, n));
     const lerp = (a, b, t) => a + (b - a) * t;
     const ease = (t) => (t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2);
@@ -32,6 +25,7 @@ function startFactory() {
     }
     resize();
     addEventListener("resize", resize);
+
     function rr(x, y, bw, bh, r) {
       const rad = Math.min(r, bw / 2, bh / 2);
       ctx.beginPath();
@@ -70,35 +64,6 @@ function startFactory() {
       g.addColorStop(1, dark ? "#5A3514" : "#A86A28");
       ctx.fillStyle = g; rr(cx - bw / 2, cy - bh / 2, bw, bh, 2); ctx.fill();
     }
-    function box(cx, bottom, bw, bh, depth, light, dark) {
-      const dx = -depth * 0.52, dy = -depth * 0.26, top = bottom - bh, left = cx - bw / 2;
-      ctx.beginPath();
-      ctx.moveTo(left, top); ctx.lineTo(left + bw, top);
-      ctx.lineTo(left + bw + dx, top + dy); ctx.lineTo(left + dx, top + dy);
-      ctx.closePath(); ctx.fillStyle = light; ctx.fill();
-      ctx.beginPath();
-      ctx.moveTo(left + bw, top); ctx.lineTo(left + bw + dx, top + dy);
-      ctx.lineTo(left + bw + dx, bottom + dy); ctx.lineTo(left + bw, bottom);
-      ctx.closePath(); ctx.fillStyle = dark; ctx.fill();
-      const g = ctx.createLinearGradient(left, top, left, bottom);
-      g.addColorStop(0, light); g.addColorStop(1, dark);
-      ctx.fillStyle = g; ctx.fillRect(left, top, bw, bh);
-    }
-    function pallet(px, py, s, mask) {
-      const W = 110 * s;
-      ctx.save(); ctx.translate(px, py);
-      ctx.fillStyle = "rgba(0,0,0,.28)";
-      ctx.beginPath(); ctx.ellipse(0, 8 * s, W * 0.42, 7 * s, 0, 0, Math.PI * 2); ctx.fill();
-      PATTERN.forEach((p, i) => {
-        if (!mask[i] || p.kind !== "stringer") return;
-        board(p.ox * W, -7 * s, 28 * s, 16 * s, true);
-      });
-      PATTERN.forEach((p, i) => {
-        if (!mask[i] || p.kind !== "deck") return;
-        board(p.ox * W, -20 * s, 24 * s, 8 * s, false);
-      });
-      ctx.restore();
-    }
     function solve(tx, ty, sx, sy, l1, l2) {
       let dx = tx - sx, dy = ty - sy, dist = Math.hypot(dx, dy);
       const maxd = l1 + l2 - 12, mind = Math.abs(l1 - l2) + 16;
@@ -112,14 +77,42 @@ function startFactory() {
       const c2 = { a1: ang + da1, a2: interior - Math.PI };
       return (sy + Math.sin(c1.a1) * l1 <= sy + Math.sin(c2.a1) * l1) ? c1 : c2;
     }
+    function drawCrate(cx, bottom, s, stack) {
+      const bw = 108 * s, bh = 46 * s, d = 18 * s;
+      const left = cx - bw / 2, top = bottom - bh;
+      ctx.fillStyle = "rgba(0,0,0,.28)";
+      ctx.beginPath(); ctx.ellipse(cx, bottom + 6 * s, bw * 0.42, 7 * s, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = "#6B3E18";
+      ctx.beginPath();
+      ctx.moveTo(left + bw, top); ctx.lineTo(left + bw + d * 0.45, top - d * 0.22);
+      ctx.lineTo(left + bw + d * 0.45, bottom - d * 0.22); ctx.lineTo(left + bw, bottom); ctx.fill();
+      const g = ctx.createLinearGradient(left, top, left, bottom);
+      g.addColorStop(0, "#C47A32"); g.addColorStop(1, "#7A4316");
+      ctx.fillStyle = g; ctx.fillRect(left, top, bw, bh);
+      ctx.strokeStyle = "#5A3010"; ctx.lineWidth = 2;
+      ctx.strokeRect(left, top, bw, bh);
+      ctx.fillStyle = "#3A220C";
+      ctx.fillRect(left + 6 * s, top + 6 * s, bw - 12 * s, bh - 12 * s);
+      ctx.fillStyle = "#E8B020";
+      ctx.font = "800 " + 10 * s + "px Manrope,sans-serif";
+      ctx.textAlign = "center"; ctx.textBaseline = "middle";
+      ctx.fillText("ТАРА", cx, top - 10 * s);
+      stack.forEach((kind, i) => {
+        const dark = kind === "stringer";
+        const y = bottom - 10 * s - i * 6 * s;
+        board(cx, y, dark ? 86 * s : 78 * s, dark ? 8 * s : 6 * s, dark);
+      });
+    }
+
+    let phase = "wait", phaseT = 0, held = null, a1 = -2.4, a2 = 2.1, gripVis = 0.12;
+    let belt = null, bin = [], binSlide = 0, nextKind = 0, firstBoard = true;
+    const DUR = { wait: 0.15, down: 0.4, grip: 0.45, up: 0.36, move: 0.7, downPlace: 0.4, release: 0.4, upPlace: 0.34 };
+
     function frame(now) {
       if (document.hidden) { requestAnimationFrame(frame); return; }
       if (mobile && (++skip & 1)) { requestAnimationFrame(frame); return; }
       const dt = Math.min(0.033, (now - t0) / 1000); t0 = now;
       const s = Math.min(w, h) / 520;
-      const u = ((now / 1000) % 7.2) / 7.2;
-      if (u + 0.45 < prevU) cyclePart = nextPart;
-      prevU = u;
       const sky = ctx.createLinearGradient(0, 0, 0, h);
       sky.addColorStop(0, "#0C3D78"); sky.addColorStop(0.7, "#0A2F5C"); sky.addColorStop(1, "#071E3E");
       ctx.fillStyle = sky; ctx.fillRect(0, 0, w, h);
@@ -138,7 +131,7 @@ function startFactory() {
         ctx.fillStyle = x % 56 === 0 ? "#E8B020" : "#111";
         ctx.fillRect(x, floorY, 14, 8);
       }
-      const convX = w * 0.04, convLen = w * 0.92, convY = floorY - 52 * s;
+      const convX = w * 0.04, convLen = w * 0.62, convY = floorY - 52 * s;
       const frameH = 20 * s;
       for (let lx = convX + 16 * s; lx < convX + convLen - 12 * s; lx += 64 * s) {
         ctx.fillStyle = "#3A4E64"; ctx.fillRect(lx, convY + frameH - 2 * s, 7 * s, floorY - (convY + frameH) + 2 * s);
@@ -148,76 +141,100 @@ function startFactory() {
       ctx.fillStyle = "#24364A"; ctx.fillRect(convX + 5 * s, convY + 3 * s, convLen - 10 * s, 13 * s);
       ctx.fillStyle = "#E8B020"; ctx.fillRect(convX, convY - 3 * s, convLen, 4 * s);
       const nRoll = Math.max(8, Math.floor((convLen - 24 * s) / (15 * s)));
+      const rollSpin = held || (belt && belt.x < convX + convLen * 0.42 - 10 * s) ? now / 180 : 0;
       for (let i = 0; i < nRoll; i++) {
         const rx = convX + 16 * s + i * 15 * s;
         ctx.fillStyle = "#8FA3B8";
         ctx.beginPath(); ctx.ellipse(rx, convY + 10 * s, 6 * s, 6 * s, 0, 0, Math.PI * 2); ctx.fill();
-      }
-      const xMin = convX + 48 * s, xMax = convX + convLen - 48 * s;
-      const pickX = Math.max(xMin, Math.min(xMax, convX + convLen * 0.22));
-      const palletX = Math.max(xMin, Math.min(xMax, convX + convLen * 0.68));
-
-      const baseX = w * 0.4, baseY = floorY - 4 * s;
-      const sx = baseX, sy = baseY - 78 * s, l1 = 128 * s, l2 = 114 * s;
-      const part = PATTERN[Math.min(cyclePart, PATTERN.length - 1)];
-      const assembling = cyclePart < PATTERN.length && outgoing === 0;
-      const darkPick = part.kind === "stringer";
-      const bh = darkPick ? 14 * s : 10 * s;
-      const bw = darkPick ? 92 * s : 84 * s;
-      const beltY = convY - 2 * s - bh / 2;
-      const cupReach = (gv) => 16 * s + lerp(15 * s, 6 * s, gv);
-      const wristAt = (cy, hgt, gv) => cy - hgt / 2 - cupReach(gv);
-      const slotY = darkPick ? beltY : convY - 2 * s - 16 * s - bh / 2;
-      const pick = { x: pickX, y: wristAt(beltY, bh, 0.12) };
-      const place = { x: Math.max(xMin, Math.min(xMax, palletX + part.ox * 36 * s)), y: wristAt(slotY, bh, 1) };
-      const travelY = convY - 56 * s;
-      const home = { x: Math.max(xMin, Math.min(xMax, (pick.x + place.x) / 2)), y: travelY };
-      let target = home, grip = 0.12, wantHold = false, justPlaced = false, justPicked = false;
-      if (assembling) {
-        if (u < 0.1) {
-          const k = ease(u / 0.1);
-          target = { x: lerp(home.x, pick.x, k), y: lerp(home.y, pick.y - 10 * s, k) }; grip = 0.12;
-        } else if (u < 0.2) {
-          const k = ease((u - 0.1) / 0.1);
-          target = { x: pick.x, y: lerp(pick.y - 10 * s, pick.y, k) }; grip = 0.12;
-        } else if (u < 0.32) {
-          grip = lerp(0.12, 1, ease((u - 0.2) / 0.12));
-          target = { x: pick.x, y: wristAt(beltY, bh, grip) };
-          wantHold = grip > 0.62; justPicked = wantHold && !gripped;
-        } else if (u < 0.42) {
-          const k = ease((u - 0.32) / 0.1);
-          target = { x: pick.x, y: lerp(wristAt(beltY, bh, 1), travelY, k) }; grip = 1; wantHold = true;
-        } else if (u < 0.58) {
-          const k = ease((u - 0.42) / 0.16);
-          target = { x: lerp(pick.x, place.x, k), y: travelY }; grip = 1; wantHold = true;
-        } else if (u < 0.68) {
-          const k = ease((u - 0.58) / 0.1);
-          target = { x: place.x, y: lerp(travelY, wristAt(slotY, bh, 1), k) }; grip = 1; wantHold = true;
-        } else if (u < 0.8) {
-          grip = lerp(1, 0.12, ease((u - 0.68) / 0.12));
-          target = { x: place.x, y: wristAt(slotY, bh, grip) };
-          wantHold = grip > 0.5; justPlaced = !wantHold && gripped;
-        } else if (u < 0.88) {
-          const k = ease((u - 0.8) / 0.08);
-          target = { x: place.x, y: lerp(wristAt(slotY, bh, 0.12), travelY, k) }; grip = 0.12;
-        } else {
-          const k = ease((u - 0.88) / 0.12);
-          target = { x: lerp(place.x, home.x, k), y: travelY }; grip = 0.12;
+        if (rollSpin) {
+          ctx.strokeStyle = "rgba(255,255,255,.35)"; ctx.lineWidth = 1.4;
+          ctx.beginPath(); ctx.arc(rx, convY + 10 * s, 2.4 * s, rollSpin + i, rollSpin + i + 1.4); ctx.stroke();
         }
       }
-      target.x = Math.max(xMin, Math.min(xMax, target.x));
-      target.y = Math.min(target.y, convY - 32 * s);
-      if (window.OPP_FACTORY.cue === "drop" && now < window.OPP_FACTORY.cueUntil) { wantHold = false; grip = 0.1; justPlaced = false; holdKind = null; gripped = false; }
-      if (justPicked) { holdKind = part.kind; gripped = true; }
-      if (justPlaced && holdKind) {
-        placed[cyclePart] = true; holdKind = null; gripped = false; nextPart = cyclePart + 1;
-        if (nextPart >= PATTERN.length) outgoing = 1;
+
+      const pickX = convX + convLen * 0.62;
+      const spawnX = convX + 36 * s;
+      const crateX = w * 0.82;
+      const crateBottom = floorY - 4 * s;
+      const beltTop = convY - 2 * s;
+      const travelY = convY - 56 * s;
+      const sizeOf = (kind) => kind === "stringer" ? { bw: 90 * s, bh: 14 * s } : { bw: 82 * s, bh: 10 * s };
+      const cupReach = (g) => 16 * s + lerp(15 * s, 6 * s, g);
+      const wristAt = (top, g) => top - cupReach(g);
+
+      if (!belt && !held && phase === "wait") {
+        const kind = KINDS[nextKind % KINDS.length];
+        belt = { x: firstBoard ? pickX : spawnX, kind };
+        firstBoard = false;
       }
-      if (!wantHold && u > 0.8) gripped = false;
-      if (outgoing > 0) {
-        outgoing += dt * 0.55;
-        if (outgoing > 2.4) { outgoing = 0; nextPart = 0; cyclePart = 0; for (let i = 0; i < placed.length; i++) placed[i] = false; }
+      if (!belt && held && (phase === "up" || phase === "move" || phase === "downPlace")) {
+        const kind = KINDS[nextKind % KINDS.length];
+        belt = { x: spawnX, kind };
       }
+
+      const atSensor = !!(belt && pickX - belt.x < 6 * s);
+      const beltRun = !!(belt && !atSensor);
+      if (beltRun) {
+        belt.x = Math.min(pickX, belt.x + 70 * s * dt);
+      }
+
+      const workKind = held || (belt && belt.kind) || "deck";
+      const work = sizeOf(workKind);
+      const pickTop = beltTop - work.bh;
+      const stackH = bin.length * 6 * s;
+      const placeTop = crateBottom - 38 * s - stackH - work.bh;
+      const placeX = crateX;
+
+      if (phase === "wait") {
+        if (atSensor && !held) { phase = "down"; phaseT = 0; }
+      } else {
+        phaseT += dt / DUR[phase];
+        if (phaseT >= 1) {
+          phaseT = 0;
+          if (phase === "down") phase = "grip";
+          else if (phase === "grip") phase = "up";
+          else if (phase === "up") phase = "move";
+          else if (phase === "move") phase = "downPlace";
+          else if (phase === "downPlace") phase = "release";
+          else if (phase === "release") phase = "upPlace";
+          else if (phase === "upPlace") phase = "wait";
+        }
+      }
+      if (phase === "grip" && !held && belt && phaseT > 0.4) {
+        held = belt.kind;
+        belt = null;
+        nextKind += 1;
+      }
+      if (phase === "release" && held && phaseT > 0.45) {
+        bin.push(held);
+        held = null;
+        if (bin.length >= 8) binSlide = 0.01;
+      }
+      if (binSlide > 0) {
+        binSlide += dt * 0.7;
+        if (binSlide > 1.6) { bin = []; binSlide = 0; }
+      }
+
+      const k = ease(clamp(phaseT, 0, 1));
+      let grip = 0.12;
+      let target = { x: pickX, y: travelY };
+      if (phase === "down") target = { x: pickX, y: lerp(travelY, wristAt(pickTop, 0.12), k) };
+      else if (phase === "grip") { grip = lerp(0.12, 1, k); target = { x: pickX, y: wristAt(pickTop, grip) }; }
+      else if (phase === "up") { grip = 1; target = { x: pickX, y: lerp(wristAt(pickTop, 1), travelY, k) }; }
+      else if (phase === "move") { grip = 1; target = { x: lerp(pickX, placeX, k), y: travelY }; }
+      else if (phase === "downPlace") { grip = 1; target = { x: placeX, y: lerp(travelY, wristAt(placeTop, 1), k) }; }
+      else if (phase === "release") { grip = lerp(1, 0.12, k); target = { x: placeX, y: wristAt(placeTop, grip) }; }
+      else if (phase === "upPlace") target = { x: placeX, y: lerp(wristAt(placeTop, 0.12), travelY, k) };
+
+      if (window.OPP_FACTORY.cue === "drop" && now < window.OPP_FACTORY.cueUntil) {
+        held = null; grip = 0.1; phase = "wait"; phaseT = 0;
+      }
+      const xMin = convX + 40 * s, xMax = w - 40 * s;
+      target.x = clamp(target.x, xMin, xMax);
+      target.y = Math.min(target.y, convY - 28 * s);
+
+      const baseX = w * 0.46, baseY = floorY - 4 * s;
+      const sx = baseX, sy = baseY - 78 * s, l1 = 128 * s, l2 = 114 * s;
       const ik = solve(target.x, target.y, sx, sy, l1, l2);
       const follow = 1 - Math.exp(-10 * dt);
       a1 = lerp(a1, unwrap(a1, ik.a1), follow);
@@ -245,38 +262,44 @@ function startFactory() {
       const g = gripVis, cupH = lerp(15 * s, 6 * s, g), cupW = lerp(6.5 * s, 9.5 * s, g);
       for (const ox of [-16 * s, 16 * s]) {
         ctx.fillStyle = "#9AA8B8"; ctx.fillRect(ox - 2 * s, 11 * s, 4 * s, 5 * s);
-        for (let k = 0; k < 3; k++) {
-          ctx.fillStyle = k % 2 ? "#E8EEF4" : "#C5D0DC";
-          ctx.beginPath(); ctx.ellipse(ox, 16 * s + (k + 0.5) * (cupH / 3), cupW * (1 - k * 0.06), cupH / 5.2, 0, 0, Math.PI * 2); ctx.fill();
+        for (let n = 0; n < 3; n++) {
+          ctx.fillStyle = n % 2 ? "#E8EEF4" : "#C5D0DC";
+          ctx.beginPath(); ctx.ellipse(ox, 16 * s + (n + 0.5) * (cupH / 3), cupW * (1 - n * 0.06), cupH / 5.2, 0, 0, Math.PI * 2); ctx.fill();
         }
         ctx.fillStyle = "#4A5A6A";
         ctx.beginPath(); ctx.ellipse(ox, 16 * s + cupH, cupW + 1.5 * s, 2.4 * s, 0, 0, Math.PI * 2); ctx.fill();
       }
-      if (holdKind) {
-        board(0, 16 * s + cupH + 2.2 * s + bh / 2, bw, bh, darkPick);
+      if (held) {
+        const hs = sizeOf(held);
+        board(0, 16 * s + cupH + 2.2 * s + hs.bh / 2, hs.bw, hs.bh, held === "stringer");
       }
       ctx.restore();
-      if (!holdKind) {
-        let waitX = pickX;
-        if (u > 0.8) waitX = lerp(pickX - 88 * s, pickX, ease(Math.min(1, (u - 0.8) / 0.18)));
-        board(Math.max(convX + 36 * s, waitX), beltY, bw, bh, darkPick);
+
+      if (belt) {
+        const sz = sizeOf(belt.kind);
+        board(belt.x, beltTop - sz.bh / 2, sz.bw, sz.bh, belt.kind === "stringer");
       }
-      for (let i = 1; i <= 2; i++) {
-        const fx = pickX - i * 96 * s;
-        if (fx > convX + 30 * s) board(fx, convY - 2 * s - 5 * s, 80 * s, 10 * s, false);
-      }
-      if (outgoing < 2.2) pallet(palletX + Math.max(0, outgoing - 0.15) * 220 * s, convY - 2 * s, s, placed);
-      for (let i = sparks.length - 1; i >= 0; i--) {
-        const p = sparks[i]; p.life -= dt * 2; p.x += p.vx * dt; p.y += p.vy * dt; p.vy += 180 * dt;
-        if (p.life <= 0) { sparks.splice(i, 1); continue; }
-        ctx.globalAlpha = Math.max(0, p.life); ctx.fillStyle = "#FFE7A8";
-        ctx.beginPath(); ctx.arc(p.x, p.y, 2, 0, Math.PI * 2); ctx.fill(); ctx.globalAlpha = 1;
-      }
+
+      const senX = pickX, senY = convY - 34 * s;
+      const busy = atSensor || phase === "down" || phase === "grip";
+      ctx.fillStyle = "#1E2A38"; rr(senX - 10 * s, senY, 20 * s, 14 * s, 3); ctx.fill();
+      ctx.fillStyle = busy ? "#FF3B3B" : "#2FD37A";
+      ctx.beginPath(); ctx.arc(senX, senY + 7 * s, 4 * s, 0, Math.PI * 2); ctx.fill();
+      ctx.strokeStyle = busy ? "rgba(255,70,70,.7)" : "rgba(47,211,122,.45)";
+      ctx.lineWidth = 2; ctx.setLineDash([5, 4]);
+      ctx.beginPath(); ctx.moveTo(senX, senY + 14 * s); ctx.lineTo(senX, convY); ctx.stroke();
+      ctx.setLineDash([]);
+      ctx.fillStyle = busy ? "#ffb4b4" : "#b7f0d0";
+      ctx.font = "700 " + 9 * s + "px Manrope,sans-serif";
+      ctx.textAlign = "center";
+      ctx.fillText(busy ? "ДАТЧИК" : "ДАТЧИК", senX, senY - 6 * s);
+
+      const crateDrawX = crateX + (binSlide > 0 ? binSlide * 180 * s : 0);
+      if (binSlide < 1.4) drawCrate(crateDrawX, crateBottom, s, bin);
+
       requestAnimationFrame(frame);
     }
     requestAnimationFrame(frame);
-  } catch (e) { /* фон не должен ломать тест на телефоне */ }
+  } catch (e) { /* фон не должен ломать тест */ }
 }
-
-
 window.startFactory = startFactory;
