@@ -1,9 +1,9 @@
 (function (w) {
   const IDS = ["1", "2", "3", "4"];
-  const SLIDE_W = 12192000;
-  const SLIDE_H = 8618538;
-  const FIO = { x: 2113821, y: 5496535, w: 4961430, h: 492443 };
-  const SIGN = { x: 3756007, y: 7323881, w: 2656114, h: 1031021 };
+  const SLIDE_W = 7680;
+  const SLIDE_H = 5429;
+  const FIO = { t: 3602, l: 1430, r: 4003, b: 3730 };
+  const SIGN = { t: 4613, l: 2366, r: 4039, b: 5263 };
 
   function loadImg(src) {
     return new Promise((resolve, reject) => {
@@ -27,8 +27,14 @@
     return Math.round((best["1"] + best["2"] + best["3"] + best["4"]) / 4);
   }
 
-  function emuX(v, W) { return (v / SLIDE_W) * W; }
-  function emuY(v, H) { return (v / SLIDE_H) * H; }
+  function box(spec, W, H) {
+    return {
+      x: (spec.l / SLIDE_W) * W,
+      y: (spec.t / SLIDE_H) * H,
+      w: ((spec.r - spec.l) / SLIDE_W) * W,
+      h: ((spec.b - spec.t) / SLIDE_H) * H,
+    };
+  }
 
   async function drawCertificate(fio, pct) {
     const bg = await loadImg("cert-bg.jpg");
@@ -39,24 +45,18 @@
     const ctx = c.getContext("2d");
     ctx.drawImage(bg, 0, 0);
     const W = c.width, H = c.height;
-    const x = emuX(FIO.x, W);
-    const y = emuY(FIO.y, H);
-    const bw = emuX(FIO.w, W);
-    const bh = emuY(FIO.h, H);
-    const fontPx = Math.round(W * 26 / 960);
+    const f = box(FIO, W, H);
+    const s = box(SIGN, W, H);
+    const fontPx = Math.round((W * 26) / 960);
     ctx.fillStyle = "#111111";
     ctx.textBaseline = "middle";
     ctx.font = "700 " + fontPx + "px Arial, Helvetica, sans-serif";
-    const cy = y + bh / 2;
+    const cy = f.y + f.h / 2;
     ctx.textAlign = "left";
-    ctx.fillText(String(fio || "").trim(), x, cy, bw * 0.72);
+    ctx.fillText(String(fio || "").trim(), f.x, cy, f.w * 0.78);
     ctx.textAlign = "right";
-    ctx.fillText(String(pct) + "%", x + bw, cy);
-    const sx = emuX(SIGN.x, W);
-    const sy = emuY(SIGN.y, H);
-    const sw = emuX(SIGN.w, W);
-    const sh = emuY(SIGN.h, H);
-    ctx.drawImage(sign, sx, sy, sw, sh);
+    ctx.fillText(String(pct) + "%", f.x + f.w, cy);
+    ctx.drawImage(sign, s.x, s.y, s.w, s.h);
     return c;
   }
 
