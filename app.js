@@ -143,28 +143,63 @@
   function sfxBad() { tone(180, 0.22, "sawtooth", 0.06, 0); }
   function siren() {
     const c = audio();
-    const t0 = c.currentTime, end = t0 + 8;
+    const t0 = c.currentTime, dur = 9, end = t0 + dur;
     const master = c.createGain();
     master.gain.setValueAtTime(0.0001, t0);
-    master.gain.exponentialRampToValueAtTime(0.42, t0 + 0.06);
-    master.gain.setValueAtTime(0.42, end - 0.55);
+    master.gain.exponentialRampToValueAtTime(0.95, t0 + 0.04);
+    master.gain.setValueAtTime(0.95, end - 0.5);
     master.gain.exponentialRampToValueAtTime(0.0001, end);
     master.connect(c.destination);
-    const wail = c.createOscillator(); wail.type = "sawtooth";
-    const g1 = c.createGain(); g1.gain.value = 0.22; wail.connect(g1); g1.connect(master);
-    let t = t0, up = true; wail.frequency.setValueAtTime(420, t0);
-    while (t < end) { wail.frequency.linearRampToValueAtTime(up ? 920 : 360, t + 0.72); t += 0.72; up = !up; }
-    wail.start(t0); wail.stop(end);
-    const beep = c.createOscillator(); beep.type = "square"; beep.frequency.value = 1480;
-    const bg = c.createGain(); bg.gain.value = 0.0001; beep.connect(bg); bg.connect(master);
-    for (let bt = t0 + 0.1; bt < end - 0.2; bt += 0.28) {
-      bg.gain.setValueAtTime(0.0001, bt); bg.gain.linearRampToValueAtTime(0.09, bt + 0.02);
-      bg.gain.setValueAtTime(0.09, bt + 0.07); bg.gain.exponentialRampToValueAtTime(0.0001, bt + 0.14);
+
+    const horn = c.createOscillator(); horn.type = "square";
+    const horn2 = c.createOscillator(); horn2.type = "square";
+    horn.frequency.setValueAtTime(98, t0); horn2.frequency.setValueAtTime(196, t0);
+    const hg = c.createGain(); hg.gain.setValueAtTime(0.0001, t0);
+    hg.gain.exponentialRampToValueAtTime(0.38, t0 + 0.02);
+    hg.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.55);
+    horn.connect(hg); horn2.connect(hg); hg.connect(master);
+    horn.start(t0); horn2.start(t0); horn.stop(t0 + 0.6); horn2.stop(t0 + 0.6);
+
+    const lo = c.createOscillator(); lo.type = "square";
+    const hi = c.createOscillator(); hi.type = "square";
+    const lg = c.createGain(); const hg2 = c.createGain();
+    lg.gain.value = 0.0001; hg2.gain.value = 0.0001;
+    lo.connect(lg); hi.connect(hg2); lg.connect(master); hg2.connect(master);
+    lo.frequency.value = 392; hi.frequency.value = 523.25;
+    let onHi = true;
+    for (let t = t0 + 0.45; t < end - 0.2; t += 0.32) {
+      if (onHi) {
+        hg2.gain.setValueAtTime(0.0001, t); hg2.gain.linearRampToValueAtTime(0.28, t + 0.02);
+        hg2.gain.setValueAtTime(0.28, t + 0.26); hg2.gain.exponentialRampToValueAtTime(0.0001, t + 0.31);
+        lg.gain.setValueAtTime(0.0001, t);
+      } else {
+        lg.gain.setValueAtTime(0.0001, t); lg.gain.linearRampToValueAtTime(0.3, t + 0.02);
+        lg.gain.setValueAtTime(0.3, t + 0.26); lg.gain.exponentialRampToValueAtTime(0.0001, t + 0.31);
+        hg2.gain.setValueAtTime(0.0001, t);
+      }
+      onHi = !onHi;
     }
-    beep.start(t0); beep.stop(end);
-    const rumble = c.createOscillator(); rumble.type = "sine"; rumble.frequency.value = 48;
-    const rg = c.createGain(); rg.gain.value = 0.18; rumble.connect(rg); rg.connect(master);
-    rumble.start(t0); rumble.stop(end);
+    lo.start(t0); hi.start(t0); lo.stop(end); hi.stop(end);
+
+    const bell = c.createOscillator(); bell.type = "triangle";
+    const bg = c.createGain(); bg.gain.value = 0.0001;
+    bell.connect(bg); bg.connect(master);
+    bell.frequency.value = 1760;
+    for (let t = t0 + 0.2; t < end - 0.3; t += 0.95) {
+      bg.gain.setValueAtTime(0.0001, t);
+      bg.gain.linearRampToValueAtTime(0.16, t + 0.01);
+      bg.gain.exponentialRampToValueAtTime(0.0001, t + 0.28);
+    }
+    bell.start(t0); bell.stop(end);
+
+    const nbuf = c.createBuffer(1, Math.ceil(c.sampleRate * dur), c.sampleRate);
+    const data = nbuf.getChannelData(0);
+    for (let i = 0; i < data.length; i++) data[i] = Math.random() * 2 - 1;
+    const noise = c.createBufferSource(); noise.buffer = nbuf;
+    const bp = c.createBiquadFilter(); bp.type = "bandpass"; bp.frequency.value = 1400; bp.Q.value = 4;
+    const ng = c.createGain(); ng.gain.value = 0.07;
+    noise.connect(bp); bp.connect(ng); ng.connect(master);
+    noise.start(t0); noise.stop(end);
   }
   function speak() {
     if (!window.speechSynthesis) return;
@@ -197,6 +232,7 @@
       duration: Math.round((Date.now() - started) / 1000)
     });
     if (status === "СПИСЫВАНИЕ") {
+      if ($("cheatwho")) $("cheatwho").textContent = (fio + " · " + group).toUpperCase();
       $("cheat").classList.remove("hidden");
       siren(); speak();
       return;
