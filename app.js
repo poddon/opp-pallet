@@ -144,6 +144,10 @@
     $("rx").textContent = xp;
     offerCert();
     show("result");
+    const overall = certPct();
+    if (status === "Пройден" && overall != null && window.OPP_CERT && OPP_CERT.autoDownloadOnce) {
+      OPP_CERT.autoDownloadOnce(fio, group, overall).catch(() => {});
+    }
   }
 
   function watchCheat() {
@@ -165,10 +169,10 @@
     const resBtn = $("rescert");
     if (cabBtn) cabBtn.classList.toggle("hidden", pct == null);
     if (hint) hint.classList.toggle("hidden", pct != null);
-    if (cabBtn && pct != null) cabBtn.textContent = "Скачать сертификат · " + pct + "%";
+    if (cabBtn && pct != null) cabBtn.textContent = "Скачать сертификат PDF · " + pct + "%";
     if (resBtn) {
       resBtn.classList.toggle("hidden", pct == null);
-      if (pct != null) resBtn.textContent = "Скачать сертификат · " + pct + "%";
+      if (pct != null) resBtn.textContent = "Скачать сертификат PDF · " + pct + "%";
     }
   }
 
