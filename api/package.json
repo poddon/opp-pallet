@@ -1,0 +1,10 @@
+{
+  "name": "opp-pallet-api",
+  "private": true,
+  "dependencies": {
+    "@neondatabase/serverless": "^1.0.0"
+  },
+  "devDependencies": {
+    "wrangler": "^3.99.0"
+  }
+}
