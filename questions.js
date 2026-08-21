@@ -914,9 +914,6 @@ const MG = [
 ];
 
 const MODULES = {
-  "1": { id: "1", title: "Модуль 1", short: "Роботизация", topic: "Основы роботизированного производства", questions: M1 },
-  "3": { id: "3", title: "Модуль 3", short: "Экономика", topic: "Экономика производства", questions: M3 },
-  "4": { id: "4", title: "Модуль 4", short: "Цифровые системы", topic: "Цифровые системы на производстве", questions: M4 },
-  "5": { id: "5", title: "Общий тест", short: "Все модули", topic: "30 вопросов по материалу 1, 3 и 4 модулей", questions: MG },
+  "1": { id: "1", title: "Общий тест", short: "СК ОПП", topic: "30 вопросов по материалу модулей 1, 3 и 4", questions: MG },
 };
 window.MODULES = MODULES;
