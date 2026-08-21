@@ -5,12 +5,12 @@
   const KEY = "opp_results_v2";
   const ACC_KEY = "opp_access_v1";
   const ASG_KEY = "opp_assigns_v1";
-  const QR_KEY = "opp_qr_v1";
-  const IDS = ["1", "2", "3", "4"];
+  const IDS = ["1", "3", "4"];
 
   function $(id) { return document.getElementById(id); }
+  function normG(s) { return (s || "").trim().replace(/\s+/g, " ").toUpperCase(); }
   function show(id) {
-    ["boot", "start", "cabinet", "quiz", "scan", "result", "admin"].forEach((n) => {
+    ["boot", "start", "cabinet", "quiz", "result", "admin"].forEach((n) => {
       const el = $(n);
       if (el) el.classList.toggle("hidden", n !== id);
     });
@@ -30,22 +30,59 @@
   function save(rows) { localStorage.setItem(KEY, JSON.stringify(rows)); }
   function loadAcc() {
     try {
-      return Object.assign({ "1": false, "2": false, "3": false, "4": false }, JSON.parse(localStorage.getItem(ACC_KEY) || "{}"));
-    } catch { return { "1": false, "2": false, "3": false, "4": false }; }
+      return Object.assign({ "1": false, "3": false, "4": false }, JSON.parse(localStorage.getItem(ACC_KEY) || "{}"));
+    } catch { return { "1": false, "3": false, "4": false }; }
   }
   function saveAcc(a) { localStorage.setItem(ACC_KEY, JSON.stringify(a)); }
   function loadAsg() {
     try { return JSON.parse(localStorage.getItem(ASG_KEY) || "[]"); } catch { return []; }
   }
   function saveAsg(a) { localStorage.setItem(ASG_KEY, JSON.stringify(a)); }
-  function qrToken() { return (localStorage.getItem(QR_KEY) || "OPP-M2-LINEOK01").toUpperCase(); }
-  function setQr(t) { localStorage.setItem(QR_KEY, t); }
+
+  function applyQueryAccess() {
+    try {
+      const q = new URLSearchParams(location.search);
+      const ids = (q.get("open") || "").split(",").map((x) => x.trim()).filter((id) => IDS.indexOf(id) >= 0);
+      const only = normG(q.get("g") || "");
+      if (!ids.length) return;
+      if (only) {
+        const asg = loadAsg();
+        ids.forEach((id) => asg.push({ group: only, id, open: true }));
+        saveAsg(asg);
+      } else {
+        const acc = loadAcc();
+        ids.forEach((id) => { acc[id] = true; });
+        saveAcc(acc);
+      }
+    } catch (e) {}
+  }
+  applyQueryAccess();
+
+  async function pullAccess() {
+    try {
+      const r = await fetch("access.json?t=" + Date.now(), { cache: "no-store" });
+      if (!r.ok) return;
+      const j = await r.json();
+      const acc = loadAcc();
+      IDS.forEach((id) => { if (j[id]) acc[id] = true; });
+      saveAcc(acc);
+    } catch (e) {}
+  }
 
   function canOpen(group, id) {
-    const g = (group || "").trim().toUpperCase();
-    const asg = loadAsg().filter((x) => x.group === g && x.id === id);
+    const g = normG(group);
+    if (loadAcc()[id]) return true;
+    const asg = loadAsg().filter((x) => normG(x.group) === g && String(x.id) === String(id));
     if (asg.length) return !!asg[asg.length - 1].open;
-    return !!loadAcc()[id];
+    return false;
+  }
+  function classLink() {
+    const acc = loadAcc();
+    const ids = IDS.filter((id) => acc[id]);
+    const u = new URL(location.href);
+    u.search = ids.length ? "?open=" + ids.join(",") : "";
+    u.hash = "";
+    return u.toString();
   }
 
   function prepare(id) {
@@ -114,7 +151,6 @@
   let mod = null, qs = [], idx = 0, locked = false;
   let correctN = 0, xp = 0, streak = 0, left = TMAX, timer = null;
   let live = false, saved = false, started = 0, fio = "", group = "";
-  let camStream = null, scanLock = false;
 
   function persist(row) {
     if (saved) return;
@@ -122,8 +158,8 @@
     const all = load(); all.unshift(row); save(all);
   }
   function finish(status) {
-    live = false; clearInterval(timer); stopCam();
-    const total = qs.length || (mod === "2" ? 1 : 0);
+    live = false; clearInterval(timer);
+    const total = qs.length;
     const pct = status === "СПИСЫВАНИЕ" ? 0 : Math.round(correctN / Math.max(1, total) * 100);
     persist({
       date: new Date().toLocaleString("ru-RU"), name: fio, group, modules: mod,
@@ -167,7 +203,7 @@
       b.type = "button";
       b.className = "mod" + (open ? " on" : "");
       b.disabled = !open;
-      b.innerHTML = '<div class="ico ' + (id === "2" ? "m" : id === "3" ? "g" : id === "4" ? "p" : "") + '">' + (open ? id : "🔒") + "</div><div><strong>" + m.title + "</strong><div class='sub'>" +
+      b.innerHTML = '<div class="ico ' + (id === "3" ? "g" : id === "4" ? "p" : "") + '">' + (open ? id : "🔒") + "</div><div><strong>" + m.title + "</strong><div class='sub'>" +
         (open ? (last ? m.topic + " · последний результат " + last.pct + "%" : m.topic) : "Не назначен вашей группе") + "</div></div>";
       b.onclick = () => begin(id);
       box.appendChild(b);
@@ -177,7 +213,6 @@
   function begin(id) {
     if (!canOpen(group, id)) { $("caberr").textContent = "Модуль не открыт для вашей группы."; return; }
     mod = id; saved = false; started = Date.now();
-    if (id === "2") { scanLock = false; $("scanmsg").textContent = "Ищем код линии…"; show("scan"); startCam(); return; }
     live = true;
     qs = prepare(id); idx = 0; locked = false; correctN = 0; xp = 0; streak = 0; left = TMAX;
     $("qm").textContent = MODULES[id].title;
@@ -238,43 +273,6 @@
     }, 1150);
   }
 
-  function stopCam() {
-    if (camStream) { camStream.getTracks().forEach((t) => t.stop()); camStream = null; }
-  }
-  function normQr(raw) {
-    let s = String(raw || "").trim().replace(/\s+/g, "").toUpperCase();
-    const m = s.match(/OPP-M2-[A-Z0-9]{8,24}/);
-    return m ? m[0] : s;
-  }
-  function confirmQr(payload) {
-    if (scanLock) return;
-    const got = normQr(payload);
-    const expect = qrToken();
-    if (!/^OPP-M2-[A-Z0-9]{8,24}$/.test(got)) { $("scanmsg").textContent = "Формат QR неверный. Нужен код с линии."; return; }
-    if (got !== expect) { $("scanmsg").textContent = "Этот QR не действует. Нужен актуальный код с линии."; return; }
-    if (!canOpen(group, "2")) { $("scanmsg").textContent = "Модуль 2 не открыт для вашей группы."; return; }
-    scanLock = true; stopCam();
-    sfxOk();
-    correctN = 1; xp = 50; qs = [{ q: "", a: [], correct: 0 }];
-    finish("Пройден");
-  }
-  function startCam() {
-    const video = $("cam");
-    navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: "environment" } }, audio: false }).then((stream) => {
-      camStream = stream; video.srcObject = stream; video.play();
-      const BD = window.BarcodeDetector;
-      const det = BD ? new BD({ formats: ["qr_code"] }) : null;
-      const tick = () => {
-        if (!camStream || scanLock) return;
-        if (det && video.readyState >= 2) {
-          det.detect(video).then((codes) => { if (codes[0] && codes[0].rawValue) confirmQr(codes[0].rawValue); }).catch(() => {});
-        }
-        setTimeout(tick, 280);
-      };
-      tick();
-    }).catch(() => { $("scanmsg").textContent = "Разрешите камеру, чтобы подтвердить выход на линию."; });
-  }
-
   function refreshAdmin() {
     const rows = load();
     const ok = rows.filter((r) => r.status === "Пройден");
@@ -294,30 +292,38 @@
       const b = document.createElement("button");
       b.type = "button"; b.className = "mod" + (acc[id] ? " on" : "");
       b.innerHTML = "<div><strong>" + MODULES[id].title + "</strong><div class='sub'>" + (acc[id] ? "Открыт для студентов" : "Закрыт") + "</div></div>";
-      b.onclick = () => { acc[id] = !acc[id]; saveAcc(acc); refreshAdmin(); };
+      b.onclick = () => {
+        acc[id] = !acc[id];
+        saveAcc(acc);
+        if ($("accmsg")) $("accmsg").textContent = acc[id] ? (MODULES[id].title + " открыт. Отправьте студентам ссылку ниже.") : (MODULES[id].title + " закрыт.");
+        refreshAdmin();
+      };
       $("accbtns").appendChild(b);
     });
+    if ($("classlink")) $("classlink").value = classLink();
     const asg = loadAsg();
     $("asopen").innerHTML = ""; $("asclose").innerHTML = "";
     IDS.forEach((id) => {
       const o = document.createElement("button"); o.type = "button"; o.className = "btn ghost"; o.textContent = "Открыть " + id;
       o.onclick = () => {
-        const g = $("agrp").value.trim().toUpperCase(); if (!g) return;
+        const g = normG($("agrp").value);
+        if (!g) { if ($("accmsg")) $("accmsg").textContent = "Сначала укажите направление и группу."; return; }
+        $("agrp").value = g;
         asg.push({ group: g, id, open: true }); saveAsg(asg); refreshAdmin();
+        if ($("accmsg")) $("accmsg").textContent = MODULES[id].title + " открыт для " + g + ".";
       };
       $("asopen").appendChild(o);
       const c = document.createElement("button"); c.type = "button"; c.className = "btn ghost"; c.textContent = "Закрыть " + id;
       c.onclick = () => {
-        const g = $("agrp").value.trim().toUpperCase(); if (!g) return;
+        const g = normG($("agrp").value);
+        if (!g) { if ($("accmsg")) $("accmsg").textContent = "Сначала укажите направление и группу."; return; }
+        $("agrp").value = g;
         asg.push({ group: g, id, open: false }); saveAsg(asg); refreshAdmin();
+        if ($("accmsg")) $("accmsg").textContent = MODULES[id].title + " закрыт для " + g + ".";
       };
       $("asclose").appendChild(c);
     });
     $("alist").innerHTML = asg.length ? asg.slice(-12).reverse().map((a) => "<li>" + a.group + " · модуль " + a.id + " · " + (a.open ? "открыт" : "закрыт") + "</li>").join("") : "<li>Пока нет назначений</li>";
-    const tok = qrToken();
-    $("qrtxt").textContent = tok;
-    $("qrimg").src = "https://api.qrserver.com/v1/create-qr-code/?size=220x220&ecc=H&data=" + encodeURIComponent(tok);
-    $("qrgen").href = "https://qrcoder.ru/?t=t&s=8&d=" + encodeURIComponent(tok);
   }
 
   $("fio").addEventListener("input", () => {
@@ -331,39 +337,28 @@
   $("go").onclick = () => {
     try { audio(); } catch (e) {}
     fio = $("fio").value.trim();
-    group = $("group").value.trim().toUpperCase();
+    group = normG($("group").value);
     $("group").value = group;
-    if (!fio || !group) return;
+    if (!fio || !group) {
+      if ($("starterr")) $("starterr").textContent = "Заполните ФИО и группу.";
+      return;
+    }
+    if ($("starterr")) $("starterr").textContent = "";
     if (fio.toLowerCase().replace(/\s+/g, " ") === ADMIN) {
       if ($("pwd").value !== PASS) { $("pwderr").textContent = "Неверный пароль"; return; }
       refreshAdmin(); show("admin"); return;
     }
-    renderCab(); show("cabinet");
+    pullAccess().then(() => { renderCab(); show("cabinet"); });
   };
   $("cabback").onclick = () => show("start");
-  $("scanback").onclick = () => { stopCam(); show("cabinet"); };
   $("again").onclick = () => { show("start"); mod = null; };
-  if ($("rescab")) $("rescab").onclick = () => { renderCab(); show("cabinet"); };
+  if ($("rescab")) $("rescab").onclick = () => { pullAccess().then(() => { renderCab(); show("cabinet"); }); };
   $("back").onclick = () => show("start");
-  $("camfile").onchange = (e) => {
-    const file = e.target.files && e.target.files[0];
-    if (!file) return;
-    if (!window.BarcodeDetector) { $("scanmsg").textContent = "Этот браузер не читает QR. Откройте Chrome на телефоне."; return; }
-    createImageBitmap(file).then((bmp) => new window.BarcodeDetector({ formats: ["qr_code"] }).detect(bmp)).then((codes) => {
-      if (codes[0] && codes[0].rawValue) confirmQr(codes[0].rawValue);
-      else $("scanmsg").textContent = "QR на фото не найден.";
-    }).catch(() => { $("scanmsg").textContent = "Не удалось разобрать фото."; });
-  };
-  $("qrdl").onclick = () => {
-    const url = "https://api.qrserver.com/v1/create-qr-code/?size=800x800&ecc=H&data=" + encodeURIComponent(qrToken());
-    fetch(url).then((r) => r.blob()).then((blob) => {
-      const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = "QR-modul-2.png"; a.click();
-    }).catch(() => window.open(url, "_blank"));
-  };
-  $("qrrot").onclick = () => {
-    const hex = Array.from(crypto.getRandomValues(new Uint8Array(5))).map((b) => b.toString(16).padStart(2, "0")).join("").toUpperCase();
-    setQr("OPP-M2-" + hex);
-    refreshAdmin();
+  if ($("copylink")) $("copylink").onclick = () => {
+    const link = classLink();
+    if ($("classlink")) $("classlink").value = link;
+    if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(link);
+    if ($("accmsg")) $("accmsg").textContent = "Ссылка скопирована. Откройте её на телефонах студентов.";
   };
   $("exp").onclick = () => {
     const rows = load().filter((r) => r.status !== "СПИСЫВАНИЕ");
@@ -396,4 +391,9 @@
     }, t));
     setTimeout(() => show("start"), fast ? 1400 : 4600);
   })();
+  pullAccess();
+  setInterval(() => {
+    const cab = $("cabinet");
+    if (cab && !cab.classList.contains("hidden")) pullAccess().then(renderCab);
+  }, 6000);
 })();
