@@ -1,4 +1,4 @@
-const M1: Question[] = [
+const M1 = [
   {
     q: "Что задаёт точка TCP у промышленного робота-паллетайзера?",
     a: [
@@ -301,7 +301,7 @@ const M1: Question[] = [
   },
 ];
 
-const M3: Question[] = [
+const M3 = [
   {
     q: "Чем CAPEX отличается от OPEX при запуске линии сборки поддонов?",
     a: [
@@ -604,7 +604,7 @@ const M3: Question[] = [
   },
 ];
 
-const M4: Question[] = [
+const M4 = [
   {
     q: "Чем MES отличается от ERP на производстве поддонов?",
     a: [
