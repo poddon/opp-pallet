@@ -367,7 +367,7 @@
   function grabCert() {
     const pct = certPct();
     if (pct == null || !window.OPP_CERT) return;
-    OPP_CERT.downloadCertificate(fio, pct, group).catch(() => {
+    OPP_CERT.downloadCertificate(fio, pct).catch(() => {
       alert("Не удалось собрать сертификат. Обновите страницу.");
     });
   }
