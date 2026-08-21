@@ -5,10 +5,10 @@
   const KEY = "opp_results_v2";
   const ACC_KEY = "opp_access_v1";
   const ASG_KEY = "opp_assigns_v1";
-  const IDS = ["1", "3", "4"];
+  const IDS = ["1", "3", "4", "5"];
   const AB = "https://abacus.jasoncameron.dev";
   const ABNS = "opp-pallet";
-  const ABTOK = { "1": "96ae5f9d-549c-42b6-870d-a54ab46e150e", "3": "56f05ffd-63e0-494f-b5a2-101f33d6ef69", "4": "9335da60-c18c-4f87-8537-4a2c99f652d0" };
+  const ABTOK = { "1": "96ae5f9d-549c-42b6-870d-a54ab46e150e", "3": "56f05ffd-63e0-494f-b5a2-101f33d6ef69", "4": "9335da60-c18c-4f87-8537-4a2c99f652d0", "5": "0db29dec-ddef-43f0-b305-b2b8f1f6860b" };
   let remoteGroup = {};
 
   function $(id) { return document.getElementById(id); }
@@ -34,8 +34,8 @@
   function save(rows) { localStorage.setItem(KEY, JSON.stringify(rows)); }
   function loadAcc() {
     try {
-      return Object.assign({ "1": false, "3": false, "4": false }, JSON.parse(localStorage.getItem(ACC_KEY) || "{}"));
-    } catch { return { "1": false, "3": false, "4": false }; }
+      return Object.assign({ "1": false, "3": false, "4": false, "5": false }, JSON.parse(localStorage.getItem(ACC_KEY) || "{}"));
+    } catch { return { "1": false, "3": false, "4": false, "5": false }; }
   }
   function saveAcc(a) { localStorage.setItem(ACC_KEY, JSON.stringify(a)); }
   function loadAsg() {
@@ -70,7 +70,7 @@
 
   async function pullAccess() {
     try {
-      const acc = { "1": false, "3": false, "4": false };
+      const acc = { "1": false, "3": false, "4": false, "5": false };
       await Promise.all(IDS.map(async (id) => {
         acc[id] = (await abGet("module" + id)) >= 1;
       }));
@@ -245,7 +245,7 @@
     live = true;
     qs = prepare(id); idx = 0; locked = false; correctN = 0; xp = 0; streak = 0; left = TMAX;
     $("qm").textContent = MODULES[id].title;
-    $("strip").textContent = id === "1" ? "Манипулятор укладывает слой" : id === "3" ? "Считаем такт и маржу" : "Сигналы идут по шине";
+    $("strip").textContent = id === "1" ? "Манипулятор укладывает слой" : id === "3" ? "Считаем такт и маржу" : id === "5" ? "Смешанный контроль по всем модулям" : "Сигналы идут по шине";
     show("quiz"); renderQ(); timer = setInterval(tick, 1000);
   }
 
