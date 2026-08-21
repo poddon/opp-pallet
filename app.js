@@ -6,6 +6,10 @@
   const ACC_KEY = "opp_access_v1";
   const ASG_KEY = "opp_assigns_v1";
   const IDS = ["1", "3", "4"];
+  const AB = "https://abacus.jasoncameron.dev";
+  const ABNS = "opp-pallet";
+  const ABTOK = { "1": "96ae5f9d-549c-42b6-870d-a54ab46e150e", "3": "56f05ffd-63e0-494f-b5a2-101f33d6ef69", "4": "9335da60-c18c-4f87-8537-4a2c99f652d0" };
+  let remoteGroup = {};
 
   function $(id) { return document.getElementById(id); }
   function normG(s) { return (s || "").trim().replace(/\s+/g, " ").toUpperCase(); }
@@ -39,50 +43,75 @@
   }
   function saveAsg(a) { localStorage.setItem(ASG_KEY, JSON.stringify(a)); }
 
-  function applyQueryAccess() {
-    try {
-      const q = new URLSearchParams(location.search);
-      const ids = (q.get("open") || "").split(",").map((x) => x.trim()).filter((id) => IDS.indexOf(id) >= 0);
-      const only = normG(q.get("g") || "");
-      if (!ids.length) return;
-      if (only) {
-        const asg = loadAsg();
-        ids.forEach((id) => asg.push({ group: only, id, open: true }));
-        saveAsg(asg);
-      } else {
-        const acc = loadAcc();
-        ids.forEach((id) => { acc[id] = true; });
-        saveAcc(acc);
-      }
-    } catch (e) {}
+  function gkey(group, id) {
+    let h = 2166136261;
+    const s = normG(group);
+    for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); }
+    return "g" + (h >>> 0).toString(16) + "m" + id;
   }
-  applyQueryAccess();
+  function gtokStore() {
+    try { return JSON.parse(localStorage.getItem("opp_abacus_gkeys") || "{}"); } catch { return {}; }
+  }
+  function gtokSave(m) { localStorage.setItem("opp_abacus_gkeys", JSON.stringify(m)); }
+
+  async function abGet(key) {
+    const r = await fetch(AB + "/get/" + ABNS + "/" + key + "?t=" + Date.now());
+    if (!r.ok) return 0;
+    const j = await r.json();
+    return Number(j && j.value) || 0;
+  }
+  async function abSet(key, token, value) {
+    const r = await fetch(AB + "/set/" + ABNS + "/" + key + "?value=" + (value ? 1 : 0), {
+      method: "POST",
+      headers: { Authorization: "Bearer " + token },
+    });
+    return r.ok;
+  }
 
   async function pullAccess() {
     try {
-      const r = await fetch("access.json?t=" + Date.now(), { cache: "no-store" });
-      if (!r.ok) return;
-      const j = await r.json();
-      const acc = loadAcc();
-      IDS.forEach((id) => { if (j[id]) acc[id] = true; });
+      const acc = { "1": false, "3": false, "4": false };
+      await Promise.all(IDS.map(async (id) => {
+        acc[id] = (await abGet("module" + id)) >= 1;
+      }));
       saveAcc(acc);
+      if (group) {
+        const next = {};
+        await Promise.all(IDS.map(async (id) => {
+          const v = await abGet(gkey(group, id));
+          next[id] = v >= 1;
+        }));
+        remoteGroup = next;
+      }
     } catch (e) {}
   }
 
-  function canOpen(group, id) {
-    const g = normG(group);
+  async function pushModule(id, open) {
+    await abSet("module" + id, ABTOK[id], open);
+    const acc = loadAcc(); acc[id] = !!open; saveAcc(acc);
+  }
+
+  async function pushGroup(g, id, open) {
+    const key = gkey(g, id);
+    const keys = gtokStore();
+    if (!keys[key]) {
+      try {
+        const cr = await fetch(AB + "/create/" + ABNS + "/" + key + "?initializer=" + (open ? 1 : 0));
+        const j = await cr.json();
+        if (j && j.admin_key) { keys[key] = j.admin_key; gtokSave(keys); }
+      } catch (e) {}
+    }
+    if (keys[key]) await abSet(key, keys[key], open);
+    remoteGroup[id] = !!open;
+  }
+
+  function canOpen(groupName, id) {
+    const g = normG(groupName);
     if (loadAcc()[id]) return true;
+    if (remoteGroup[id]) return true;
     const asg = loadAsg().filter((x) => normG(x.group) === g && String(x.id) === String(id));
     if (asg.length) return !!asg[asg.length - 1].open;
     return false;
-  }
-  function classLink() {
-    const acc = loadAcc();
-    const ids = IDS.filter((id) => acc[id]);
-    const u = new URL(location.href);
-    u.search = ids.length ? "?open=" + ids.join(",") : "";
-    u.hash = "";
-    return u.toString();
   }
 
   function prepare(id) {
@@ -293,14 +322,18 @@
       b.type = "button"; b.className = "mod" + (acc[id] ? " on" : "");
       b.innerHTML = "<div><strong>" + MODULES[id].title + "</strong><div class='sub'>" + (acc[id] ? "Открыт для студентов" : "Закрыт") + "</div></div>";
       b.onclick = () => {
-        acc[id] = !acc[id];
+        const next = !acc[id];
+        acc[id] = next;
         saveAcc(acc);
-        if ($("accmsg")) $("accmsg").textContent = acc[id] ? (MODULES[id].title + " открыт. Отправьте студентам ссылку ниже.") : (MODULES[id].title + " закрыт.");
-        refreshAdmin();
+        if ($("accmsg")) $("accmsg").textContent = "Сохраняю…";
+        pushModule(id, next).then(() => pullAccess()).then(() => {
+          if ($("accmsg")) $("accmsg").textContent = next ? (MODULES[id].title + " открыт для всех студентов.") : (MODULES[id].title + " закрыт.");
+          refreshAdmin();
+        });
       };
       $("accbtns").appendChild(b);
     });
-    if ($("classlink")) $("classlink").value = classLink();
+    if ($("accbtns"));
     const asg = loadAsg();
     $("asopen").innerHTML = ""; $("asclose").innerHTML = "";
     IDS.forEach((id) => {
@@ -309,8 +342,12 @@
         const g = normG($("agrp").value);
         if (!g) { if ($("accmsg")) $("accmsg").textContent = "Сначала укажите направление и группу."; return; }
         $("agrp").value = g;
-        asg.push({ group: g, id, open: true }); saveAsg(asg); refreshAdmin();
-        if ($("accmsg")) $("accmsg").textContent = MODULES[id].title + " открыт для " + g + ".";
+        asg.push({ group: g, id, open: true }); saveAsg(asg);
+        if ($("accmsg")) $("accmsg").textContent = "Сохраняю…";
+        pushGroup(g, id, true).then(() => pullAccess()).then(() => {
+          if ($("accmsg")) $("accmsg").textContent = MODULES[id].title + " открыт для " + g + ".";
+          refreshAdmin();
+        });
       };
       $("asopen").appendChild(o);
       const c = document.createElement("button"); c.type = "button"; c.className = "btn ghost"; c.textContent = "Закрыть " + id;
@@ -318,8 +355,12 @@
         const g = normG($("agrp").value);
         if (!g) { if ($("accmsg")) $("accmsg").textContent = "Сначала укажите направление и группу."; return; }
         $("agrp").value = g;
-        asg.push({ group: g, id, open: false }); saveAsg(asg); refreshAdmin();
-        if ($("accmsg")) $("accmsg").textContent = MODULES[id].title + " закрыт для " + g + ".";
+        asg.push({ group: g, id, open: false }); saveAsg(asg);
+        if ($("accmsg")) $("accmsg").textContent = "Сохраняю…";
+        pushGroup(g, id, false).then(() => pullAccess()).then(() => {
+          if ($("accmsg")) $("accmsg").textContent = MODULES[id].title + " закрыт для " + g + ".";
+          refreshAdmin();
+        });
       };
       $("asclose").appendChild(c);
     });
@@ -354,12 +395,6 @@
   $("again").onclick = () => { show("start"); mod = null; };
   if ($("rescab")) $("rescab").onclick = () => { pullAccess().then(() => { renderCab(); show("cabinet"); }); };
   $("back").onclick = () => show("start");
-  if ($("copylink")) $("copylink").onclick = () => {
-    const link = classLink();
-    if ($("classlink")) $("classlink").value = link;
-    if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(link);
-    if ($("accmsg")) $("accmsg").textContent = "Ссылка скопирована. Откройте её на телефонах студентов.";
-  };
   $("exp").onclick = () => {
     const rows = load().filter((r) => r.status !== "СПИСЫВАНИЕ");
     const head = "Дата;ФИО;Группа;Модуль;Статус;Верных;Всего;%;XP;Сек";
