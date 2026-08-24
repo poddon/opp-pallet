@@ -30,6 +30,8 @@ function startFactory() {
       return { pos, vel };
     }
 
+    const kukaImg = new Image();
+    kukaImg.src = "kuka.webp";
     const engine = Engine.create();
     engine.world.gravity.y = 1.05;
     engine.positionIterations = 8;
@@ -252,6 +254,22 @@ function startFactory() {
       for (let x = 0; x < w; x += 28) {
         ctx.fillStyle = x % 56 === 0 ? "#E8B020" : "#111";
         ctx.fillRect(x, floorY, 14, 8);
+      }
+      if (kukaImg.complete && kukaImg.naturalWidth > 10) {
+        const ih = (mobile ? 0.74 : 0.97) * floorY;
+        const iw = ih * (kukaImg.naturalWidth / kukaImg.naturalHeight);
+        const bob = Math.sin(now / 1400) * 4;
+        const ox = mobile ? -iw * 0.22 : -iw * 0.05;
+        ctx.save();
+        ctx.globalAlpha = mobile ? 0.5 : 0.95;
+        ctx.drawImage(kukaImg, ox, floorY - ih + 14 + bob, iw, ih);
+        ctx.restore();
+        ctx.save();
+        ctx.globalAlpha = mobile ? 0.46 : 0.92;
+        ctx.translate(w, 0);
+        ctx.scale(-1, 1);
+        ctx.drawImage(kukaImg, ox, floorY - ih + 14 - bob, iw, ih);
+        ctx.restore();
       }
 
       const frameH = 20 * s;
