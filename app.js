@@ -1,1 +1,1 @@
-// scripts load via CDN bootstrap in index.html
+// loaded from CDN via index bootstrap

@@ -4,25 +4,22 @@
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
 <title>Тестирование опытного производства поддонов</title>
-<style>.strip{display:none!important}</style>
 </head>
 <body>
 <script>
-(async function(){
-  const base = "https://cdn.jsdelivr.net/gh/poddon/opp-pallet@c3c00d1e3d54253b10c1205da96edd3391117eeb/";
-  let html = await (await fetch(base + "index.html")).text();
+(async function () {
+  var base = "https://cdn.jsdelivr.net/gh/poddon/opp-pallet@c3c00d1e3d54253b10c1205da96edd3391117eeb/";
+  var html = await (await fetch(base + "index.html")).text();
   html = html.replace(/<div class="strip"[^>]*>[\s\S]*?<\/div>/, "");
   html = html.replace(/\.strip\s*\{[^}]+\}/g, ".strip{display:none!important}");
-  html = html.replace(/src="(matter\.min\.js|questions\.js[^"]*|factory\.js[^"]*|app\.js[^"]*)"/g, 'src="'+base+'$1"');
+  html = html.replace(/src="(matter\.min\.js|questions\.js[^"]*|factory\.js[^"]*|app\.js[^"]*)"/g, function (_, f) {
+    return 'src="' + base + f + '"';
+  });
+  var stub = '<script>document.getElementById=function(i){var e=Document.prototype.getElementById.call(document,i);if(!e&&i==="strip")return{className:"",textContent:"",style:{},classList:{add:function(){},remove:function(){},toggle:function(){}}};return e;};<\/script>';
+  html = html.replace(/(<script src="[^"]*app\.js"><\/script>)/, stub + "$1");
   document.open();
   document.write(html);
   document.close();
-  const _g = document.getElementById.bind(document);
-  document.getElementById = function(id){
-    const el = _g(id);
-    if (!el && id === "strip") return {className:"",textContent:"",classList:{add(){},remove(){},toggle(){}}};
-    return el;
-  };
 })();
 </script>
 </body>
