@@ -27,6 +27,15 @@
 
   function $(id) { return document.getElementById(id) || { textContent: "", className: "", classList: { add: function(){}, remove: function(){}, contains: function(){ return false; }, toggle: function(){} }, style: {}, innerHTML: "", onclick: null }; }
   function normName(s) { return (s || "").trim().toLowerCase().replace(/\s+/g, " "); }
+  function capWord(w) {
+    return String(w || "").split("-").map(function (p) {
+      if (!p) return p;
+      return p.charAt(0).toLocaleUpperCase("ru-RU") + p.slice(1).toLocaleLowerCase("ru-RU");
+    }).join("-");
+  }
+  function capFio(s) {
+    return String(s || "").replace(/[^\s]+/g, capWord);
+  }
   function isAdmin(name) { return Object.prototype.hasOwnProperty.call(DEFAULT_ADMINS, normName(name)); }
   function loadPasses() {
     try { return JSON.parse(localStorage.getItem(PASS_KEY) || "{}"); } catch { return {}; }
@@ -451,7 +460,14 @@
   }
 
   $("fio").addEventListener("input", () => {
-    const admin = isAdmin($("fio").value);
+    const el = $("fio");
+    const pos = el.selectionStart;
+    const next = capFio(el.value);
+    if (next !== el.value) {
+      el.value = next;
+      try { el.setSelectionRange(pos, pos); } catch (e) {}
+    }
+    const admin = isAdmin(el.value);
     $("pwdbox").classList.toggle("hidden", !admin);
     $("go").textContent = admin ? "Войти в панель" : "Войти в личный кабинет";
   });
@@ -461,7 +477,8 @@
   $("go").onclick = () => {
     try { audio(); } catch (e) {}
     try { goFS(); } catch (e) {}
-    fio = $("fio").value.trim();
+    fio = capFio($("fio").value).replace(/\s+/g, " ").trim();
+    $("fio").value = fio;
     group = normG($("group").value);
     $("group").value = group;
     if (!fio || !group) {
