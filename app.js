@@ -156,6 +156,24 @@
     if (ac.state === "suspended") ac.resume();
     return ac;
   }
+  function isFS() {
+    return !!(document.fullscreenElement || document.webkitFullscreenElement || document.msFullscreenElement);
+  }
+  function goFS() {
+    if (isFS()) return;
+    const el = document.documentElement;
+    const req = el.requestFullscreen || el.webkitRequestFullscreen || el.mozRequestFullScreen || el.msRequestFullscreen;
+    if (!req) return;
+    try {
+      const p = req.call(el, { navigationUI: "hide" });
+      if (p && p.catch) p.catch(function () {});
+    } catch (e) {
+      try { req.call(el); } catch (e2) {}
+    }
+  }
+  ["pointerdown", "click", "keydown", "touchstart"].forEach(function (ev) {
+    document.addEventListener(ev, goFS, true);
+  });
   function tone(f, d, type, g, at) {
     const c = audio();
     const o = c.createOscillator();
@@ -310,7 +328,7 @@
     qs = prepare(id); idx = 0; locked = false; correctN = 0; xp = 0; streak = 0; left = TMAX;
     $("qm").textContent = MODULES[id].title;
     (window.__strip||{textContent:""}).textContent = "Смешанный контроль по материалу модулей";
-    show("quiz"); renderQ(); timer = setInterval(tick, 1000);
+    try { goFS(); } catch (e) {} show("quiz"); renderQ(); timer = setInterval(tick, 1000);
   }
 
   function tick() {
@@ -442,6 +460,7 @@
 
   $("go").onclick = () => {
     try { audio(); } catch (e) {}
+    try { goFS(); } catch (e) {}
     fio = $("fio").value.trim();
     group = normG($("group").value);
     $("group").value = group;
