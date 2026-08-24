@@ -1,2 +1,1 @@
-/* temporary - full restore next */
-console.error("Use full deploy");
+// scripts load via CDN bootstrap in index.html
