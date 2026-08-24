@@ -26,9 +26,7 @@
       .wrap.start { justify-content: flex-end; padding-right: 7%; }
     }
     .hidden { display: none !important; }
-    .card { width: min(440px, 100%); background: #fff; color: var(--ink); border-radius: 24px; padding: 22px 20px; box-shadow: 0 22px 60px rgba(4,16,36,.38); transform-origin: center center; transition: transform .4s cubic-bezier(.22,1,.36,1); will-change: transform; }
-    .wrap.start .card { transform-origin: right center; }
-    @media (max-width: 979px) { .wrap.start .card { transform-origin: center top; } }
+    .card { width: min(440px, 100%); background: #fff; color: var(--ink); border-radius: 24px; padding: 22px 20px; box-shadow: 0 22px 60px rgba(4,16,36,.38); }
     .qcard { width: min(560px, 100%); position: relative; overflow: hidden; }
     .wide { width: min(560px, 100%); }
     .brand { display: flex; gap: 12px; align-items: center; margin-bottom: 14px; }
@@ -172,7 +170,7 @@
     </div>
   </div>
 
-  <div id="quiz" class="wrap hidden" style="flex-direction:column;align-items:center;">
+  <div id="quiz" class="wrap hidden" style="flex-direction:column;align-items:stretch;max-width:560px;margin:0 auto;">
     <div class="top">
       <span class="chip" id="qm">Модуль</span>
       <span class="chip" id="qt">0:55</span>
@@ -252,49 +250,9 @@
 
   <div id="strip" class="strip" style="display:none!important" aria-hidden="true"></div>
   <script src="matter.min.js"></script>
-  <script src="questions.js?v=cardzoom2"></script>
-  <script src="factory.js?v=cardzoom2"></script>
-  <script src="app.js?v=cardzoom2"></script>
+  <script src="questions.js?v=noz1"></script>
+  <script src="factory.js?v=noz1"></script>
+  <script src="app.js?v=noz1"></script>
 
-  <script>
-  (function () {
-    function fit() {
-      var pad = 28;
-      var vw = window.innerWidth;
-      var vh = window.innerHeight;
-      var cards = document.querySelectorAll(".wrap .card");
-      for (var i = 0; i < cards.length; i++) {
-        var card = cards[i];
-        var wrap = card.parentElement;
-        while (wrap && !wrap.classList.contains("wrap")) wrap = wrap.parentElement;
-        if (!wrap || wrap.classList.contains("hidden")) {
-          card.style.transform = "";
-          continue;
-        }
-        card.style.transform = "scale(1)";
-        var cr = card.getBoundingClientRect();
-        if (!cr.width || !cr.height) continue;
-        var z = Math.min((vw - pad) / cr.width, (vh - pad) / cr.height, 1.6);
-        if (z < 0.72) z = 0.72;
-        card.style.transform = "scale(" + z.toFixed(3) + ")";
-      }
-    }
-    var timer;
-    function soon() { clearTimeout(timer); timer = setTimeout(fit, 50); }
-    addEventListener("resize", soon);
-    addEventListener("orientationchange", soon);
-    if (window.visualViewport) visualViewport.addEventListener("resize", soon);
-    if (window.MutationObserver) {
-      new MutationObserver(soon).observe(document.body, {
-        subtree: true,
-        attributes: true,
-        attributeFilter: ["class"]
-      });
-    }
-    setTimeout(fit, 50);
-    setTimeout(fit, 280);
-    setTimeout(fit, 800);
-  })();
-  </script>
 </body>
 </html>
