@@ -23,14 +23,14 @@ function startFactory() {
     }
     function seed() {
       bots = [];
-      const n = mobile ? 14 : 22;
+      const n = mobile ? 5 : 8;
       for (let i = 0; i < n; i++) {
         bots.push({
           x: Math.random() * Math.max(w, 1),
           y: Math.random() * Math.max(h, 1),
-          s: 0.28 + Math.random() * 0.5,
-          a: 0.07 + Math.random() * 0.11,
-          sp: 8 + Math.random() * 14,
+          s: 0.22 + Math.random() * 0.32,
+          a: 0.045 + Math.random() * 0.05,
+          sp: 3 + Math.random() * 6,
           flip: Math.random() < 0.5,
           ph: Math.random() * Math.PI * 2
         });
@@ -64,17 +64,20 @@ function startFactory() {
       if (document.hidden) { requestAnimationFrame(frame); return; }
       if (mobile && (++skip & 1)) { requestAnimationFrame(frame); return; }
       const sky = ctx.createLinearGradient(0, 0, 0, h);
-      sky.addColorStop(0, "#0A2F5C");
-      sky.addColorStop(0.45, "#1457A8");
-      sky.addColorStop(0.78, "#7EB6E8");
-      sky.addColorStop(1, "#E8F3FF");
+      sky.addColorStop(0, "#072445");
+      sky.addColorStop(0.18, "#0A2F5C");
+      sky.addColorStop(0.38, "#114A8C");
+      sky.addColorStop(0.58, "#2A7BC4");
+      sky.addColorStop(0.76, "#9CC9EC");
+      sky.addColorStop(0.90, "#D5EAF8");
+      sky.addColorStop(1, "#F4FAFF");
       ctx.fillStyle = sky;
       ctx.fillRect(0, 0, w, h);
       if (!stamp && img.complete) makeStamp();
       const dt = 0.016;
       bots.forEach(function (b) {
         b.y -= b.sp * dt;
-        b.x += Math.sin(now / 900 + b.ph) * 0.12;
+        b.x += Math.sin(now / 1800 + b.ph) * 0.06;
         if (b.y < -90) { b.y = h + 70; b.x = Math.random() * w; }
         const bw = (stamp ? stamp.width : 70) * b.s;
         const bh = (stamp ? stamp.height : 100) * b.s;
