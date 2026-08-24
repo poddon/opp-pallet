@@ -167,7 +167,7 @@
       <p class="sub" id="cabwho"></p>
       <div id="caberr" class="err"></div>
       <div id="cabmods"></div>
-      <p class="hint">Модуль доступен только если преподаватель назначил его вашей группе.</p>
+      <p class="hint">Одно ФИО сдаёт тест один раз. Однофамильцу доступ открывает преподаватель.</p>
       <button class="btn ghost" id="cabback" type="button">Сменить группу</button>
     </div>
   </div>
@@ -221,6 +221,14 @@
         <div class="row3" id="asclose"></div>
         <ul id="alist" class="sub" style="margin-top:8px"></ul>
       </div>
+      <div class="box">
+        <p style="font-weight:700;font-size:.82rem">Однофамилец</p>
+        <p class="sub">Одно и то же ФИО может сдать тест только один раз. Если это другой человек — подтвердите и откройте ещё одну попытку.</p>
+        <input id="twinfio" placeholder="Фамилия Имя Отчество" style="margin-top:8px" />
+        <button class="btn" id="granttwin" type="button">Подтвердить однофамильца</button>
+        <p id="twinmsg" class="sub" style="margin-top:8px"></p>
+        <ul id="twinlist" class="sub" style="margin-top:8px"></ul>
+      </div>
       <div class="tbl"><table><thead><tr><th>Дата</th><th>ФИО</th><th>%</th><th>Статус</th></tr></thead><tbody id="abody"></tbody></table></div>
       <div class="box">
         <p style="font-weight:700;font-size:.82rem">Сменить пароль</p>
@@ -252,9 +260,9 @@
 
   <div id="strip" class="strip" style="display:none!important" aria-hidden="true"></div>
   <script src="matter.min.js"></script>
-  <script src="questions.js?v=res1"></script>
-  <script src="factory.js?v=res1"></script>
-  <script src="app.js?v=res1"></script>
+  <script src="questions.js?v=twin1"></script>
+  <script src="factory.js?v=twin1"></script>
+  <script src="app.js?v=twin1"></script>
 
 </body>
 </html>
