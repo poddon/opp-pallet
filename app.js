@@ -484,9 +484,19 @@
       "<div class='stat'><b>" + ok.length + "</b><span>успешных</span></div>" +
       "<div class='stat'><b>" + cheat + "</b><span>списываний</span></div>" +
       "<div class='stat'><b>" + avg + "%</b><span>средний %</span></div>";
+    function esc(s) {
+      return String(s == null ? "" : s)
+        .replace(/&/g, "&" + "amp;")
+        .replace(/</g, "&" + "lt;")
+        .replace(/>/g, "&" + "gt;")
+        .replace(/"/g, "&" + "quot;");
+    }
+    function modTitle(id) {
+      return (window.MODULES && MODULES[id] && MODULES[id].title) || "Общий тест";
+    }
     $("abody").innerHTML = rows.length
-      ? rows.map((r) => "<tr><td>" + r.date + "</td><td>" + r.name + "</td><td>" + r.pct + "</td><td>" + r.status + "</td></tr>").join("")
-      : "<tr><td colspan='4'>Пока нет прохождений на этом устройстве</td></tr>";
+      ? rows.map((r) => "<tr><td>" + esc(r.date) + "</td><td>" + esc(r.name) + "</td><td>" + esc(r.group) + "</td><td>" + esc(modTitle(r.modules)) + "</td><td>" + esc(r.correct) + "</td><td>" + esc(r.total) + "</td><td>" + esc(r.pct) + "</td><td>" + esc(r.xp) + "</td><td>" + esc(r.duration) + "</td><td>" + esc(r.status) + "</td></tr>").join("")
+      : "<tr><td colspan='10'>Пока нет прохождений на этом устройстве</td></tr>";
     const acc = loadAcc();
     $("accbtns").innerHTML = "";
     IDS.forEach((id) => {
@@ -639,12 +649,115 @@
     if ($("newpwd2")) $("newpwd2").value = "";
     if (msg) msg.textContent = "Пароль сохранён. Дальше входите только с ним.";
   };
+  function crc32bytes(u8) {
+    let c = ~0 >>> 0;
+    for (let i = 0; i < u8.length; i++) {
+      c ^= u8[i];
+      for (let k = 0; k < 8; k++) c = (c >>> 1) ^ (0xEDB88320 & -(c & 1));
+    }
+    return (~c) >>> 0;
+  }
+  function u16(n) { return new Uint8Array([n & 255, (n >>> 8) & 255]); }
+  function u32(n) { return new Uint8Array([n & 255, (n >>> 8) & 255, (n >>> 16) & 255, (n >>> 24) & 255]); }
+  function cat(parts) {
+    let n = 0; for (let i = 0; i < parts.length; i++) n += parts[i].length;
+    const o = new Uint8Array(n); let p = 0;
+    for (let i = 0; i < parts.length; i++) { o.set(parts[i], p); p += parts[i].length; }
+    return o;
+  }
+  function zipStore(files) {
+    const enc = new TextEncoder();
+    const locals = []; const centrals = [];
+    let offset = 0;
+    const now = new Date();
+    const dosTime = ((now.getHours() << 11) | (now.getMinutes() << 5) | (now.getSeconds() >> 1)) & 0xffff;
+    const dosDate = (((now.getFullYear() - 1980) << 9) | ((now.getMonth() + 1) << 5) | now.getDate()) & 0xffff;
+    files.forEach(function (f) {
+      const name = enc.encode(f.name);
+      const data = typeof f.data === "string" ? enc.encode(f.data) : f.data;
+      const crc = crc32bytes(data);
+      const loc = cat([
+        new Uint8Array([0x50, 0x4b, 0x03, 0x04]), u16(20), u16(0), u16(0), u16(dosTime), u16(dosDate),
+        u32(crc), u32(data.length), u32(data.length), u16(name.length), u16(0), name, data
+      ]);
+      const cen = cat([
+        new Uint8Array([0x50, 0x4b, 0x01, 0x02]), u16(20), u16(20), u16(0), u16(0), u16(dosTime), u16(dosDate),
+        u32(crc), u32(data.length), u32(data.length), u16(name.length), u16(0), u16(0), u16(0), u16(0), u32(0),
+        u32(offset), name
+      ]);
+      locals.push(loc); centrals.push(cen); offset += loc.length;
+    });
+    const cd = cat(centrals);
+    const eocd = cat([
+      new Uint8Array([0x50, 0x4b, 0x05, 0x06]), u16(0), u16(0), u16(files.length), u16(files.length),
+      u32(cd.length), u32(offset), u16(0)
+    ]);
+    return cat(locals.concat([cd, eocd]));
+  }
+  function xmlEsc(s) {
+    return String(s == null ? "" : s)
+      .replace(/&/g, "&" + "amp;")
+      .replace(/</g, "&" + "lt;")
+      .replace(/>/g, "&" + "gt;")
+      .replace(/"/g, "&" + "quot;")
+      .replace(/'/g, "&" + "apos;");
+  }
+  function xlsxCell(col, row, value, num) {
+    const ref = String.fromCharCode(65 + col) + row;
+    if (num) return '<c r="' + ref + '"><v>' + Number(value || 0) + "</v></c>";
+    return '<c r="' + ref + '" t="inlineStr"><is><t>' + xmlEsc(value) + "</t></is></c>";
+  }
+  function buildXlsx(rows) {
+    const heads = ["Дата", "ФИО", "Группа", "Модуль", "Верных", "Всего", "%", "XP", "Сек", "Статус"];
+    let sheet = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>';
+    sheet += '<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">';
+    sheet += '<sheetViews><sheetView tabSelected="1" workbookViewId="0"><pane ySplit="1" topLeftCell="A2" activePane="bottomLeft" state="frozen"/></sheetView></sheetViews>';
+    sheet += '<cols><col min="1" max="1" width="22" customWidth="1"/><col min="2" max="2" width="28" customWidth="1"/><col min="3" max="3" width="18" customWidth="1"/><col min="4" max="4" width="22" customWidth="1"/><col min="5" max="10" width="12" customWidth="1"/></cols>';
+    sheet += "<sheetData><row r=\"1\">";
+    heads.forEach(function (h, i) { sheet += xlsxCell(i, 1, h, false); });
+    sheet += "</row>";
+    rows.forEach(function (r, idx) {
+      const n = idx + 2;
+      const title = (window.MODULES && MODULES[r.modules] && MODULES[r.modules].title) || "Общий тест";
+      sheet += "<row r=\"" + n + "\">";
+      sheet += xlsxCell(0, n, r.date, false);
+      sheet += xlsxCell(1, n, r.name, false);
+      sheet += xlsxCell(2, n, r.group, false);
+      sheet += xlsxCell(3, n, title, false);
+      sheet += xlsxCell(4, n, r.correct, true);
+      sheet += xlsxCell(5, n, r.total, true);
+      sheet += xlsxCell(6, n, r.pct, true);
+      sheet += xlsxCell(7, n, r.xp, true);
+      sheet += xlsxCell(8, n, r.duration, true);
+      sheet += xlsxCell(9, n, r.status, false);
+      sheet += "</row>";
+    });
+    sheet += "</sheetData>";
+    if (rows.length) sheet += '<autoFilter ref="A1:J' + (rows.length + 1) + '"/>';
+    sheet += "</worksheet>";
+    const types = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/><Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/></Types>';
+    const rels = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/></Relationships>';
+    const wb = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets><sheet name="Результаты" sheetId="1" r:id="rId1"/></sheets></workbook>';
+    const wbRels = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/></Relationships>';
+    return zipStore([
+      { name: "[Content_Types].xml", data: types },
+      { name: "_rels/.rels", data: rels },
+      { name: "xl/workbook.xml", data: wb },
+      { name: "xl/_rels/workbook.xml.rels", data: wbRels },
+      { name: "xl/worksheets/sheet1.xml", data: sheet }
+    ]);
+  }
   $("exp").onclick = () => {
     const rows = load().filter((r) => r.status !== "СПИСЫВАНИЕ");
-    const head = "Дата;ФИО;Группа;Модуль;Статус;Верных;Всего;%;XP;Сек";
-    const body = rows.map((r) => [r.date, r.name, r.group, r.modules, r.status, r.correct, r.total, r.pct, r.xp, r.duration].join(";"));
-    const blob = new Blob(["\uFEFF" + [head].concat(body).join("\n")], { type: "text/csv;charset=utf-8" });
-    const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = "результаты.csv"; a.click();
+    const bytes = buildXlsx(rows);
+    const blob = new Blob([bytes], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
+    const a = document.createElement("a");
+    const d = new Date();
+    const stamp = d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0");
+    a.href = URL.createObjectURL(blob);
+    a.download = "ОПП_результаты_" + stamp + ".xlsx";
+    a.click();
+    setTimeout(function () { URL.revokeObjectURL(a.href); }, 2000);
   };
 
   if (typeof startFactory === "function") {
