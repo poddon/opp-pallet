@@ -9,7 +9,7 @@
     * { box-sizing: border-box; margin: 0; padding: 0; }
     html, body { min-height: 100%; }
     html { -webkit-text-size-adjust: 100%; }
-    :fullscreen, :-webkit-full-screen { background: #E8EEF4; width: 100%; height: 100%; overflow-y: auto; }
+    :fullscreen, :-webkit-full-screen { background: #0A2F5C; width: 100%; height: 100%; overflow-y: auto; }
     html:fullscreen, html:-webkit-full-screen { overflow-y: auto !important; }
     html:fullscreen body, html:-webkit-full-screen body {
       width: 100%; min-height: 100%; height: auto;
@@ -18,7 +18,7 @@
     }
     body {
       font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
-      background: #E8EEF4; color: #0E1C2F; overflow-x: hidden;
+      background: #0A2F5C; color: #fff; overflow-x: hidden;
       -webkit-overflow-scrolling: touch;
     }
     button, [role=button] { cursor: pointer; touch-action: manipulation; -webkit-tap-highlight-color: transparent; }
@@ -65,7 +65,7 @@
     .btn.ghost { background: transparent; color: #0D3F7A; border: 1.5px solid #C5D7EC; box-shadow: none; margin-top: 8px; }
     .hint { text-align: center; font-size: .75rem; color: var(--muted); margin-top: 12px; }
     .boot { position: relative; z-index: 1; min-height: 100svh; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; padding: 0 24px max(64px, env(safe-area-inset-bottom)); text-align: center; }
-    .boot h1 { font-size: 1.5rem; color: #0A2F5C; }
+    .boot h1 { font-size: 1.5rem; color: #fff; }
     .bar { width: min(280px,80%); height: 6px; border-radius: 99px; background: rgba(10,47,92,.14); margin-top: 28px; overflow: hidden; }
     .bar > i { display: block; height: 100%; width: 0; background: linear-gradient(90deg,var(--c),#fff); transition: width .5s cubic-bezier(.22,1,.36,1); }
     .top { display: flex; flex-wrap: wrap; gap: 8px; justify-content: space-between; margin-bottom: 10px; }
@@ -147,12 +147,12 @@
   <canvas id="fx" aria-hidden="true"></canvas>
 
   <div id="boot" class="boot">
-    <div class="sub" style="color:#1457A8;letter-spacing:.2em;text-transform:uppercase;font-size:.75rem">Алабуга</div>
+    <div class="sub" style="color:#9ad7ff;letter-spacing:.2em;text-transform:uppercase;font-size:.75rem">Алабуга</div>
     <div class="mark" style="margin:18px auto 0;width:64px;height:64px;border-radius:18px;font-size:1.6rem">А</div>
     <h1 style="margin-top:14px;max-width:360px">Тестирование опытного производства поддонов</h1>
-    <p class="sub" id="bootmsg" style="color:rgba(10,47,92,.72);margin-top:10px;min-height:20px">Питание ячейки…</p>
+    <p class="sub" id="bootmsg" style="color:rgba(255,255,255,.8);margin-top:10px;min-height:20px">Питание ячейки…</p>
     <div class="bar"><i id="bootbar"></i></div>
-    <p class="sub" id="bootpct" style="color:rgba(10,47,92,.5);margin-top:8px">0%</p>
+    <p class="sub" id="bootpct" style="color:rgba(255,255,255,.6);margin-top:8px">0%</p>
   </div>
 
   <div id="start" class="wrap start hidden">
@@ -279,8 +279,8 @@
   <div id="strip" class="strip" style="display:none!important" aria-hidden="true"></div>
   <script src="matter.min.js"></script>
   <script src="questions.js?v=clrhist1"></script>
-  <script src="factory.js?v=shop1"></script>
-  <script src="app.js?v=shop1"></script>
+  <script src="factory.js?v=bots1"></script>
+  <script src="app.js?v=bots1"></script>
 
 </body>
 </html>
