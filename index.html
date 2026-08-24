@@ -1,34 +1,291 @@
 <!DOCTYPE html>
 <html lang="ru">
 <head>
-<meta charset="UTF-8"/>
-<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
-<title>Тестирование опытного производства поддонов</title>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>Тестирование опытного производства поддонов</title>
+  <style>
+    :root { --b:#0A2F5C; --a:#1457A8; --c:#3EC6FF; --ink:#0E1C2F; --muted:#5A6F88; --ok:#12A36A; --bad:#E23B4A; --line:#D5E2F0; }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body { min-height: 100%; }
+    html { -webkit-text-size-adjust: 100%; }
+    body {
+      font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+      background: #061B36; color: #fff; overflow-x: hidden;
+      -webkit-overflow-scrolling: touch;
+    }
+    button, [role=button] { cursor: pointer; touch-action: manipulation; -webkit-tap-highlight-color: transparent; }
+    canvas#fx { position: fixed; inset: 0; width: 100%; height: 100%; z-index: 0; pointer-events: none; }
+    .wrap {
+      position: relative; z-index: 1; min-height: 100svh;
+      display: flex; align-items: flex-start; justify-content: center;
+      padding: max(16px, env(safe-area-inset-top)) 16px max(28px, env(safe-area-inset-bottom));
+    }
+    @media (min-width: 980px) {
+      .wrap { align-items: center; }
+      .wrap.start { justify-content: flex-end; padding-right: 7%; }
+    }
+    .hidden { display: none !important; }
+    .card { width: min(440px, 100%); background: #fff; color: var(--ink); border-radius: 24px; padding: 22px 20px; box-shadow: 0 22px 60px rgba(4,16,36,.38); }
+    .qcard { width: min(560px, 100%); position: relative; overflow: hidden; }
+    .brand { display: flex; gap: 12px; align-items: center; margin-bottom: 14px; }
+    .logo {
+      width: 42px; height: 42px; border-radius: 12px; background: linear-gradient(145deg, var(--a), var(--c));
+      display: grid; place-items: center; color: #fff; font-weight: 800; font-size: 1.1rem; flex-shrink: 0;
+    }
+    .brand h1 { font-size: 1.05rem; line-height: 1.25; margin: 0; }
+    .brand p { margin: 2px 0 0; font-size: .78rem; color: var(--muted); }
+    label { display: block; font-size: .78rem; color: var(--muted); margin: 12px 0 6px; }
+    input, select {
+      width: 100%; border: 1.5px solid var(--line); border-radius: 12px; padding: 12px 14px;
+      font: inherit; color: var(--ink); background: #fff; outline: none;
+    }
+    input:focus, select:focus { border-color: var(--a); box-shadow: 0 0 0 3px rgba(20,87,168,.15); }
+    .btn {
+      width: 100%; margin-top: 16px; border: 0; border-radius: 14px; padding: 14px 16px;
+      font: inherit; font-weight: 700; color: #fff; background: linear-gradient(135deg, var(--a), #0A2F5C);
+      box-shadow: 0 10px 24px rgba(10,47,92,.28);
+    }
+    .btn:active { transform: scale(.98); }
+    .btn.ghost { background: #F0F6FC; color: var(--b); box-shadow: none; border: 1.5px solid var(--line); }
+    .hint { margin-top: 12px; font-size: .75rem; color: var(--muted); text-align: center; }
+    .strip { display:none!important; height: 56px; border-radius: 14px; background: linear-gradient(135deg,#0A2F5C,#1457A8); display: grid; place-items: center; color: #fff; font-size: .9rem; margin-bottom: 12px; }
+    .strip.ok { background: linear-gradient(135deg,#0A6E5C,#12A36A); }
+    .strip.bad { background: linear-gradient(135deg,#8A1A24,#E23B4A); }
+    .mod {
+      width: 100%; text-align: left; display: flex; gap: 12px; align-items: center;
+      border: 1.5px solid var(--line); border-radius: 14px; padding: 14px; margin-top: 10px;
+      background: #fff; font: inherit; color: var(--ink);
+    }
+    .mod.on { border-color: #9FD4FF; background: #F3F9FF; }
+    .mod:disabled { opacity: .55; }
+    .mod .ico {
+      width: 40px; height: 40px; border-radius: 12px; background: #E8F1FB; color: var(--a);
+      display: grid; place-items: center; font-weight: 800; flex-shrink: 0;
+    }
+    .mod strong { display: block; font-size: .95rem; }
+    .mod .sub { font-size: .75rem; color: var(--muted); margin-top: 2px; }
+    .bar { height: 8px; background: #E6EEF8; border-radius: 99px; overflow: hidden; margin: 10px 0 14px; }
+    .bar > i { display: block; height: 100%; width: 0; background: linear-gradient(90deg, var(--a), var(--c)); border-radius: 99px; transition: width .35s ease; }
+    .meta { display: flex; justify-content: space-between; gap: 8px; font-size: .8rem; color: var(--muted); margin-bottom: 8px; }
+    .qtext { font-size: 1.05rem; font-weight: 650; line-height: 1.35; margin: 8px 0 14px; color: var(--ink); }
+    .opt {
+      width: 100%; text-align: left; padding: 13px 14px; border-radius: 12px; border: 1.5px solid var(--line);
+      background: #fff; font: inherit; margin-bottom: 8px; color: var(--ink); min-height: 48px;
+    }
+    .opt.ok { border-color: var(--ok); background: #E6F8F0; animation: okPulse .65s cubic-bezier(.2,1.4,.3,1); }
+    .opt.bad { border-color: var(--bad); background: #FDECEE; animation: badShake .5s ease; }
+    .opt.dim { opacity: .38; }
+    .stats { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; margin: 16px 0; }
+    .stat { background: #F0F6FC; border-radius: 12px; padding: 12px 8px; text-align: center; }
+    .stat b { display: block; font-size: 1.15rem; color: var(--b); }
+    .stat span { font-size: .72rem; color: var(--muted); }
+    .score { font-size: 3rem; font-weight: 800; color: var(--a); text-align: center; }
+    .err { color: var(--bad); font-size: .8rem; margin-top: 6px; }
+    .box { margin-top: 12px; padding: 12px; background: #F0F6FC; border-radius: 12px; }
+    .scan-box { position: relative; overflow: hidden; border-radius: 16px; background: #0a1a2e; aspect-ratio: 3/4; margin-top: 12px; }
+    .scan-box video { width: 100%; height: 100%; object-fit: cover; }
+    .scan-frame { position: absolute; inset: 18%; border: 3px solid rgba(62,198,255,.9); border-radius: 18px; pointer-events: none; box-shadow: 0 0 0 200vmax rgba(4,16,36,.45); }
+    #cheat { position: fixed; inset: 0; z-index: 80; overflow: hidden; background: #090204; color: #fff; display: flex; align-items: center; justify-content: center; text-align: center; padding: 24px; }
+    #cheat.hidden { display: none !important; }
+    .cheat-bg { position: absolute; inset: 0; background:
+      radial-gradient(ellipse 80% 60% at 50% 40%, #7a0c18 0%, #1a0306 55%, #050102 100%);
+    }
+    .cheat-stripes { position: absolute; inset: -50%; background: repeating-linear-gradient(-22deg,
+      transparent 0 18px, rgba(255,40,40,.08) 18px 36px); animation: stripeMove 8s linear infinite; }
+    .cheat-beacon { position: absolute; width: 120px; height: 120px; border-radius: 50%;
+      background: radial-gradient(circle, rgba(255,60,60,.55), transparent 70%);
+      top: 12%; left: 50%; transform: translateX(-50%); animation: beacon 1.2s ease-in-out infinite; }
+    .cheat-flash { position: absolute; inset: 0; background: #ff2a2a; opacity: 0; animation: flash 2.4s ease-in-out infinite; }
+    .cheat-scan { position: absolute; left: 0; right: 0; height: 3px; background: linear-gradient(90deg, transparent, #ff5555, transparent);
+      top: 0; animation: scanY 2.8s linear infinite; box-shadow: 0 0 18px #ff4444; }
+    .cheat-ring { position: absolute; width: 280px; height: 280px; border: 2px solid rgba(255,80,80,.35); border-radius: 50%;
+      top: 50%; left: 50%; transform: translate(-50%,-50%); animation: ringPulse 2s ease-out infinite; }
+    .cheat-stamp { position: relative; z-index: 2; max-width: 420px; }
+    .cheat-badge {
+      display: inline-block; padding: 6px 14px; border: 2px solid #ff5a5a; color: #ffb0b0;
+      letter-spacing: .12em; font-size: .72rem; font-weight: 800; border-radius: 6px; margin-bottom: 14px;
+      animation: badgeIn .6s cubic-bezier(.2,1.4,.3,1) both;
+    }
+    .cheat-stamp h2 {
+      font-size: clamp(2.4rem, 8vw, 3.6rem); font-weight: 900; letter-spacing: .04em; margin: 0 0 10px;
+      color: #fff; text-shadow: 0 0 30px rgba(255,40,40,.8); animation: stampIn .55s cubic-bezier(.2,1.5,.3,1) both;
+    }
+    .cheat-stamp p { color: #ffc9c9; font-size: 1rem; margin: 0 0 16px; }
+    .cheat-who { font-size: .85rem; color: #ff9a9a; opacity: .9; }
+    @keyframes okPulse { 0% { transform: scale(1); } 40% { transform: scale(1.03); } 100% { transform: scale(1); } }
+    @keyframes badShake { 0%,100% { transform: translateX(0); } 25% { transform: translateX(-6px); } 75% { transform: translateX(6px); } }
+    @keyframes stripeMove { to { transform: translateY(36px); } }
+    @keyframes beacon { 0%,100% { opacity: .5; transform: translateX(-50%) scale(1); } 50% { opacity: 1; transform: translateX(-50%) scale(1.15); } }
+    @keyframes flash { 0%,70%,100% { opacity: 0; } 75%,85% { opacity: .18; } }
+    @keyframes scanY { 0% { top: 0; } 100% { top: 100%; } }
+    @keyframes ringPulse { 0% { transform: translate(-50%,-50%) scale(.7); opacity: .7; } 100% { transform: translate(-50%,-50%) scale(1.25); opacity: 0; } }
+    @keyframes badgeIn { from { opacity: 0; transform: translateY(-10px); } to { opacity: 1; transform: none; } }
+    @keyframes stampIn { from { opacity: 0; transform: scale(1.4) rotate(-4deg); } to { opacity: 1; transform: none; } }
+    .verdict { text-align: center; font-weight: 700; margin-top: 8px; }
+    .verdict.ok { color: var(--ok); }
+    .verdict.bad { color: var(--bad); }
+    .xp { font-size: .85rem; color: var(--a); font-weight: 700; }
+    .streak { font-size: .8rem; color: #c47b00; font-weight: 700; }
+    .admin-row { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 8px; }
+    .admin-row .btn { width: auto; margin-top: 0; padding: 10px 14px; font-size: .85rem; }
+    table { width: 100%; border-collapse: collapse; font-size: .78rem; }
+    th, td { border-bottom: 1px solid var(--line); padding: 8px 6px; text-align: left; }
+    th { color: var(--muted); font-weight: 600; }
+    @media (prefers-reduced-motion: reduce) {
+      .cheat-flash, .cheat-stripes, .cheat-beacon, .cheat-scan, .cheat-ring, .cheat-stamp, .cheat-stamp h2, .cheat-badge { animation: none !important; }
+    }
+  </style>
 </head>
 <body>
-<script>
-(async function () {
-  try { localStorage.setItem("opp_access_v1", JSON.stringify({ "1": true })); } catch (e) {}
-  try {
-    await fetch("https://abacus.jasoncameron.dev/set/opp-pallet/module1?value=1", {
-      method: "POST",
-      headers: { Authorization: "Bearer 96ae5f9d-549c-42b6-870d-a54ab46e150e" }
-    });
-  } catch (e) {}
-  var base = "https://cdn.jsdelivr.net/gh/poddon/opp-pallet@c3c00d1e3d54253b10c1205da96edd3391117eeb/";
-  var html = await (await fetch(base + "index.html")).text();
-  html = html.replace(/<div class="strip"[^>]*>[\s\S]*?<\/div>/, "");
-  html = html.replace(/\.strip\s*\{[^}]+\}/g, ".strip{display:none!important}");
-  html = html.replace(/src="(matter\.min\.js|questions\.js[^"]*|factory\.js[^"]*|app\.js[^"]*)"/g, function (_, f) {
-    return 'src="' + base + f + '"';
-  });
-  var inject = '<script>(function(){try{localStorage.setItem("opp_access_v1",JSON.stringify({"1":true}));}catch(e){}var g=Document.prototype.getElementById;document.getElementById=function(i){var e=g.call(document,i);if(!e&&i==="strip")return{className:"",textContent:"",style:{},classList:{add:function(){},remove:function(){},toggle:function(){}}};return e;};})();<\/script>';
-  html = html.replace(/(<script src="[^"]*app\.js"><\/script>)/, inject + "$1");
-  document.open();
-  document.write(html);
-  document.close();
-})();
-</script>
-<p style="color:#9ad7ff;font-family:sans-serif;text-align:center;margin-top:40vh">Загрузка…</p>
+  <canvas id="fx"></canvas>
+  <div class="wrap start" id="boot">
+    <div class="card">
+      <div class="brand">
+        <div class="logo">A</div>
+        <div>
+          <h1>Тестирование опытного производства поддонов</h1>
+          <p id="bootmsg">Загрузка линии…</p>
+        </div>
+      </div>
+      <div class="bar"><i id="bootbar" style="width:8%"></i></div>
+    </div>
+  </div>
+
+  <div class="wrap start hidden" id="start">
+    <div class="card">
+      <div class="brand">
+        <div class="logo">A</div>
+        <div>
+          <h1>Тестирование опытного производства поддонов</h1>
+          <p>Один модуль · линия не скучает</p>
+        </div>
+      </div>
+      <label for="fio">ФИО</label>
+      <input id="fio" autocomplete="name" placeholder="Иванов Иван Иванович" />
+      <label for="group">Направление и номер группы</label>
+      <input id="group" placeholder="ПРОМРОБО 25-3" />
+      <div id="pwdbox" class="hidden">
+        <label for="pwd">Пароль администратора</label>
+        <input id="pwd" type="password" autocomplete="current-password" />
+        <div class="err" id="pwderr"></div>
+      </div>
+      <button class="btn" id="go" type="button">Войти в LMS</button>
+      <div class="err" id="starterr"></div>
+      <p class="hint">Не уходите со страницы — это будет засчитано как списывание</p>
+    </div>
+  </div>
+
+  <div class="wrap hidden" id="cabinet">
+    <div class="card">
+      <div class="brand">
+        <div class="logo">A</div>
+        <div>
+          <h1>Кабинет</h1>
+          <p id="cabwho"></p>
+        </div>
+      </div>
+      <div id="cabmods"></div>
+      <div class="err" id="caberr"></div>
+      <button class="btn ghost" id="cabback" type="button">Назад</button>
+    </div>
+  </div>
+
+  <div class="wrap hidden" id="quiz">
+    <div class="card qcard">
+      <div class="meta">
+        <span id="qm">Общий тест</span>
+        <span id="qn">Вопрос 1 / 30</span>
+        <span id="qt">0:55</span>
+      </div>
+      <div class="bar"><i id="pb"></i></div>
+      <div class="meta">
+        <span id="qv">Верно: 0</span>
+        <span class="xp" id="qx">XP 0</span>
+        <span class="streak hidden" id="qs">серия 0</span>
+      </div>
+      <div class="qtext" id="qtext"></div>
+      <div id="opts"></div>
+      <div class="verdict hidden" id="verdict"></div>
+    </div>
+  </div>
+
+  <div class="wrap hidden" id="result">
+    <div class="card">
+      <div class="brand">
+        <div class="logo">A</div>
+        <div>
+          <h1>Результат</h1>
+          <p id="reswho"></p>
+        </div>
+      </div>
+      <div class="score" id="rescore">0%</div>
+      <div class="stats">
+        <div class="stat"><b id="resok">0</b><span>верно</span></div>
+        <div class="stat"><b id="restot">30</b><span>всего</span></div>
+        <div class="stat"><b id="resxp">0</b><span>XP</span></div>
+      </div>
+      <button class="btn" id="again" type="button">Ещё раз</button>
+      <button class="btn ghost" id="rescab" type="button">В кабинет</button>
+      <button class="btn ghost" id="back" type="button">На главную</button>
+    </div>
+  </div>
+
+  <div class="wrap hidden" id="admin">
+    <div class="card" style="width:min(720px,100%)">
+      <div class="brand">
+        <div class="logo">A</div>
+        <div>
+          <h1>Админ-панель</h1>
+          <p id="aname"></p>
+        </div>
+      </div>
+      <div class="box">
+        <strong>Доступ к модулям</strong>
+        <div id="accmods" style="margin-top:8px"></div>
+        <div class="err" id="accmsg" style="color:var(--ok)"></div>
+        <label for="agrp">Открыть/закрыть для группы</label>
+        <input id="agrp" placeholder="ПРОМРОБО 25-3" />
+        <div class="admin-row" id="agrpbtns"></div>
+      </div>
+      <div class="box">
+        <strong>Смена пароля</strong>
+        <label for="newpwd">Новый пароль</label>
+        <input id="newpwd" type="password" />
+        <label for="newpwd2">Повтор</label>
+        <input id="newpwd2" type="password" />
+        <button class="btn" id="savepwd" type="button">Сохранить пароль</button>
+        <div class="err" id="pwdmsg" style="color:var(--ok)"></div>
+      </div>
+      <div class="box">
+        <strong>Результаты</strong>
+        <button class="btn ghost" id="exp" type="button">Скачать CSV</button>
+        <div style="max-height:240px;overflow:auto;margin-top:10px">
+          <table><thead><tr><th>Дата</th><th>ФИО</th><th>Группа</th><th>%</th><th>Статус</th></tr></thead><tbody id="atbl"></tbody></table>
+        </div>
+      </div>
+      <button class="btn ghost" id="adminback" type="button">На главную</button>
+    </div>
+  </div>
+
+  <div id="cheat" class="hidden" role="alert">
+    <div class="cheat-bg"></div>
+    <div class="cheat-stripes"></div>
+    <div class="cheat-beacon"></div>
+    <div class="cheat-flash"></div>
+    <div class="cheat-scan"></div>
+    <div class="cheat-ring"></div>
+    <div class="cheat-stamp">
+      <div class="cheat-badge">НАРУШЕНИЕ РЕГЛАМЕНТА</div>
+      <h2>СПИСАНО</h2>
+      <p>Вы списали. Обратитесь к преподавателю.</p>
+      <div class="cheat-who" id="cheatwho"></div>
+    </div>
+  </div>
+
+  <script src="matter.min.js"></script>
+  <script src="questions.js?v=eq5"></script>
+  <script src="factory.js?v=eq5"></script>
+  <script src="app.js?v=eq5"></script>
 </body>
 </html>
