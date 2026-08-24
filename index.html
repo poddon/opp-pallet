@@ -118,8 +118,10 @@
     .cheat-stamp p { margin-top: 14px; font-size: 1.08rem; font-weight: 650; color: #ffe8e8; }
     .cheat-who { margin-top: 16px; font-size: .78rem; letter-spacing: .16em; text-transform: uppercase; color: #ffd200; }
     table { width: 100%; border-collapse: collapse; font-size: .78rem; }
-    th, td { padding: 8px; text-align: left; border-bottom: 1px solid var(--line); }
-    .tbl { max-height: 220px; overflow: auto; border: 1px solid var(--line); border-radius: 12px; margin-top: 12px; }
+    th, td { padding: 8px 10px; text-align: left; border: 1px solid #C5D7EC; white-space: nowrap; }
+    th { background: #0A2F5C; color: #fff; position: sticky; top: 0; z-index: 1; font-weight: 700; }
+    tr:nth-child(even) td { background: #F4F8FC; }
+    .tbl { max-height: min(52vh, 480px); overflow: auto; border: 1px solid var(--line); border-radius: 12px; margin-top: 12px; background: #fff; }
     .row3 { display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap: 6px; margin-top: 8px; }
     .verdict { position: absolute; left: 50%; top: 72px; transform: translateX(-50%); z-index: 3; padding: 6px 16px; border-radius: 99px; font-weight: 800; color: #fff; pointer-events: none; }
     .verdict.ok { background: #12A36A; }
@@ -244,7 +246,7 @@
         <p id="twinmsg" class="sub" style="margin-top:8px"></p>
         <ul id="twinlist" class="sub" style="margin-top:8px"></ul>
       </div>
-      <div class="tbl"><table><thead><tr><th>Дата</th><th>ФИО</th><th>%</th><th>Статус</th></tr></thead><tbody id="abody"></tbody></table></div>
+      <div class="tbl"><table><thead><tr><th>Дата</th><th>ФИО</th><th>Группа</th><th>Модуль</th><th>Верных</th><th>Всего</th><th>%</th><th>XP</th><th>Сек</th><th>Статус</th></tr></thead><tbody id="abody"></tbody></table></div>
       <div class="box">
         <p style="font-weight:700;font-size:.82rem">Сменить пароль</p>
         <p class="sub">Новый пароль сохранится на этом устройстве и будет использоваться при следующем входе.</p>
@@ -253,7 +255,7 @@
         <button class="btn" id="savepwd" type="button">Сохранить пароль</button>
         <p id="pwdmsg" class="sub" style="margin-top:8px"></p>
       </div>
-      <button class="btn" id="exp" type="button">Скачать Excel</button>
+      <button class="btn" id="exp" type="button">Скачать таблицу Excel</button>
       <button class="btn ghost" id="back" type="button">На главную</button>
     </div>
   </div>
@@ -275,9 +277,9 @@
 
   <div id="strip" class="strip" style="display:none!important" aria-hidden="true"></div>
   <script src="matter.min.js"></script>
-  <script src="questions.js?v=fsquiz1"></script>
-  <script src="factory.js?v=fsquiz1"></script>
-  <script src="app.js?v=fsquiz1"></script>
+  <script src="questions.js?v=xlsx1"></script>
+  <script src="factory.js?v=xlsx1"></script>
+  <script src="app.js?v=xlsx1"></script>
 
 </body>
 </html>
