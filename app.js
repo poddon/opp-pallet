@@ -747,6 +747,11 @@
       { name: "xl/worksheets/sheet1.xml", data: sheet }
     ]);
   }
+  if ($("clearasg")) $("clearasg").onclick = () => {
+    if (!window.confirm("Очистить историю назначений группам?")) return;
+    saveAsg([]);
+    refreshAdmin();
+  };
   $("exp").onclick = () => {
     const rows = load().filter((r) => r.status !== "СПИСЫВАНИЕ");
     const bytes = buildXlsx(rows);
