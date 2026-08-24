@@ -26,7 +26,9 @@
       .wrap.start { justify-content: flex-end; padding-right: 7%; }
     }
     .hidden { display: none !important; }
-    .card { width: min(440px, 100%); background: #fff; color: var(--ink); border-radius: 24px; padding: 22px 20px; box-shadow: 0 22px 60px rgba(4,16,36,.38); }
+    .card { width: min(440px, 100%); background: #fff; color: var(--ink); border-radius: 24px; padding: 22px 20px; box-shadow: 0 22px 60px rgba(4,16,36,.38); transform-origin: center center; transition: transform .4s cubic-bezier(.22,1,.36,1); will-change: transform; }
+    .wrap.start .card { transform-origin: right center; }
+    @media (max-width: 979px) { .wrap.start .card { transform-origin: center top; } }
     .qcard { width: min(560px, 100%); position: relative; overflow: hidden; }
     .wide { width: min(560px, 100%); }
     .brand { display: flex; gap: 12px; align-items: center; margin-bottom: 14px; }
@@ -250,8 +252,52 @@
 
   <div id="strip" class="strip" style="display:none!important" aria-hidden="true"></div>
   <script src="matter.min.js"></script>
-  <script src="questions.js?v=zoom1"></script>
-  <script src="factory.js?v=zoom1"></script>
-  <script src="app.js?v=zoom1"></script>
+  <script src="questions.js?v=cardzoom1"></script>
+  <script src="factory.js?v=cardzoom1"></script>
+  <script src="app.js?v=cardzoom1"></script>
+
+  <script>
+  (function () {
+    function visibleWrap() {
+      var list = document.querySelectorAll(".wrap");
+      for (var i = 0; i < list.length; i++) {
+        if (!list[i].classList.contains("hidden")) return list[i];
+      }
+      return null;
+    }
+    var timer, lastId = "";
+    function fit() {
+      var wrap = visibleWrap();
+      if (!wrap) return;
+      var card = wrap.querySelector(".card");
+      if (!card) return;
+      var prev = card.style.transform;
+      card.style.transform = "scale(1)";
+      var wr = wrap.getBoundingClientRect();
+      var cr = card.getBoundingClientRect();
+      if (!cr.width || !cr.height || !wr.width || !wr.height) { card.style.transform = prev; return; }
+      var pad = 28;
+      var cap = wrap.id === "quiz" ? 1.12 : wrap.id === "admin" ? 1.18 : 1.55;
+      var z = Math.min((wr.width - pad) / cr.width, (wr.height - pad) / cr.height, cap);
+      z = Math.max(0.78, z);
+      card.style.transform = "scale(" + z.toFixed(3) + ")";
+      lastId = wrap.id;
+    }
+    function fitSoon() { clearTimeout(timer); timer = setTimeout(fit, 60); }
+    addEventListener("resize", fitSoon);
+    addEventListener("orientationchange", fitSoon);
+    if (window.MutationObserver) {
+      new MutationObserver(function (muts) {
+        for (var i = 0; i < muts.length; i++) {
+          var t = muts[i].target;
+          if (t && t.classList && (t.classList.contains("wrap") || t.id === "start" || t.id === "cabinet" || t.id === "quiz" || t.id === "result" || t.id === "admin" || t.id === "boot")) { fitSoon(); return; }
+        }
+      }).observe(document.body, { subtree: true, attributes: true, attributeFilter: ["class"] });
+    }
+    setTimeout(fit, 60);
+    setTimeout(fit, 320);
+    setTimeout(fit, 900);
+  })();
+  </script>
 </body>
 </html>
