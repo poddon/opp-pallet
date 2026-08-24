@@ -1,1 +1,1 @@
-// loaded from CDN via index bootstrap
+// CDN bootstrap — full app loads from jsDelivr

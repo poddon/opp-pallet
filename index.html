@@ -8,6 +8,10 @@
 <body>
 <script>
 (async function () {
+  try {
+    var acc = JSON.parse(localStorage.getItem("opp_access_v1") || "{}");
+    if (acc["1"] === false) { acc["1"] = true; localStorage.setItem("opp_access_v1", JSON.stringify(acc)); }
+  } catch (e) {}
   var base = "https://cdn.jsdelivr.net/gh/poddon/opp-pallet@c3c00d1e3d54253b10c1205da96edd3391117eeb/";
   var html = await (await fetch(base + "index.html")).text();
   html = html.replace(/<div class="strip"[^>]*>[\s\S]*?<\/div>/, "");
@@ -15,8 +19,8 @@
   html = html.replace(/src="(matter\.min\.js|questions\.js[^"]*|factory\.js[^"]*|app\.js[^"]*)"/g, function (_, f) {
     return 'src="' + base + f + '"';
   });
-  var stub = '<script>document.getElementById=function(i){var e=Document.prototype.getElementById.call(document,i);if(!e&&i==="strip")return{className:"",textContent:"",style:{},classList:{add:function(){},remove:function(){},toggle:function(){}}};return e;};<\/script>';
-  html = html.replace(/(<script src="[^"]*app\.js"><\/script>)/, stub + "$1");
+  var inject = '<script>(function(){try{var a=JSON.parse(localStorage.getItem("opp_access_v1")||"{}");a["1"]=true;localStorage.setItem("opp_access_v1",JSON.stringify(a));}catch(e){}var _g=Document.prototype.getElementById;document.getElementById=function(i){var e=_g.call(document,i);if(!e&&i==="strip")return{className:"",textContent:"",style:{},classList:{add:function(){},remove:function(){},toggle:function(){}}};return e;};})();<\/script>';
+  html = html.replace(/(<script src="[^"]*app\.js"><\/script>)/, inject + "$1");
   document.open();
   document.write(html);
   document.close();
