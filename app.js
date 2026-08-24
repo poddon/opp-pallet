@@ -55,6 +55,7 @@
       if (el) el.classList.toggle("hidden", n !== id);
     });
     $("cheat").classList.add("hidden");
+    if (id !== "quiz") exitFS();
   }
   function shuffle(a) {
     const x = a.slice();
@@ -234,9 +235,15 @@
       try { req.call(el); } catch (e2) {}
     }
   }
-  ["pointerdown", "click", "keydown", "touchstart"].forEach(function (ev) {
-    document.addEventListener(ev, goFS, true);
-  });
+  function exitFS() {
+    if (!isFS()) return;
+    const fn = document.exitFullscreen || document.webkitExitFullscreen || document.mozCancelFullScreen || document.msExitFullscreen;
+    if (!fn) return;
+    try {
+      const p = fn.call(document);
+      if (p && p.catch) p.catch(function () {});
+    } catch (e) {}
+  }
   function tone(f, d, type, g, at) {
     const c = audio();
     const o = c.createOscillator();
@@ -599,7 +606,6 @@
 
   $("go").onclick = () => {
     try { audio(); } catch (e) {}
-    try { goFS(); } catch (e) {}
     fio = capFio($("fio").value).replace(/\s+/g, " ").trim();
     $("fio").value = fio;
     group = normG($("group").value);
