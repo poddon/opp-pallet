@@ -64,13 +64,12 @@ function startFactory() {
       if (document.hidden) { requestAnimationFrame(frame); return; }
       if (mobile && (++skip & 1)) { requestAnimationFrame(frame); return; }
       const sky = ctx.createLinearGradient(0, 0, 0, h);
-      sky.addColorStop(0, "#072445");
-      sky.addColorStop(0.18, "#0A2F5C");
-      sky.addColorStop(0.38, "#114A8C");
-      sky.addColorStop(0.58, "#2A7BC4");
-      sky.addColorStop(0.76, "#9CC9EC");
-      sky.addColorStop(0.90, "#D5EAF8");
-      sky.addColorStop(1, "#F4FAFF");
+      sky.addColorStop(0, "#062445");
+      sky.addColorStop(0.22, "#0A2F5C");
+      sky.addColorStop(0.48, "#1457A8");
+      sky.addColorStop(0.72, "#1E7ED0");
+      sky.addColorStop(0.88, "#3EC6FF");
+      sky.addColorStop(1, "#5ED4FF");
       ctx.fillStyle = sky;
       ctx.fillRect(0, 0, w, h);
       if (!stamp && img.complete) makeStamp();
