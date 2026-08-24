@@ -479,10 +479,9 @@
     const ok = rows.filter((r) => r.status === "Пройден");
     const cheat = rows.filter((r) => r.status === "СПИСЫВАНИЕ").length;
     const avg = ok.length ? Math.round(ok.reduce((s, r) => s + r.pct, 0) / ok.length) : 0;
-    const people = new Set(ok.map(function (r) { return normName(r.name); })).size;
     $("astats").innerHTML =
-      "<div class='stat'><b>" + ok.length + "</b><span>прохождений</span></div>" +
-      "<div class='stat'><b>" + people + "</b><span>студентов</span></div>" +
+      "<div class='stat'><b>" + rows.length + "</b><span>прохождений</span></div>" +
+      "<div class='stat'><b>" + ok.length + "</b><span>успешных</span></div>" +
       "<div class='stat'><b>" + cheat + "</b><span>списываний</span></div>" +
       "<div class='stat'><b>" + avg + "%</b><span>средний %</span></div>";
     function esc(s) {
