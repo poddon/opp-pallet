@@ -1,1 +1,2 @@
-PLACEHOLDER_APP
+/* temporary - full restore next */
+console.error("Use full deploy");
