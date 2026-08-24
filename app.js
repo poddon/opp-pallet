@@ -340,7 +340,7 @@
     $("verdict").textContent = ok ? "Верно" : (choice < 0 ? "Время" : "Неверно");
     $("verdict").className = "verdict " + (ok ? "ok" : "bad");
     $("strip").className = "strip " + (ok ? "ok" : "bad");
-    $("strip").textContent = ok ? "Доска легла точно" : "Захват сорвался";
+    $("strip").textContent = ok ? "Смешанный контроль по материалу модулей" : "Неверный ответ";
     if (ok) {
       sfxOk(); if (window.OPP_FACTORY) { OPP_FACTORY.cue = "place"; OPP_FACTORY.cueUntil = performance.now() + 900; }
       const bonus = Math.max(8, Math.round(left / TMAX * 20));
