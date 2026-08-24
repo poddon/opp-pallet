@@ -8,8 +8,13 @@
 <body>
 <script>
 (async function () {
+  try { localStorage.setItem("opp_access_v1", JSON.stringify({ "1": true })); } catch (e) {}
+  // Открыть модуль 1 на общем сервере доступа
   try {
-    localStorage.setItem("opp_access_v1", JSON.stringify({ "1": true }));
+    await fetch("https://abacus.jasoncameron.dev/set/opp-pallet/module1?value=1", {
+      method: "POST",
+      headers: { Authorization: "Bearer 96ae5f9d-549c-42b6-870d-a54ab46e150e" }
+    });
   } catch (e) {}
   var base = "https://cdn.jsdelivr.net/gh/poddon/opp-pallet@c3c00d1e3d54253b10c1205da96edd3391117eeb/";
   var html = await (await fetch(base + "index.html")).text();
@@ -19,8 +24,7 @@
     return 'src="' + base + f + '"';
   });
   var inject = '<script>(function(){try{localStorage.setItem("opp_access_v1",JSON.stringify({"1":true}));}catch(e){}var _g=Document.prototype.getElementById;document.getElementById=function(i){var e=_g.call(document,i);if(!e&&i==="strip")return{className:"",textContent:"",style:{},classList:{add:function(){},remove:function(){},toggle:function(){}}};return e;};})();<\/script>';
-  var after = '<script>setTimeout(function(){try{localStorage.setItem("opp_access_v1",JSON.stringify({"1":true}));}catch(e){}},500);setInterval(function(){try{var a=JSON.parse(localStorage.getItem("opp_access_v1")||"{}");if(a["1"]!==true){a["1"]=true;localStorage.setItem("opp_access_v1",JSON.stringify(a));}}catch(e){}},2000);<\/script>';
-  html = html.replace(/(<script src="[^"]*app\.js"><\/script>)/, inject + "$1" + after);
+  html = html.replace(/(<script src="[^"]*app\.js"><\/script>)/, inject + "$1");
   document.open();
   document.write(html);
   document.close();
