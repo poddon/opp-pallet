@@ -19,6 +19,7 @@
   const KEY = "opp_results_v2";
   const ACC_KEY = "opp_access_v1";
   const ASG_KEY = "opp_assigns_v1";
+  const GRANT_KEY = "opp_fio_grant_v1";
   const IDS = ["1"];
   const AB = "https://abacus.jasoncameron.dev";
   const ABNS = "opp-pallet";
@@ -77,6 +78,59 @@
     try { return JSON.parse(localStorage.getItem(ASG_KEY) || "[]"); } catch { return []; }
   }
   function saveAsg(a) { localStorage.setItem(ASG_KEY, JSON.stringify(a)); }
+  function loadGrants() {
+    try { return JSON.parse(localStorage.getItem(GRANT_KEY) || "[]"); } catch { return []; }
+  }
+  function saveGrants(a) { localStorage.setItem(GRANT_KEY, JSON.stringify(a)); }
+  function fioHash(name) {
+    let h = 2166136261;
+    const s = "n:" + normName(name);
+    for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); }
+    return (h >>> 0).toString(16);
+  }
+  function localPassedCount(name) {
+    const n = normName(name);
+    return load().filter((r) => normName(r.name) === n && r.status === "Пройден").length;
+  }
+  function localGrantCount(name) {
+    const n = normName(name);
+    return loadGrants().filter((g) => normName(g.name) === n).length;
+  }
+  async function abEnsure(key, value) {
+    const keys = gtokStore();
+    if (!keys[key]) {
+      try {
+        const cr = await fetch(AB + "/create/" + ABNS + "/" + key + "?initializer=" + (value ? 1 : 0));
+        const j = await cr.json();
+        if (j && j.admin_key) { keys[key] = j.admin_key; gtokSave(keys); }
+      } catch (e) {}
+    }
+    if (keys[key]) await abSet(key, keys[key], value);
+  }
+  async function remoteExtraSlot(name) {
+    const h = fioHash(name);
+    for (let i = 1; i <= 8; i++) {
+      const open = (await abGet("ft" + h + "g" + i)) >= 1;
+      if (!open) continue;
+      const used = (await abGet("fu" + h + "g" + i)) >= 1;
+      if (!used) return i;
+    }
+    return 0;
+  }
+  async function canTakeFio(name) {
+    if (isAdmin(name)) return true;
+    const passed = localPassedCount(name);
+    const grants = localGrantCount(name);
+    const h = fioHash(name);
+    let remoteDone = false, slot = 0;
+    try {
+      remoteDone = (await abGet("fd" + h)) >= 1;
+      slot = await remoteExtraSlot(name);
+    } catch (e) {}
+    if (slot) return true;
+    if (remoteDone && passed === 0 && grants === 0) return false;
+    return passed < 1 + grants;
+  }
 
   function gkey(group, id) {
     let h = 2166136261;
@@ -269,7 +323,7 @@
 
   let mod = null, qs = [], idx = 0, locked = false;
   let correctN = 0, xp = 0, streak = 0, left = TMAX, timer = null;
-  let live = false, saved = false, started = 0, fio = "", group = "";
+  let live = false, saved = false, started = 0, fio = "", group = "", twinSlot = 0;
 
   function persist(row) {
     if (saved) return;
@@ -286,6 +340,11 @@
       xp: status === "СПИСЫВАНИЕ" ? 0 : xp,
       duration: Math.round((Date.now() - started) / 1000)
     });
+    if (status === "Пройден") {
+      const h = fioHash(fio);
+      abEnsure("fd" + h, 1).catch(function () {});
+      if (twinSlot) abEnsure("fu" + h + "g" + twinSlot, 1).catch(function () {});
+    }
     if (status === "СПИСЫВАНИЕ") {
       if ($("cheatwho")) $("cheatwho").textContent = (fio + " · " + group).toUpperCase();
       $("cheat").classList.remove("hidden");
@@ -327,11 +386,25 @@
         (open ? (last ? m.topic + " · последний результат " + last.pct + "%" : m.topic) : "Не назначен вашей группе") + "</div></div>";
       b.onclick = () => begin(id);
       box.appendChild(b);
+      canTakeFio(fio).then((ok) => {
+        if (ok || !open) return;
+        b.disabled = true;
+        b.className = "mod";
+        b.innerHTML = '<div class="ico">🔒</div><div><strong>' + m.title + "</strong><div class='sub'>Это ФИО уже сдавало тест. Однофамильцу доступ открывает преподаватель.</div></div>";
+        $("caberr").textContent = "Это ФИО уже проходило тест. Если вы однофамилец — обратитесь к преподавателю.";
+      });
     });
   }
 
-  function begin(id) {
+  async function begin(id) {
     if (!canOpen(group, id)) { $("caberr").textContent = "Модуль не открыт для вашей группы."; return; }
+    const allow = await canTakeFio(fio);
+    if (!allow) {
+      $("caberr").textContent = "Это ФИО уже сдавало тест. Если вы однофамилец, преподаватель должен подтвердить доступ.";
+      return;
+    }
+    twinSlot = 0;
+    try { twinSlot = await remoteExtraSlot(fio); } catch (e) { twinSlot = 0; }
     mod = id; saved = false; started = Date.now();
     live = true;
     qs = prepare(id); idx = 0; locked = false; correctN = 0; xp = 0; streak = 0; left = TMAX;
@@ -457,6 +530,26 @@
       $("asclose").appendChild(c);
     });
     $("alist").innerHTML = asg.length ? asg.slice(-12).reverse().map((a) => "<li>" + a.group + " · модуль " + a.id + " · " + (a.open ? "открыт" : "закрыт") + "</li>").join("") : "<li>Пока нет назначений</li>";
+    const grants = loadGrants();
+    const map = {};
+    load().forEach((r) => {
+      if (r.status !== "Пройден") return;
+      const n = normName(r.name);
+      if (!map[n]) map[n] = { name: r.name, n: 0 };
+      map[n].n += 1;
+    });
+    grants.forEach((g) => {
+      const n = normName(g.name);
+      if (!map[n]) map[n] = { name: g.name, n: 0 };
+      map[n].extra = (map[n].extra || 0) + 1;
+    });
+    const lines = Object.keys(map).map((n) => {
+      const p = map[n];
+      const extra = p.extra || 0;
+      const closed = p.n >= 1 + extra;
+      return "<li>" + p.name + " · сдач: " + p.n + " · доп. попыток: " + extra + " · " + (closed ? "закрыто" : "можно сдать") + "</li>";
+    });
+    if ($("twinlist")) $("twinlist").innerHTML = lines.length ? lines.join("") : "<li>Пока нет сдавших</li>";
   }
 
   $("fio").addEventListener("input", () => {
@@ -473,6 +566,36 @@
   });
   $("group").addEventListener("input", () => { $("group").value = $("group").value.toUpperCase(); });
   $("agrp") && $("agrp").addEventListener("input", () => { $("agrp").value = $("agrp").value.toUpperCase(); });
+  if ($("twinfio")) $("twinfio").addEventListener("input", () => {
+    const el = $("twinfio");
+    const pos = el.selectionStart;
+    const next = capFio(el.value);
+    if (next !== el.value) {
+      el.value = next;
+      try { el.setSelectionRange(pos, pos); } catch (e) {}
+    }
+  });
+  if ($("granttwin")) $("granttwin").onclick = () => {
+    const name = capFio(($("twinfio") && $("twinfio").value) || "").replace(/\s+/g, " ").trim();
+    const msg = $("twinmsg");
+    if (!name || name.split(" ").length < 2) {
+      if (msg) msg.textContent = "Укажите полное ФИО однофамильца.";
+      return;
+    }
+    const grants = loadGrants();
+    grants.push({ name: name, by: fio, date: new Date().toLocaleString("ru-RU") });
+    saveGrants(grants);
+    if ($("twinfio")) $("twinfio").value = name;
+    if (msg) msg.textContent = "Сохраняю допуск…";
+    const n = localGrantCount(name);
+    abEnsure("ft" + fioHash(name) + "g" + n, 1).then(function () {
+      if (msg) msg.textContent = "Однофамилец подтверждён. " + name + " может сдать тест ещё один раз.";
+      refreshAdmin();
+    }).catch(function () {
+      if (msg) msg.textContent = "Допуск сохранён на этом устройстве для " + name + ".";
+      refreshAdmin();
+    });
+  };
 
   $("go").onclick = () => {
     try { audio(); } catch (e) {}
