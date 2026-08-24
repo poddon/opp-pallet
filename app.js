@@ -20,6 +20,21 @@
   const ACC_KEY = "opp_access_v1";
   const ASG_KEY = "opp_assigns_v1";
   const GRANT_KEY = "opp_fio_grant_v1";
+  const API_BASE = String(window.OPP_API || "").replace(/\/$/, "");
+  function apiFetch(action, body) {
+    if (!API_BASE) return Promise.reject(new Error("no-api"));
+    const sep = API_BASE.indexOf("?") >= 0 ? "&" : "?";
+    const url = API_BASE + sep + "action=" + encodeURIComponent(action);
+    const opt = { method: body ? "POST" : "GET", headers: { Accept: "application/json" } };
+    if (body) {
+      opt.headers["Content-Type"] = "application/json";
+      opt.body = JSON.stringify(body);
+    }
+    return fetch(url, opt).then(function (r) {
+      if (!r.ok) throw new Error("api " + r.status);
+      return r.json();
+    });
+  }
   const IDS = ["1"];
   const AB = "https://abacus.jasoncameron.dev";
   const ABNS = "opp-pallet";
@@ -130,7 +145,13 @@
     } catch (e) {}
     if (slot) return true;
     if (remoteDone && passed === 0 && grants === 0) return false;
-    return passed < 1 + grants;
+    const localOk = passed < 1 + grants;
+    if (!API_BASE) return localOk;
+    try {
+      const d = await apiFetch("check", { name: name });
+      if (d && d.ok && typeof d.allowed === "boolean") return d.allowed;
+    } catch (e) {}
+    return localOk;
   }
 
   function gkey(group, id) {
@@ -178,6 +199,9 @@
   }
 
   async function pushModule(id, open) {
+    if (API_BASE) {
+      try { await apiFetch("access", { id: id, open: !!open }); } catch (e) {}
+    }
     await abSet("module" + id, ABTOK[id], open);
     const acc = loadAcc(); acc[id] = !!open; saveAcc(acc);
   }
@@ -336,6 +360,9 @@
     if (saved) return;
     saved = true;
     const all = load(); all.unshift(row); save(all);
+    if (API_BASE && row.status !== "СПИСЫВАНИЕ") {
+      apiFetch("results", row).catch(function () {});
+    }
   }
   function finish(status) {
     live = false; clearInterval(timer);
@@ -473,7 +500,7 @@
     }, 1150);
   }
 
-  function refreshAdmin() {
+  function refreshAdmin(fromServer) {
     if ($("aname")) $("aname").textContent = fio || "Администратор";
     const rows = load();
     const ok = rows.filter((r) => r.status === "Пройден");
@@ -567,6 +594,14 @@
       return "<li>" + p.name + " · сдач: " + p.n + " · доп. попыток: " + extra + " · " + (closed ? "закрыто" : "можно сдать") + "</li>";
     });
     if ($("twinlist")) $("twinlist").innerHTML = lines.length ? lines.join("") : "<li>Пока нет сдавших</li>";
+    if (!fromServer && API_BASE) {
+      apiFetch("results").then(function (data) {
+        if (data && Array.isArray(data.rows)) {
+          save(data.rows);
+          refreshAdmin(true);
+        }
+      }).catch(function () {});
+    }
   }
 
   $("fio").addEventListener("input", () => {
@@ -605,6 +640,7 @@
     if ($("twinfio")) $("twinfio").value = name;
     if (msg) msg.textContent = "Сохраняю допуск…";
     const n = localGrantCount(name);
+    if (API_BASE) apiFetch("grant", { name: name, by: fio }).catch(function () {});
     abEnsure("ft" + fioHash(name) + "g" + n, 1).then(function () {
       if (msg) msg.textContent = "Однофамилец подтверждён. " + name + " может сдать тест ещё один раз.";
       refreshAdmin();
