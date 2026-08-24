@@ -9,7 +9,6 @@ function startFactory() {
     const { Engine, Bodies, Body, Composite, Events } = M;
     const mobile = Math.min(screen.width || innerWidth, screen.height || innerHeight) < 820;
     let w = 0, h = 0, t0 = performance.now(), skip = 0, s = 1;
-    const cam = { x: 0, y: 0, z: 1, ready: false };
     const KINDS = ["stringer", "stringer", "stringer", "deck", "deck", "deck", "deck", "deck"];
     const clamp = (n, a, b) => Math.max(a, Math.min(b, n));
     const lerp = (a, b, t) => a + (b - a) * t;
@@ -57,7 +56,6 @@ function startFactory() {
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
       s = Math.min(w, h) / 520;
       layoutWorld();
-      if (!cam.ready) { cam.x = w * 0.38; cam.y = h * 0.72; cam.z = 1.18; cam.ready = true; }
     }
     function layoutWorld() {
       Composite.clear(world, false, true);
@@ -238,31 +236,9 @@ function startFactory() {
       Engine.update(engine, dt * 1000);
 
       const floorY = h * 0.82;
-      const startOn = (function(){ const el = document.getElementById("start"); return el && !el.classList.contains("hidden"); })();
-      const quizOn = (function(){ const el = document.getElementById("quiz"); return el && !el.classList.contains("hidden"); })();
-      let fx = conv.pickX, fy = conv.y - 36 * s, fz = 1.28;
-      if (phase === "up" || phase === "move") { fx = (conv.pickX + crateX) * 0.5; fy = conv.y - 52 * s; fz = 1.16; }
-      else if (phase === "downPlace" || phase === "release" || phase === "upPlace") { fx = crateX; fy = conv.y - 42 * s; fz = 1.34; }
-      else if (phase === "down" || phase === "grip") { fx = conv.pickX; fy = conv.y - 28 * s; fz = 1.42; }
-      if (crateOut) { fx = crateX; fy = conv.y - 40 * s; fz = 1.12; }
-      if (startOn && w >= 980) { fx = w * 0.36; fy = h * 0.70; fz = Math.max(fz, 1.22); }
-      if (quizOn) { fz = Math.min(fz, 1.18); fy = h * 0.74; }
-      if (mobile) { fz = Math.min(fz, 1.18); fy = h * 0.78; fx = w * 0.5; }
-      fz = clamp(fz, 1.05, 1.55);
-      const ck = 1 - Math.exp(-2.1 * dt);
-      cam.x += (fx - cam.x) * ck;
-      cam.y += (fy - cam.y) * ck;
-      cam.z += (fz - cam.z) * ck;
-
-      ctx.save();
-      ctx.setTransform((mobile ? 1 : Math.min(devicePixelRatio || 1, 1.5)), 0, 0, (mobile ? 1 : Math.min(devicePixelRatio || 1, 1.5)), 0, 0);
-      ctx.translate(w * 0.5, h * 0.62);
-      ctx.scale(cam.z, cam.z);
-      ctx.translate(-cam.x, -cam.y);
-
-      const sky = ctx.createLinearGradient(0, -h, 0, h * 1.4);
+      const sky = ctx.createLinearGradient(0, 0, 0, h);
       sky.addColorStop(0, "#0C3D78"); sky.addColorStop(0.7, "#0A2F5C"); sky.addColorStop(1, "#071E3E");
-      ctx.fillStyle = sky; ctx.fillRect(-w, -h, w * 3, h * 3);
+      ctx.fillStyle = sky; ctx.fillRect(0, 0, w, h);
       for (let i = 0; i < (mobile ? 2 : 4); i++) {
         const lx = w * (0.16 + i * (mobile ? 0.45 : 0.23)), ly = h * 0.055;
         const cone = ctx.createRadialGradient(lx, ly, 6, lx, h * 0.58, h * 0.48);
@@ -272,9 +248,9 @@ function startFactory() {
         ctx.lineTo(lx + 160 * s, h * 0.7); ctx.lineTo(lx - 160 * s, h * 0.7); ctx.fill();
         ctx.fillStyle = "#F4FAFF"; rr(lx - 22, ly - 6, 44, 10, 4); ctx.fill();
       }
-      ctx.fillStyle = "#163E6B"; ctx.fillRect(-w, floorY, w * 3, h * 2);
-      for (let x = -w; x < w * 2; x += 28) {
-        ctx.fillStyle = ((x + w * 4) % 56 === 0) ? "#E8B020" : "#111";
+      ctx.fillStyle = "#163E6B"; ctx.fillRect(0, floorY, w, h - floorY);
+      for (let x = 0; x < w; x += 28) {
+        ctx.fillStyle = x % 56 === 0 ? "#E8B020" : "#111";
         ctx.fillRect(x, floorY, 14, 8);
       }
 
@@ -477,7 +453,6 @@ function startFactory() {
       ctx.font = "800 " + 10 * s + "px Manrope,sans-serif";
       ctx.fillText("ТАРА", crateX, cTop - 9 * s);
 
-      ctx.restore();
       requestAnimationFrame(frame);
     }
     requestAnimationFrame(frame);
