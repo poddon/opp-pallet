@@ -1,1 +1,297 @@
-unused
+(function () {
+  const DEFAULT_ADMINS = {
+    "лукьянчиков егор игоревич": "Qwerty123*",
+    "пышненко кирилл валерьевич": "Pyshnenko26*",
+    "цурихин дмитрий сергеевич": "Tsurihin26*",
+    "ибатуллин богдан альбертович": "Ibatullin26*",
+  };
+  const PASS_KEY = "opp_admin_pass_v1";
+  const TMAX = 55;
+  const KEY = "opp_results_v2";
+  const ACC_KEY = "opp_access_v1";
+  const ASG_KEY = "opp_assigns_v1";
+  const IDS = ["1"];
+  const AB = "https://abacus.jasoncameron.dev";
+  const ABNS = "opp-pallet";
+  const ABTOK = { "1": "96ae5f9d-549c-42b6-870d-a54ab46e150e" };
+  let remoteGroup = {};
+
+  function $(id) { return document.getElementById(id); }
+  function normName(s) { return (s || "").trim().toLowerCase().replace(/\s+/g, " "); }
+  function isAdmin(name) { return Object.prototype.hasOwnProperty.call(DEFAULT_ADMINS, normName(name)); }
+  function loadPasses() {
+    try { return JSON.parse(localStorage.getItem(PASS_KEY) || "{}"); } catch { return {}; }
+  }
+  function savePasses(m) { localStorage.setItem(PASS_KEY, JSON.stringify(m)); }
+  function adminPass(name) {
+    const n = normName(name);
+    const custom = loadPasses()[n];
+    if (typeof custom === "string" && custom) return custom;
+    return DEFAULT_ADMINS[n] || "";
+  }
+  function normG(s) { return (s || "").trim().replace(/\s+/g, " ").toUpperCase(); }
+  function show(id) {
+    ["boot", "start", "cabinet", "quiz", "result", "admin"].forEach((n) => {
+      const el = $(n);
+      if (el) el.classList.toggle("hidden", n !== id);
+    });
+    $("cheat").classList.add("hidden");
+  }
+  function shuffle(a) {
+    const x = a.slice();
+    for (let i = x.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [x[i], x[j]] = [x[j], x[i]];
+    }
+    return x;
+  }
+  function load() {
+    try { return JSON.parse(localStorage.getItem(KEY) || "[]"); } catch { return []; }
+  }
+  function save(rows) { localStorage.setItem(KEY, JSON.stringify(rows)); }
+  function loadAcc() {
+    try {
+      return Object.assign({ "1": true }, JSON.parse(localStorage.getItem(ACC_KEY) || "{}"));
+    } catch { return { "1": true }; }
+  }
+  function saveAcc(a) { localStorage.setItem(ACC_KEY, JSON.stringify(a)); }
+  function loadAsg() {
+    try { return JSON.parse(localStorage.getItem(ASG_KEY) || "[]"); } catch { return []; }
+  }
+  function saveAsg(a) { localStorage.setItem(ASG_KEY, JSON.stringify(a)); }
+
+  function gkey(group, id) {
+    let h = 2166136261;
+    const s = normG(group);
+    for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); }
+    return "g" + (h >>> 0).toString(16) + "m" + id;
+  }
+  function gtokStore() {
+    try { return JSON.parse(localStorage.getItem("opp_abacus_gkeys") || "{}"); } catch { return {}; }
+  }
+  function gtokSave(m) { localStorage.setItem("opp_abacus_gkeys", JSON.stringify(m)); }
+
+  async function abGet(key) {
+    const r = await fetch(AB + "/get/" + ABNS + "/" + key + "?t=" + Date.now());
+    if (!r.ok) return 0;
+    const j = await r.json();
+    return Number(j && j.value) || 0;
+  }
+  async function abSet(key, token, value) {
+    const r = await fetch(AB + "/set/" + ABNS + "/" + key + "?value=" + (value ? 1 : 0), {
+      method: "POST",
+      headers: { Authorization: "Bearer " + token },
+    });
+    return r.ok;
+  }
+
+  async function pullAccess() {
+    try {
+      const acc = { "1": true };
+      await Promise.all(IDS.map(async (id) => {
+        if (String(id) === "1") { acc[id] = true; return; }
+        acc[id] = (await abGet("module" + id)) >= 1;
+      }));
+      saveAcc(acc);
+      if (group) {
+        const next = {};
+        await Promise.all(IDS.map(async (id) => {
+          const v = await abGet(gkey(group, id));
+          next[id] = v >= 1;
+        }));
+        remoteGroup = next;
+      }
+    } catch (e) {}
+  }
+
+  async function pushModule(id, open) {
+    await abSet("module" + id, ABTOK[id], open);
+    const acc = loadAcc(); acc[id] = !!open; saveAcc(acc);
+  }
+
+  async function pushGroup(g, id, open) {
+    const key = gkey(g, id);
+    const keys = gtokStore();
+    if (!keys[key]) {
+      try {
+        const cr = await fetch(AB + "/create/" + ABNS + "/" + key + "?initializer=" + (open ? 1 : 0));
+        const j = await cr.json();
+        if (j && j.admin_key) { keys[key] = j.admin_key; gtokSave(keys); }
+      } catch (e) {}
+    }
+    if (keys[key]) await abSet(key, keys[key], open);
+    remoteGroup[id] = !!open;
+  }
+
+  function canOpen(groupName, id) {
+    // Общий тест (модуль 1) всегда открыт
+    if (String(id) === "1") return true;
+    const g = normG(groupName);
+    if (loadAcc()[id]) return true;
+    if (remoteGroup[id]) return true;
+    const asg = loadAsg().filter((x) => normG(x.group) === g && String(x.id) === String(id));
+    if (asg.length) return !!asg[asg.length - 1].open;
+    return false;
+  }
+
+  function prepare(id) {
+    const src = (window.MODULES && MODULES[id] && MODULES[id].questions) || [];
+    return shuffle(src).map((q) => {
+      const order = shuffle(q.a.map((_, i) => i));
+      return { q: q.q, a: order.map((i) => q.a[i]), correct: order.indexOf(q.i) };
+    });
+  }
+
+  let ac;
+  function audio() {
+    if (!ac) ac = new (window.AudioContext || window.webkitAudioContext)();
+    if (ac.state === "suspended") ac.resume();
+    return ac;
+  }
+  function tone(f, d, type, g, at) {
+    const c = audio();
+    const o = c.createOscillator();
+    const gain = c.createGain();
+    o.type = type || "sine";
+    o.frequency.value = f;
+    gain.gain.value = g || 0.08;
+    o.connect(gain); gain.connect(c.destination);
+    const t0 = c.currentTime + (at || 0);
+    gain.gain.setValueAtTime(g || 0.08, t0);
+    gain.gain.exponentialRampToValueAtTime(0.001, t0 + d);
+    o.start(t0); o.stop(t0 + d + 0.02);
+  }
+  function sfxOk() { tone(660, 0.08, "triangle", 0.07); tone(880, 0.12, "sine", 0.05, 0.06); }
+  function sfxBad() { tone(180, 0.18, "sawtooth", 0.06); }
+  function sfxSiren() {
+    const c = audio();
+    const o = c.createOscillator();
+    const g = c.createGain();
+    o.type = "sawtooth"; o.frequency.setValueAtTime(440, c.currentTime);
+    o.frequency.linearRampToValueAtTime(880, c.currentTime + 0.4);
+    o.frequency.linearRampToValueAtTime(440, c.currentTime + 0.8);
+    g.gain.value = 0.04; o.connect(g); g.connect(c.destination);
+    o.start(); o.stop(c.currentTime + 1.2);
+  }
+
+  let fio = "", group = "", mod = null, qs = [], idx = 0, locked = false, correctN = 0, xp = 0, streak = 0, left = TMAX, timer = null, started = 0, live = false, saved = false;
+
+  function speakCheat() {
+    try {
+      if (!window.speechSynthesis) return;
+      const u = new SpeechSynthesisUtterance("Вы списали. Обратитесь к преподавателю.");
+      u.lang = "ru-RU"; u.rate = 0.95; speechSynthesis.cancel(); speechSynthesis.speak(u);
+    } catch (e) {}
+  }
+
+  function markCheat() {
+    if (saved) return;
+    saved = true; live = false;
+    clearInterval(timer);
+    const rows = load();
+    rows.push({
+      date: new Date().toLocaleString("ru-RU"), name: fio, group, modules: mod || "1",
+      status: "СПИСЫВАНИЕ", correct: correctN, total: (qs && qs.length) || 30, pct: 0, xp: 0, duration: Math.round((Date.now() - started) / 1000) || 0,
+    });
+    save(rows);
+    $("cheatwho").textContent = (fio || "") + (group ? " · " + group : "");
+    $("cheat").classList.remove("hidden");
+    try { sfxSiren(); } catch (e) {}
+    speakCheat();
+  }
+
+  function watchCheat() {
+    document.addEventListener("visibilitychange", () => {
+      if (document.hidden && live) markCheat();
+    });
+    window.addEventListener("blur", () => { if (live) markCheat(); });
+    document.addEventListener("contextmenu", (e) => e.preventDefault());
+    document.addEventListener("copy", (e) => e.preventDefault());
+  }
+
+  function renderCab() {
+    $("cabwho").textContent = fio + " · " + group;
+    $("caberr").textContent = "";
+    const box = $("cabmods");
+    box.innerHTML = "";
+    IDS.forEach((id) => {
+      const m = MODULES[id];
+      const open = canOpen(group, id);
+      const last = load().find((r) => r.name === fio && r.group === group && r.modules === id && r.status === "Пройден");
+      const b = document.createElement("button");
+      b.type = "button";
+      b.className = "mod" + (open ? " on" : "");
+      b.disabled = !open;
+      b.innerHTML = '<div class="ico">' + (open ? "✓" : "🔒") + "</div><div><strong>" + m.title + "</strong><div class='sub'>" +
+        (open ? (last ? m.topic + " · последний результат " + last.pct + "%" : m.topic) : "Не назначен вашей группе") + "</div></div>";
+      b.onclick = () => begin(id);
+      box.appendChild(b);
+    });
+  }
+
+  function begin(id) {
+    if (!canOpen(group, id)) { $("caberr").textContent = "Модуль не открыт для вашей группы."; return; }
+    mod = id; saved = false; started = Date.now();
+    live = true;
+    qs = prepare(id); idx = 0; locked = false; correctN = 0; xp = 0; streak = 0; left = TMAX;
+    $("qm").textContent = MODULES[id].title;
+    /* strip removed */
+    show("quiz"); renderQ(); timer = setInterval(tick, 1000);
+  }
+
+  function tick() {
+    left -= 1;
+    $("qt").textContent = "0:" + String(Math.max(0, left)).padStart(2, "0");
+    if (left <= 0) answer(-1);
+  }
+  function renderQ() {
+    const q = qs[idx];
+    $("qn").textContent = "Вопрос " + (idx + 1) + " / " + qs.length;
+    $("qv").textContent = "Верно: " + correctN;
+    $("qtext").textContent = q.q;
+    $("pb").style.width = (idx / qs.length * 100) + "%";
+    $("qx").textContent = "XP " + xp;
+    $("qs").classList.toggle("hidden", streak < 2);
+    $("qs").textContent = "серия " + streak;
+    $("verdict").classList.add("hidden");
+    /* strip removed */
+    $("opts").innerHTML = "";
+    q.a.forEach((t, i) => {
+      const b = document.createElement("button");
+      b.className = "opt"; b.type = "button"; b.textContent = t;
+      b.onclick = () => answer(i);
+      $("opts").appendChild(b);
+    });
+  }
+  function answer(choice) {
+    if (locked) return;
+    locked = true; clearInterval(timer);
+    const q = qs[idx];
+    const ok = choice === q.correct;
+    [...$("opts").children].forEach((b, i) => {
+      if (i === q.correct) b.classList.add("ok");
+      else if (i === choice) b.classList.add("bad");
+      else b.classList.add("dim");
+      b.disabled = true;
+    });
+    $("verdict").textContent = ok ? "Верно" : (choice < 0 ? "Время" : "Неверно");
+    $("verdict").className = "verdict " + (ok ? "ok" : "bad");
+    /* strip removed */
+    if (ok) {
+      sfxOk(); if (window.OPP_FACTORY) { OPP_FACTORY.cue = "place"; OPP_FACTORY.cueUntil = performance.now() + 900; }
+      const bonus = Math.max(8, Math.round(left / TMAX * 20));
+      streak += 1; correctN += 1; xp += 12 + bonus + (streak >= 3 ? streak * 2 : 0);
+    } else {
+      sfxBad(); if (window.OPP_FACTORY) { OPP_FACTORY.cue = "drop"; OPP_FACTORY.cueUntil = performance.now() + 900; }
+      streak = 0;
+    }
+    setTimeout(() => {
+      if (idx + 1 >= qs.length) finish("Пройден");
+      else { idx += 1; locked = false; left = TMAX; renderQ(); timer = setInterval(tick, 1000); }
+    }, 1150);
+  }
+
+  function refreshAdmin() {
+    if ($("aname")) $("aname").textContent = fio || "Администратор";
+    const rows = load();
+    const ok = rows.filter((r) => r.status === "Пройден");
