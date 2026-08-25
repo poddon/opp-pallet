@@ -130,6 +130,7 @@ async function handleApi(req, res, action) {
         Number(b.xp || 0), Number(b.duration || 0),
       ]
     );
+    console.log("Запись в quiz_results:", name, group, b.pct);
     if ((b.status || "Пройден") === "Пройден") {
       const n = normName(name);
       await pool.query(
