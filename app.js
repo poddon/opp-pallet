@@ -20,7 +20,14 @@
   const ACC_KEY = "opp_access_v1";
   const ASG_KEY = "opp_assigns_v1";
   const GRANT_KEY = "opp_fio_grant_v1";
-  const API_BASE = String(window.OPP_API || "").replace(/\/$/, "");
+  const API_BASE = (function () {
+    const fromCfg = String(window.OPP_API || "").replace(/\/$/, "");
+    if (fromCfg) return fromCfg;
+    const h = location.hostname;
+    if (h === "127.0.0.1" || h === "localhost" || h === "::1") return "api.php";
+    if (/^(192\.168\.|10\.|172\.(1[6-9]|2\d|3[01])\.)/.test(h)) return "api.php";
+    return "";
+  })();
   function apiFetch(action, body) {
     if (!API_BASE) return Promise.reject(new Error("no-api"));
     const sep = API_BASE.indexOf("?") >= 0 ? "&" : "?";
@@ -360,8 +367,15 @@
     if (saved) return;
     saved = true;
     const all = load(); all.unshift(row); save(all);
-    if (API_BASE && row.status !== "СПИСЫВАНИЕ") {
-      apiFetch("results", row).catch(function () {});
+    if (row.status === "СПИСЫВАНИЕ") return;
+    if (API_BASE) {
+      apiFetch("results", row).then(function (d) {
+        console.log("ОПП: записано в PostgreSQL", d);
+      }).catch(function (e) {
+        console.warn("ОПП: база не приняла результат", e);
+      });
+    } else {
+      console.warn("ОПП: API выключен, результат только в этом браузере");
     }
   }
   function finish(status) {
