@@ -245,8 +245,12 @@
     return false;
   }
 
+  function bank() {
+    if (typeof MODULES !== "undefined") return MODULES;
+    return window.MODULES || {};
+  }
   function prepare(id) {
-    const src = (window.MODULES && MODULES[id] && MODULES[id].questions) || [];
+    const src = (bank()[id] && bank()[id].questions) || [];
     return shuffle(src).map((q) => {
       const order = shuffle(q.a.map((_, i) => i));
       return { q: q.q, a: order.map((i) => q.a[i]), correct: order.indexOf(q.i) };
@@ -476,7 +480,13 @@
     mod = id; saved = false; started = Date.now();
     live = true;
     cheatArmed = false;
-    qs = prepare(id); idx = 0; locked = false; correctN = 0; xp = 0; streak = 0; left = TMAX;
+    qs = prepare(id);
+    if (!qs.length) {
+      live = false; cheatArmed = false;
+      $("caberr").textContent = "Не загрузились вопросы. Обновите страницу (Ctrl+F5).";
+      show("cabinet");
+      return;
+    }
     $("qm").textContent = MODULES[id].title;
     $("qt").textContent = "0:" + String(TMAX).padStart(2, "0");
     (window.__strip||{textContent:""}).textContent = "Смешанный контроль по материалу модулей";
@@ -561,7 +571,7 @@
         .replace(/"/g, "&" + "quot;");
     }
     function modTitle(id) {
-      return (window.MODULES && MODULES[id] && MODULES[id].title) || "Общий тест";
+      return (bank()[id] && bank()[id].title) || "Общий тест";
     }
     $("abody").innerHTML = rows.length
       ? rows.map((r) => "<tr><td>" + esc(r.date) + "</td><td>" + esc(r.name) + "</td><td>" + esc(r.group) + "</td><td>" + esc(modTitle(r.modules)) + "</td><td>" + esc(r.correct) + "</td><td>" + esc(r.total) + "</td><td>" + esc(r.pct) + "</td><td>" + esc(r.xp) + "</td><td>" + esc(r.duration) + "</td><td>" + esc(r.status) + "</td></tr>").join("")
@@ -796,7 +806,7 @@
     sheet += "</row>";
     rows.forEach(function (r, idx) {
       const n = idx + 2;
-      const title = (window.MODULES && MODULES[r.modules] && MODULES[r.modules].title) || "Общий тест";
+      const title = (bank()[r.modules] && bank()[r.modules].title) || "Общий тест";
       sheet += "<row r=\"" + n + "\">";
       sheet += xlsxCell(0, n, r.date, false);
       sheet += xlsxCell(1, n, r.name, false);
