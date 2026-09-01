@@ -379,7 +379,7 @@
     }
   }
   function finish(status) {
-    live = false; clearInterval(timer);
+    live = false; stopTimer();
     const total = qs.length;
     const pct = status === "СПИСЫВАНИЕ" ? 0 : Math.round(correctN / Math.max(1, total) * 100);
     persist({
@@ -444,27 +444,45 @@
     });
   }
 
+  let starting = false;
+  function stopTimer() {
+    if (timer != null) { clearInterval(timer); timer = null; }
+  }
+  function startTimer() {
+    stopTimer();
+    timer = setInterval(tick, 1000);
+  }
+
   async function begin(id) {
+    if (starting || live) return;
     if (!canOpen(group, id)) { $("caberr").textContent = "Модуль не открыт для вашей группы."; return; }
-    const allow = await canTakeFio(fio);
-    if (!allow) {
-      $("caberr").textContent = "Это ФИО уже сдавало тест. Если вы однофамилец, преподаватель должен подтвердить доступ.";
-      return;
+    starting = true;
+    try {
+      const allow = await canTakeFio(fio);
+      if (!allow) {
+        $("caberr").textContent = "Это ФИО уже сдавало тест. Если вы однофамилец, преподаватель должен подтвердить доступ.";
+        return;
+      }
+      twinSlot = 0;
+      try { twinSlot = await remoteExtraSlot(fio); } catch (e) { twinSlot = 0; }
+      stopTimer();
+      mod = id; saved = false; started = Date.now();
+      live = true;
+      qs = prepare(id); idx = 0; locked = false; correctN = 0; xp = 0; streak = 0; left = TMAX;
+      $("qm").textContent = MODULES[id].title;
+      $("qt").textContent = "0:" + String(TMAX).padStart(2, "0");
+      (window.__strip||{textContent:""}).textContent = "Смешанный контроль по материалу модулей";
+      try { goFS(); } catch (e) {} show("quiz"); renderQ(); startTimer();
+    } finally {
+      starting = false;
     }
-    twinSlot = 0;
-    try { twinSlot = await remoteExtraSlot(fio); } catch (e) { twinSlot = 0; }
-    mod = id; saved = false; started = Date.now();
-    live = true;
-    qs = prepare(id); idx = 0; locked = false; correctN = 0; xp = 0; streak = 0; left = TMAX;
-    $("qm").textContent = MODULES[id].title;
-    (window.__strip||{textContent:""}).textContent = "Смешанный контроль по материалу модулей";
-    try { goFS(); } catch (e) {} show("quiz"); renderQ(); timer = setInterval(tick, 1000);
   }
 
   function tick() {
+    if (!live || locked) return;
     left -= 1;
     $("qt").textContent = "0:" + String(Math.max(0, left)).padStart(2, "0");
-    if (left <= 0) answer(-1);
+    if (left <= 0) { stopTimer(); answer(-1); }
   }
   function renderQ() {
     const q = qs[idx];
@@ -487,7 +505,7 @@
   }
   function answer(choice) {
     if (locked) return;
-    locked = true; clearInterval(timer);
+    locked = true; stopTimer();
     const q = qs[idx];
     const ok = choice === q.correct;
     [...$("opts").children].forEach((b, i) => {
@@ -510,7 +528,7 @@
     }
     setTimeout(() => {
       if (idx + 1 >= qs.length) finish("Пройден");
-      else { idx += 1; locked = false; left = TMAX; renderQ(); timer = setInterval(tick, 1000); }
+      else { idx += 1; locked = false; left = TMAX; renderQ(); startTimer(); }
     }, 1150);
   }
 
