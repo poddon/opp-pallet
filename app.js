@@ -144,6 +144,7 @@
     if (isAdmin(name)) return true;
     const passed = localPassedCount(name);
     const grants = localGrantCount(name);
+    const localOk = passed < 1 + grants;
     const h = fioHash(name);
     let remoteDone = false, slot = 0;
     try {
@@ -152,7 +153,6 @@
     } catch (e) {}
     if (slot) return true;
     if (remoteDone && passed === 0 && grants === 0) return false;
-    const localOk = passed < 1 + grants;
     if (!API_BASE) return localOk;
     try {
       const d = await apiFetch("check", { name: name });
@@ -173,10 +173,18 @@
   function gtokSave(m) { localStorage.setItem("opp_abacus_gkeys", JSON.stringify(m)); }
 
   async function abGet(key) {
-    const r = await fetch(AB + "/get/" + ABNS + "/" + key + "?t=" + Date.now());
-    if (!r.ok) return 0;
-    const j = await r.json();
-    return Number(j && j.value) || 0;
+    const ctrl = typeof AbortController !== "undefined" ? new AbortController() : null;
+    const t = setTimeout(function () { try { ctrl && ctrl.abort(); } catch (e) {} }, 700);
+    try {
+      const r = await fetch(AB + "/get/" + ABNS + "/" + key + "?t=" + Date.now(), ctrl ? { signal: ctrl.signal } : {});
+      if (!r.ok) return 0;
+      const j = await r.json();
+      return Number(j && j.value) || 0;
+    } catch (e) {
+      return 0;
+    } finally {
+      clearTimeout(t);
+    }
   }
   async function abSet(key, token, value) {
     const r = await fetch(AB + "/set/" + ABNS + "/" + key + "?value=" + (value ? 1 : 0), {
@@ -361,7 +369,7 @@
 
   let mod = null, qs = [], idx = 0, locked = false;
   let correctN = 0, xp = 0, streak = 0, left = TMAX, timer = null;
-  let live = false, saved = false, started = 0, fio = "", group = "", twinSlot = 0;
+  let live = false, cheatArmed = false, saved = false, started = 0, fio = "", group = "", twinSlot = 0;
 
   function persist(row) {
     if (saved) return;
@@ -379,7 +387,7 @@
     }
   }
   function finish(status) {
-    live = false; stopTimer();
+    live = false; cheatArmed = false; stopTimer();
     const total = qs.length;
     const pct = status === "СПИСЫВАНИЕ" ? 0 : Math.round(correctN / Math.max(1, total) * 100);
     persist({
@@ -409,7 +417,7 @@
   }
 
   function watchCheat() {
-    const hide = () => { if (live) { live = false; finish("СПИСЫВАНИЕ"); } };
+    const hide = () => { if (live && cheatArmed) { live = false; finish("СПИСЫВАНИЕ"); } };
     document.addEventListener("visibilitychange", () => {
       if (document.visibilityState === "hidden") hide();
     });
@@ -434,13 +442,12 @@
         (open ? (last ? m.topic + " · последний результат " + last.pct + "%" : m.topic) : "Не назначен вашей группе") + "</div></div>";
       b.onclick = () => begin(id);
       box.appendChild(b);
-      canTakeFio(fio).then((ok) => {
-        if (ok || !open) return;
+      if (!isAdmin(fio) && localPassedCount(fio) >= 1 + localGrantCount(fio)) {
         b.disabled = true;
         b.className = "mod";
         b.innerHTML = '<div class="ico">🔒</div><div><strong>' + m.title + "</strong><div class='sub'>Это ФИО уже сдавало тест. Однофамильцу доступ открывает преподаватель.</div></div>";
         $("caberr").textContent = "Это ФИО уже проходило тест. Если вы однофамилец — обратитесь к преподавателю.";
-      });
+      }
     });
   }
 
@@ -452,30 +459,33 @@
     stopTimer();
     timer = setInterval(tick, 1000);
   }
+  function quizOn() {
+    const el = document.getElementById("quiz");
+    return !!(el && !el.classList.contains("hidden"));
+  }
 
   async function begin(id) {
-    if (starting || live) return;
+    if (quizOn() && live) return;
     if (!canOpen(group, id)) { $("caberr").textContent = "Модуль не открыт для вашей группы."; return; }
-    starting = true;
-    try {
-      const allow = await canTakeFio(fio);
-      if (!allow) {
-        $("caberr").textContent = "Это ФИО уже сдавало тест. Если вы однофамилец, преподаватель должен подтвердить доступ.";
-        return;
-      }
-      twinSlot = 0;
-      try { twinSlot = await remoteExtraSlot(fio); } catch (e) { twinSlot = 0; }
-      stopTimer();
-      mod = id; saved = false; started = Date.now();
-      live = true;
-      qs = prepare(id); idx = 0; locked = false; correctN = 0; xp = 0; streak = 0; left = TMAX;
-      $("qm").textContent = MODULES[id].title;
-      $("qt").textContent = "0:" + String(TMAX).padStart(2, "0");
-      (window.__strip||{textContent:""}).textContent = "Смешанный контроль по материалу модулей";
-      try { goFS(); } catch (e) {} show("quiz"); renderQ(); startTimer();
-    } finally {
-      starting = false;
+    if (!isAdmin(fio) && localPassedCount(fio) >= 1 + localGrantCount(fio)) {
+      $("caberr").textContent = "Это ФИО уже сдавало тест. Если вы однофамилец, преподаватель должен подтвердить доступ.";
+      return;
     }
+    stopTimer();
+    twinSlot = 0;
+    mod = id; saved = false; started = Date.now();
+    live = true;
+    cheatArmed = false;
+    qs = prepare(id); idx = 0; locked = false; correctN = 0; xp = 0; streak = 0; left = TMAX;
+    $("qm").textContent = MODULES[id].title;
+    $("qt").textContent = "0:" + String(TMAX).padStart(2, "0");
+    (window.__strip||{textContent:""}).textContent = "Смешанный контроль по материалу модулей";
+    show("quiz");
+    renderQ();
+    startTimer();
+    try { goFS(); } catch (e) {}
+    setTimeout(function () { if (live) cheatArmed = true; }, 1800);
+    remoteExtraSlot(fio).then(function (s) { twinSlot = s || 0; }).catch(function () { twinSlot = 0; });
   }
 
   function tick() {
