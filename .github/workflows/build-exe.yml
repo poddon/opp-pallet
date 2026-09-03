@@ -21,7 +21,6 @@ jobs:
           git checkout origin/gh-pages -- index.html app.js questions.js factory.js matter.min.js synology-config.js || true
           cp index.html app.js questions.js factory.js matter.min.js desktop/web/
           if [ -f synology-config.js ]; then cp synology-config.js desktop/web/; fi
-          if [ -f desktop/synology-config.js ]; then cp desktop/synology-config.js desktop/web/; fi
           python3 - <<'PY'
           from pathlib import Path
           p = Path('desktop/web/index.html')
@@ -32,10 +31,6 @@ jobs:
                   '<button class="btn ghost" id="rescab" type="button">В личный кабинет</button>\n      <button id="again" type="button" hidden></button>'
               )
               p.write_text(s, encoding='utf-8')
-          a = Path('desktop/web/app.js')
-          t = a.read_text(encoding='utf-8')
-          t = t.replace('$("again").onclick', 'var _ag = document.getElementById("again"); if (_ag) _ag.onclick')
-          a.write_text(t, encoding='utf-8')
           PY
       - name: Build OPP-test.exe
         working-directory: desktop
@@ -48,5 +43,7 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           tag_name: site-latest
-          files: desktop/OPP-test.exe
+          files: |
+            desktop/OPP-test.exe
+            desktop/pg-config.json
           fail_on_unmatched_files: true
