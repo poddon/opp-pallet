@@ -32,6 +32,45 @@ jobs:
               )
               p.write_text(s, encoding='utf-8')
           PY
+      - name: Make icon and embed into EXE
+        working-directory: desktop
+        run: |
+          pip install pillow -q
+          python3 <<'PY'
+          from PIL import Image, ImageDraw, ImageFont, ImageFilter
+          def make(size):
+              img = Image.new('RGBA', (size, size), (0,0,0,0))
+              shadow = Image.new('RGBA', (size, size), (0,0,0,0))
+              pad = max(1, size//16); r = max(6, size//5)
+              ImageDraw.Draw(shadow).rounded_rectangle([pad+size//32, pad+size//24, size-pad, size-pad], radius=r, fill=(8,24,48,90))
+              img = Image.alpha_composite(img, shadow.filter(ImageFilter.GaussianBlur(max(1,size//32))))
+              d = ImageDraw.Draw(img)
+              d.rounded_rectangle([pad, pad, size-pad-size//48, size-pad-size//32], radius=r, fill=(10,47,92,255))
+              inset = pad + max(2, size//18)
+              d.rounded_rectangle([inset, inset, size-pad-size//48-max(1,size//40), size-pad-size//32-max(1,size//40)], radius=max(4,r-size//16), fill=(20,87,168,255))
+              d.rounded_rectangle([inset+size//20, inset+size//22, size-pad-size//10, inset+size//5], radius=max(2,size//20), fill=(62,198,255,40))
+              slat_y = int(size*0.72); slat_h = max(2,size//22); gap = max(2,size//28)
+              x0,x1=int(size*0.22),int(size*0.78)
+              for i in range(3):
+                  y=slat_y+i*(slat_h+gap//2)
+                  d.rounded_rectangle([x0,y,x1,y+slat_h], radius=max(1,slat_h//2), fill=(232,242,252,230))
+              font=None
+              for fp in ["/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf"]:
+                  try: font=ImageFont.truetype(fp, int(size*0.42)); break
+                  except: pass
+              if font:
+                  bb=d.textbbox((0,0),'A',font=font); tw,th=bb[2]-bb[0],bb[3]-bb[1]
+                  tx=(size-tw)/2-bb[0]; ty=size*0.18
+                  d.text((tx,ty),'A',font=font,fill=(255,255,255,255))
+              return img
+          sizes=[16,24,32,48,64,128,256]
+          imgs=[make(s) for s in sizes]
+          imgs[-1].save('icon.ico', format='ICO', sizes=[(s,s) for s in sizes])
+          imgs[-1].save('OPP-icon.png')
+          print('icon ready')
+          PY
+          go install github.com/akavel/rsrc@v0.10.2
+          rsrc -arch amd64 -ico icon.ico -o rsrc_windows_amd64.syso
       - name: Build OPP-test.exe
         working-directory: desktop
         env:
@@ -46,4 +85,5 @@ jobs:
           files: |
             desktop/OPP-test.exe
             desktop/pg-config.json
+            desktop/OPP-icon.png
           fail_on_unmatched_files: true
