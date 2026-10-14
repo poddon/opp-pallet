@@ -433,8 +433,9 @@
       b.type = "button";
       b.className = "mod" + (open ? " on" : "");
       b.disabled = !open;
-      b.innerHTML = '<div class="ico">' + (open ? "✓" : "🔒") + "</div><div><strong>" + m.title + "</strong><div class='sub'>" +
-        (open ? (last ? m.topic + " · последний результат " + last.pct + "%" : m.topic) : "Не назначен вашей группе") + "</div></div>";
+      const subText = open ? (last ? "Последний результат " + last.pct + "%" : "") : "Не назначен вашей группе";
+      b.innerHTML = '<div class="ico">' + (open ? "✓" : "🔒") + "</div><div><strong>" + m.title + "</strong>" +
+        (subText ? "<div class='sub'>" + subText + "</div>" : "") + "</div>";
       b.onclick = () => begin(id);
       box.appendChild(b);
       if (!isAdmin(fio) && localPassedCount(fio) >= 1 + localGrantCount(fio)) {
