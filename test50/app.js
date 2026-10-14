@@ -1,0 +1,875 @@
+(function () {
+  const DEFAULT_ADMINS = {
+    "лукьянчиков егор игоревич": "Qwerty123*",
+    "пышненко кирилл валерьевич": "Pyshnenko26*",
+    "цурихин дмитрий сергеевич": "Tsurihin26*",
+    "ибатуллин богдан альбертович": "Ibatullin26*",
+  };
+  const PASS_KEY = "opp50_admin_pass_v1";
+  const TMAX = 55;
+  const KEY = "opp50_results_v2";
+  const ACC_KEY = "opp50_access_v1";
+  const ASG_KEY = "opp50_assigns_v1";
+  const GRANT_KEY = "opp50_fio_grant_v1";
+  const API_BASE = (function () {
+    const fromCfg = String(window.OPP_API || "").replace(/\/$/, "");
+    if (fromCfg) return fromCfg;
+    const h = location.hostname;
+    if (h === "127.0.0.1" || h === "localhost" || h === "::1") return "api.php";
+    if (/^(192\.168\.|10\.|172\.(1[6-9]|2\d|3[01])\.)/.test(h)) return "api.php";
+    return "";
+  })();
+  function apiFetch(action, body) {
+    if (!API_BASE) return Promise.reject(new Error("no-api"));
+    const sep = API_BASE.indexOf("?") >= 0 ? "&" : "?";
+    const url = API_BASE + sep + "action=" + encodeURIComponent(action);
+    const opt = { method: body ? "POST" : "GET", headers: { Accept: "application/json" } };
+    if (body) {
+      opt.headers["Content-Type"] = "application/json";
+      opt.body = JSON.stringify(body);
+    }
+    return fetch(url, opt).then(function (r) {
+      if (!r.ok) throw new Error("api " + r.status);
+      return r.json();
+    });
+  }
+  const IDS = ["1"];
+  const AB = "https://abacus.jasoncameron.dev";
+  const ABNS = "opp-test-50";
+  const ABTOK = { "1": "96ae5f9d-549c-42b6-870d-a54ab46e150e" };
+  let remoteGroup = {};
+
+  function $(id) { return document.getElementById(id) || { textContent: "", className: "", classList: { add: function(){}, remove: function(){}, contains: function(){ return false; }, toggle: function(){} }, style: {}, innerHTML: "", onclick: null }; }
+  function normName(s) { return (s || "").trim().toLowerCase().replace(/\s+/g, " "); }
+  function capWord(w) {
+    return String(w || "").split("-").map(function (p) {
+      if (!p) return p;
+      return p.charAt(0).toLocaleUpperCase("ru-RU") + p.slice(1).toLocaleLowerCase("ru-RU");
+    }).join("-");
+  }
+  function capFio(s) {
+    return String(s || "").replace(/[^\s]+/g, capWord);
+  }
+  function isAdmin(name) { return Object.prototype.hasOwnProperty.call(DEFAULT_ADMINS, normName(name)); }
+  function loadPasses() {
+    try { return JSON.parse(localStorage.getItem(PASS_KEY) || "{}"); } catch { return {}; }
+  }
+  function savePasses(m) { localStorage.setItem(PASS_KEY, JSON.stringify(m)); }
+  function adminPass(name) {
+    const n = normName(name);
+    const custom = loadPasses()[n];
+    if (typeof custom === "string" && custom) return custom;
+    return DEFAULT_ADMINS[n] || "";
+  }
+  function normG(s) { return (s || "").trim().replace(/\s+/g, " ").toUpperCase(); }
+  function show(id) {
+    ["boot", "start", "cabinet", "quiz", "result", "admin"].forEach((n) => {
+      const el = $(n);
+      if (el) el.classList.toggle("hidden", n !== id);
+    });
+    $("cheat").classList.add("hidden");
+    if (id !== "quiz") exitFS();
+  }
+  function shuffle(a) {
+    const x = a.slice();
+    for (let i = x.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [x[i], x[j]] = [x[j], x[i]];
+    }
+    return x;
+  }
+  function load() {
+    try { return JSON.parse(localStorage.getItem(KEY) || "[]"); } catch { return []; }
+  }
+  function save(rows) { localStorage.setItem(KEY, JSON.stringify(rows)); }
+  function loadAcc() {
+    try {
+      return Object.assign({ "1": true }, JSON.parse(localStorage.getItem(ACC_KEY) || "{}"));
+    } catch { return { "1": true }; }
+  }
+  function saveAcc(a) { localStorage.setItem(ACC_KEY, JSON.stringify(a)); }
+  function loadAsg() {
+    try { return JSON.parse(localStorage.getItem(ASG_KEY) || "[]"); } catch { return []; }
+  }
+  function saveAsg(a) { localStorage.setItem(ASG_KEY, JSON.stringify(a)); }
+  function loadGrants() {
+    try { return JSON.parse(localStorage.getItem(GRANT_KEY) || "[]"); } catch { return []; }
+  }
+  function saveGrants(a) { localStorage.setItem(GRANT_KEY, JSON.stringify(a)); }
+  function fioHash(name) {
+    let h = 2166136261;
+    const s = "n:" + normName(name);
+    for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); }
+    return (h >>> 0).toString(16);
+  }
+  function localPassedCount(name) {
+    const n = normName(name);
+    return load().filter((r) => normName(r.name) === n && r.status === "Пройден").length;
+  }
+  function localGrantCount(name) {
+    const n = normName(name);
+    return loadGrants().filter((g) => normName(g.name) === n).length;
+  }
+  async function abEnsure(key, value) {
+    const keys = gtokStore();
+    if (!keys[key]) {
+      try {
+        const cr = await fetch(AB + "/create/" + ABNS + "/" + key + "?initializer=" + (value ? 1 : 0));
+        const j = await cr.json();
+        if (j && j.admin_key) { keys[key] = j.admin_key; gtokSave(keys); }
+      } catch (e) {}
+    }
+    if (keys[key]) await abSet(key, keys[key], value);
+  }
+  async function remoteExtraSlot(name) {
+    const h = fioHash(name);
+    for (let i = 1; i <= 8; i++) {
+      const open = (await abGet("ft" + h + "g" + i)) >= 1;
+      if (!open) continue;
+      const used = (await abGet("fu" + h + "g" + i)) >= 1;
+      if (!used) return i;
+    }
+    return 0;
+  }
+  async function canTakeFio(name) {
+    if (isAdmin(name)) return true;
+    const passed = localPassedCount(name);
+    const grants = localGrantCount(name);
+    const localOk = passed < 1 + grants;
+    const h = fioHash(name);
+    let remoteDone = false, slot = 0;
+    try {
+      remoteDone = (await abGet("fd" + h)) >= 1;
+      slot = await remoteExtraSlot(name);
+    } catch (e) {}
+    if (slot) return true;
+    if (remoteDone && passed === 0 && grants === 0) return false;
+    if (!API_BASE) return localOk;
+    try {
+      const d = await apiFetch("check", { name: name });
+      if (d && d.ok && typeof d.allowed === "boolean") return d.allowed;
+    } catch (e) {}
+    return localOk;
+  }
+
+  function gkey(group, id) {
+    let h = 2166136261;
+    const s = normG(group);
+    for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); }
+    return "g" + (h >>> 0).toString(16) + "m" + id;
+  }
+  function gtokStore() {
+    try { return JSON.parse(localStorage.getItem("opp50_abacus_gkeys") || "{}"); } catch { return {}; }
+  }
+  function gtokSave(m) { localStorage.setItem("opp50_abacus_gkeys", JSON.stringify(m)); }
+
+  async function abGet(key) {
+    const ctrl = typeof AbortController !== "undefined" ? new AbortController() : null;
+    const t = setTimeout(function () { try { ctrl && ctrl.abort(); } catch (e) {} }, 700);
+    try {
+      const r = await fetch(AB + "/get/" + ABNS + "/" + key + "?t=" + Date.now(), ctrl ? { signal: ctrl.signal } : {});
+      if (!r.ok) return 0;
+      const j = await r.json();
+      return Number(j && j.value) || 0;
+    } catch (e) {
+      return 0;
+    } finally {
+      clearTimeout(t);
+    }
+  }
+  async function abSet(key, token, value) {
+    const r = await fetch(AB + "/set/" + ABNS + "/" + key + "?value=" + (value ? 1 : 0), {
+      method: "POST",
+      headers: { Authorization: "Bearer " + token },
+    });
+    return r.ok;
+  }
+
+  async function pullAccess() {
+    try {
+      const acc = { "1": true };
+      await Promise.all(IDS.map(async (id) => {
+        if (String(id) === "1") { acc[id] = true; return; }
+        acc[id] = (await abGet("module" + id)) >= 1;
+      }));
+      saveAcc(acc);
+      if (group) {
+        const next = {};
+        await Promise.all(IDS.map(async (id) => {
+          const v = await abGet(gkey(group, id));
+          next[id] = v >= 1;
+        }));
+        remoteGroup = next;
+      }
+    } catch (e) {}
+  }
+
+  async function pushModule(id, open) {
+    if (API_BASE) {
+      try { await apiFetch("access", { id: id, open: !!open }); } catch (e) {}
+    }
+    await abSet("module" + id, ABTOK[id], open);
+    const acc = loadAcc(); acc[id] = !!open; saveAcc(acc);
+  }
+
+  async function pushGroup(g, id, open) {
+    const key = gkey(g, id);
+    const keys = gtokStore();
+    if (!keys[key]) {
+      try {
+        const cr = await fetch(AB + "/create/" + ABNS + "/" + key + "?initializer=" + (open ? 1 : 0));
+        const j = await cr.json();
+        if (j && j.admin_key) { keys[key] = j.admin_key; gtokSave(keys); }
+      } catch (e) {}
+    }
+    if (keys[key]) await abSet(key, keys[key], open);
+    remoteGroup[id] = !!open;
+  }
+
+  function canOpen(groupName, id) {
+    if (String(id) === "1") return true;
+    const g = normG(groupName);
+    if (loadAcc()[id]) return true;
+    if (remoteGroup[id]) return true;
+    const asg = loadAsg().filter((x) => normG(x.group) === g && String(x.id) === String(id));
+    if (asg.length) return !!asg[asg.length - 1].open;
+    return false;
+  }
+
+  function bank() {
+    if (typeof MODULES !== "undefined") return MODULES;
+    return window.MODULES || {};
+  }
+  function prepare(id) {
+    const src = (bank()[id] && bank()[id].questions) || [];
+    return shuffle(src).map((q) => {
+      const order = shuffle(q.a.map((_, i) => i));
+      return { q: q.q, a: order.map((i) => q.a[i]), correct: order.indexOf(q.i) };
+    });
+  }
+
+  let ac;
+  function audio() {
+    if (!ac) ac = new (window.AudioContext || window.webkitAudioContext)();
+    if (ac.state === "suspended") ac.resume();
+    return ac;
+  }
+  function isFS() {
+    return !!(document.fullscreenElement || document.webkitFullscreenElement || document.msFullscreenElement);
+  }
+  function goFS() {
+    if (isFS()) return;
+    const el = document.documentElement;
+    const req = el.requestFullscreen || el.webkitRequestFullscreen || el.mozRequestFullScreen || el.msRequestFullscreen;
+    if (!req) return;
+    try {
+      const p = req.call(el, { navigationUI: "hide" });
+      if (p && p.catch) p.catch(function () {});
+    } catch (e) {
+      try { req.call(el); } catch (e2) {}
+    }
+  }
+  function exitFS() {
+    if (!isFS()) return;
+    const fn = document.exitFullscreen || document.webkitExitFullscreen || document.mozCancelFullScreen || document.msExitFullscreen;
+    if (!fn) return;
+    try {
+      const p = fn.call(document);
+      if (p && p.catch) p.catch(function () {});
+    } catch (e) {}
+  }
+  function tone(f, d, type, g, at) {
+    const c = audio();
+    const o = c.createOscillator();
+    const v = c.createGain();
+    o.type = type; o.frequency.value = f;
+    v.gain.setValueAtTime(0.0001, c.currentTime + at);
+    v.gain.exponentialRampToValueAtTime(g, c.currentTime + at + 0.02);
+    v.gain.exponentialRampToValueAtTime(0.0001, c.currentTime + at + d);
+    o.connect(v); v.connect(c.destination);
+    o.start(c.currentTime + at); o.stop(c.currentTime + at + d + 0.02);
+  }
+  function sfxOk() { tone(523, 0.09, "sine", 0.08, 0); tone(784, 0.12, "sine", 0.07, 0.07); }
+  function sfxBad() { tone(180, 0.22, "sawtooth", 0.06, 0); }
+  function siren() {
+    const c = audio();
+    const t0 = c.currentTime, dur = 9, end = t0 + dur;
+    const master = c.createGain();
+    master.gain.setValueAtTime(0.0001, t0);
+    master.gain.exponentialRampToValueAtTime(0.95, t0 + 0.04);
+    master.gain.setValueAtTime(0.95, end - 0.5);
+    master.gain.exponentialRampToValueAtTime(0.0001, end);
+    master.connect(c.destination);
+
+    const horn = c.createOscillator(); horn.type = "square";
+    const horn2 = c.createOscillator(); horn2.type = "square";
+    horn.frequency.setValueAtTime(98, t0); horn2.frequency.setValueAtTime(196, t0);
+    const hg = c.createGain(); hg.gain.setValueAtTime(0.0001, t0);
+    hg.gain.exponentialRampToValueAtTime(0.38, t0 + 0.02);
+    hg.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.55);
+    horn.connect(hg); horn2.connect(hg); hg.connect(master);
+    horn.start(t0); horn2.start(t0); horn.stop(t0 + 0.6); horn2.stop(t0 + 0.6);
+
+    const lo = c.createOscillator(); lo.type = "square";
+    const hi = c.createOscillator(); hi.type = "square";
+    const lg = c.createGain(); const hg2 = c.createGain();
+    lg.gain.value = 0.0001; hg2.gain.value = 0.0001;
+    lo.connect(lg); hi.connect(hg2); lg.connect(master); hg2.connect(master);
+    lo.frequency.value = 392; hi.frequency.value = 523.25;
+    let onHi = true;
+    for (let t = t0 + 0.45; t < end - 0.2; t += 0.32) {
+      if (onHi) {
+        hg2.gain.setValueAtTime(0.0001, t); hg2.gain.linearRampToValueAtTime(0.28, t + 0.02);
+        hg2.gain.setValueAtTime(0.28, t + 0.26); hg2.gain.exponentialRampToValueAtTime(0.0001, t + 0.31);
+        lg.gain.setValueAtTime(0.0001, t);
+      } else {
+        lg.gain.setValueAtTime(0.0001, t); lg.gain.linearRampToValueAtTime(0.3, t + 0.02);
+        lg.gain.setValueAtTime(0.3, t + 0.26); lg.gain.exponentialRampToValueAtTime(0.0001, t + 0.31);
+        hg2.gain.setValueAtTime(0.0001, t);
+      }
+      onHi = !onHi;
+    }
+    lo.start(t0); hi.start(t0); lo.stop(end); hi.stop(end);
+
+    const bell = c.createOscillator(); bell.type = "triangle";
+    const bg = c.createGain(); bg.gain.value = 0.0001;
+    bell.connect(bg); bg.connect(master);
+    bell.frequency.value = 1760;
+    for (let t = t0 + 0.2; t < end - 0.3; t += 0.95) {
+      bg.gain.setValueAtTime(0.0001, t);
+      bg.gain.linearRampToValueAtTime(0.16, t + 0.01);
+      bg.gain.exponentialRampToValueAtTime(0.0001, t + 0.28);
+    }
+    bell.start(t0); bell.stop(end);
+
+    const nbuf = c.createBuffer(1, Math.ceil(c.sampleRate * dur), c.sampleRate);
+    const data = nbuf.getChannelData(0);
+    for (let i = 0; i < data.length; i++) data[i] = Math.random() * 2 - 1;
+    const noise = c.createBufferSource(); noise.buffer = nbuf;
+    const bp = c.createBiquadFilter(); bp.type = "bandpass"; bp.frequency.value = 1400; bp.Q.value = 4;
+    const ng = c.createGain(); ng.gain.value = 0.07;
+    noise.connect(bp); bp.connect(ng); ng.connect(master);
+    noise.start(t0); noise.stop(end);
+  }
+  function speak() {
+    if (!window.speechSynthesis) return;
+    speechSynthesis.cancel();
+    const say = (delay) => setTimeout(() => {
+      const u = new SpeechSynthesisUtterance("Вы списали. Обратитесь к преподавателю.");
+      u.lang = "ru-RU"; u.volume = 1; u.rate = 0.92;
+      speechSynthesis.speak(u);
+    }, delay);
+    say(400); say(3200);
+  }
+
+  let mod = null, qs = [], idx = 0, locked = false;
+  let correctN = 0, xp = 0, streak = 0, left = TMAX, timer = null;
+  let live = false, cheatArmed = false, saved = false, started = 0, fio = "", group = "", twinSlot = 0;
+
+  function persist(row) {
+    if (saved) return;
+    saved = true;
+    const all = load(); all.unshift(row); save(all);
+    if (row.status === "СПИСЫВАНИЕ") return;
+    if (API_BASE) {
+      apiFetch("results", row).then(function (d) {
+        console.log("ОПП: записано в PostgreSQL", d);
+      }).catch(function (e) {
+        console.warn("ОПП: база не приняла результат", e);
+      });
+    } else {
+      console.warn("ОПП: API выключен, результат только в этом браузере");
+    }
+  }
+  function finish(status) {
+    live = false; cheatArmed = false; stopTimer();
+    const total = qs.length;
+    const pct = status === "СПИСЫВАНИЕ" ? 0 : Math.round(correctN / Math.max(1, total) * 100);
+    persist({
+      date: new Date().toLocaleString("ru-RU"), name: fio, group, modules: mod,
+      status, correct: status === "СПИСЫВАНИЕ" ? 0 : correctN, total, pct,
+      xp: status === "СПИСЫВАНИЕ" ? 0 : xp,
+      duration: Math.round((Date.now() - started) / 1000)
+    });
+    if (status === "Пройден") {
+      const h = fioHash(fio);
+      abEnsure("fd" + h, 1).catch(function () {});
+      if (twinSlot) abEnsure("fu" + h + "g" + twinSlot, 1).catch(function () {});
+    }
+    if (status === "СПИСЫВАНИЕ") {
+      if ($("cheatwho")) $("cheatwho").textContent = (fio + " · " + group).toUpperCase();
+      $("cheat").classList.remove("hidden");
+      siren(); speak();
+      return;
+    }
+    $("rpct").textContent = pct + "%";
+    $("rname").textContent = fio;
+    $("rgroup").textContent = group;
+    $("rc").textContent = correctN;
+    $("rt").textContent = total;
+    $("rx").textContent = xp;
+    show("result");
+  }
+
+  function watchCheat() {
+    const hide = () => { if (live && cheatArmed) { live = false; finish("СПИСЫВАНИЕ"); } };
+    document.addEventListener("visibilitychange", () => {
+      if (document.visibilityState === "hidden") hide();
+    });
+    document.addEventListener("contextmenu", (e) => e.preventDefault());
+    document.addEventListener("copy", (e) => e.preventDefault());
+  }
+
+  function renderCab() {
+    $("cabwho").textContent = fio + " · " + group;
+    $("caberr").textContent = "";
+    const box = $("cabmods");
+    box.innerHTML = "";
+    IDS.forEach((id) => {
+      const m = MODULES[id];
+      const open = canOpen(group, id);
+      const last = load().find((r) => r.name === fio && r.group === group && r.modules === id && r.status === "Пройден");
+      const b = document.createElement("button");
+      b.type = "button";
+      b.className = "mod" + (open ? " on" : "");
+      b.disabled = !open;
+      b.innerHTML = '<div class="ico">' + (open ? "✓" : "🔒") + "</div><div><strong>" + m.title + "</strong><div class='sub'>" +
+        (open ? (last ? m.topic + " · последний результат " + last.pct + "%" : m.topic) : "Не назначен вашей группе") + "</div></div>";
+      b.onclick = () => begin(id);
+      box.appendChild(b);
+      if (!isAdmin(fio) && localPassedCount(fio) >= 1 + localGrantCount(fio)) {
+        b.disabled = true;
+        b.className = "mod";
+        b.innerHTML = '<div class="ico">🔒</div><div><strong>' + m.title + "</strong><div class='sub'>Это ФИО уже сдавало тест. Однофамильцу доступ открывает преподаватель.</div></div>";
+        $("caberr").textContent = "Это ФИО уже проходило тест. Если вы однофамилец — обратитесь к преподавателю.";
+      }
+    });
+  }
+
+  let starting = false;
+  function stopTimer() {
+    if (timer != null) { clearInterval(timer); timer = null; }
+  }
+  function startTimer() {
+    stopTimer();
+    timer = setInterval(tick, 1000);
+  }
+  function quizOn() {
+    const el = document.getElementById("quiz");
+    return !!(el && !el.classList.contains("hidden"));
+  }
+
+  async function begin(id) {
+    if (quizOn() && live) return;
+    if (!canOpen(group, id)) { $("caberr").textContent = "Модуль не открыт для вашей группы."; return; }
+    if (!isAdmin(fio) && localPassedCount(fio) >= 1 + localGrantCount(fio)) {
+      $("caberr").textContent = "Это ФИО уже сдавало тест. Если вы однофамилец, преподаватель должен подтвердить доступ.";
+      return;
+    }
+    stopTimer();
+    twinSlot = 0;
+    mod = id; saved = false; started = Date.now();
+    live = true;
+    cheatArmed = false;
+    qs = prepare(id);
+    if (!qs.length) {
+      live = false; cheatArmed = false;
+      $("caberr").textContent = "Не загрузились вопросы. Обновите страницу (Ctrl+F5).";
+      show("cabinet");
+      return;
+    }
+    $("qm").textContent = MODULES[id].title;
+    $("qt").textContent = "0:" + String(TMAX).padStart(2, "0");
+    (window.__strip||{textContent:""}).textContent = "Смешанный контроль по материалу модулей";
+    show("quiz");
+    renderQ();
+    startTimer();
+    try { goFS(); } catch (e) {}
+    setTimeout(function () { if (live) cheatArmed = true; }, 1800);
+    remoteExtraSlot(fio).then(function (s) { twinSlot = s || 0; }).catch(function () { twinSlot = 0; });
+  }
+
+  function tick() {
+    if (!live || locked) return;
+    left -= 1;
+    $("qt").textContent = "0:" + String(Math.max(0, left)).padStart(2, "0");
+    if (left <= 0) { stopTimer(); answer(-1); }
+  }
+  function renderQ() {
+    const q = qs[idx];
+    $("qn").textContent = "Вопрос " + (idx + 1) + " / " + qs.length;
+    $("qv").textContent = "Верно: " + correctN;
+    $("qtext").textContent = q.q;
+    $("pb").style.width = (idx / qs.length * 100) + "%";
+    $("qx").textContent = "XP " + xp;
+    $("qs").classList.toggle("hidden", streak < 2);
+    $("qs").textContent = "серия " + streak;
+    $("verdict").classList.add("hidden");
+    $("strip").className = "strip";
+    $("opts").innerHTML = "";
+    q.a.forEach((t, i) => {
+      const b = document.createElement("button");
+      b.className = "opt"; b.type = "button"; b.textContent = t;
+      b.onclick = () => answer(i);
+      $("opts").appendChild(b);
+    });
+  }
+  function answer(choice) {
+    if (locked) return;
+    locked = true; stopTimer();
+    const q = qs[idx];
+    const ok = choice === q.correct;
+    [...$("opts").children].forEach((b, i) => {
+      if (i === q.correct) b.classList.add("ok");
+      else if (i === choice) b.classList.add("bad");
+      else b.classList.add("dim");
+      b.disabled = true;
+    });
+    $("verdict").textContent = ok ? "Верно" : (choice < 0 ? "Время" : "Неверно");
+    $("verdict").className = "verdict " + (ok ? "ok" : "bad");
+    $("strip").className = "strip " + (ok ? "ok" : "bad");
+    (window.__strip||{textContent:""}).textContent = ok ? "Смешанный контроль по материалу модулей" : "Неверный ответ";
+    if (ok) {
+      sfxOk(); if (window.OPP_FACTORY) { OPP_FACTORY.cue = "place"; OPP_FACTORY.cueUntil = performance.now() + 900; }
+      const bonus = Math.max(8, Math.round(left / TMAX * 20));
+      streak += 1; correctN += 1; xp += 12 + bonus + (streak >= 3 ? streak * 2 : 0);
+    } else {
+      sfxBad(); if (window.OPP_FACTORY) { OPP_FACTORY.cue = "drop"; OPP_FACTORY.cueUntil = performance.now() + 900; }
+      streak = 0;
+    }
+    setTimeout(() => {
+      if (idx + 1 >= qs.length) finish("Пройден");
+      else { idx += 1; locked = false; left = TMAX; renderQ(); startTimer(); }
+    }, 1150);
+  }
+
+  function refreshAdmin(fromServer) {
+    if ($("aname")) $("aname").textContent = fio || "Администратор";
+    const rows = load();
+    const ok = rows.filter((r) => r.status === "Пройден");
+    const cheat = rows.filter((r) => r.status === "СПИСЫВАНИЕ").length;
+    const avg = ok.length ? Math.round(ok.reduce((s, r) => s + r.pct, 0) / ok.length) : 0;
+    $("astats").innerHTML =
+      "<div class='stat'><b>" + rows.length + "</b><span>прохождений</span></div>" +
+      "<div class='stat'><b>" + ok.length + "</b><span>успешных</span></div>" +
+      "<div class='stat'><b>" + cheat + "</b><span>списываний</span></div>" +
+      "<div class='stat'><b>" + avg + "%</b><span>средний %</span></div>";
+    function esc(s) {
+      return String(s == null ? "" : s)
+        .replace(/&/g, "&" + "amp;")
+        .replace(/</g, "&" + "lt;")
+        .replace(/>/g, "&" + "gt;")
+        .replace(/"/g, "&" + "quot;");
+    }
+    function modTitle(id) {
+      return (bank()[id] && bank()[id].title) || "Общий тест";
+    }
+    $("abody").innerHTML = rows.length
+      ? rows.map((r) => "<tr><td>" + esc(r.date) + "</td><td>" + esc(r.name) + "</td><td>" + esc(r.group) + "</td><td>" + esc(modTitle(r.modules)) + "</td><td>" + esc(r.correct) + "</td><td>" + esc(r.total) + "</td><td>" + esc(r.pct) + "</td><td>" + esc(r.xp) + "</td><td>" + esc(r.duration) + "</td><td>" + esc(r.status) + "</td></tr>").join("")
+      : "<tr><td colspan='10'>Пока нет прохождений на этом устройстве</td></tr>";
+    const acc = loadAcc();
+    $("accbtns").innerHTML = "";
+    IDS.forEach((id) => {
+      const b = document.createElement("button");
+      b.type = "button"; b.className = "mod" + (acc[id] ? " on" : "");
+      b.innerHTML = "<div><strong>" + MODULES[id].title + "</strong><div class='sub'>" + (acc[id] ? "Открыт для студентов" : "Закрыт") + "</div></div>";
+      b.onclick = () => {
+        const next = !acc[id];
+        acc[id] = next;
+        saveAcc(acc);
+        if ($("accmsg")) $("accmsg").textContent = "Сохраняю…";
+        pushModule(id, next).then(() => pullAccess()).then(() => {
+          if ($("accmsg")) $("accmsg").textContent = next ? (MODULES[id].title + " открыт для всех студентов.") : (MODULES[id].title + " закрыт.");
+          refreshAdmin();
+        });
+      };
+      $("accbtns").appendChild(b);
+    });
+    if ($("accbtns"));
+    const asg = loadAsg();
+    $("asopen").innerHTML = ""; $("asclose").innerHTML = "";
+    IDS.forEach((id) => {
+      const o = document.createElement("button"); o.type = "button"; o.className = "btn ghost"; o.textContent = "Открыть тест";
+      o.onclick = () => {
+        const g = normG($("agrp").value);
+        if (!g) { if ($("accmsg")) $("accmsg").textContent = "Сначала укажите направление и группу."; return; }
+        $("agrp").value = g;
+        asg.push({ group: g, id, open: true }); saveAsg(asg);
+        if ($("accmsg")) $("accmsg").textContent = "Сохраняю…";
+        pushGroup(g, id, true).then(() => pullAccess()).then(() => {
+          if ($("accmsg")) $("accmsg").textContent = MODULES[id].title + " открыт для " + g + ".";
+          refreshAdmin();
+        });
+      };
+      $("asopen").appendChild(o);
+      const c = document.createElement("button"); c.type = "button"; c.className = "btn ghost"; c.textContent = "Закрыть тест";
+      c.onclick = () => {
+        const g = normG($("agrp").value);
+        if (!g) { if ($("accmsg")) $("accmsg").textContent = "Сначала укажите направление и группу."; return; }
+        $("agrp").value = g;
+        asg.push({ group: g, id, open: false }); saveAsg(asg);
+        if ($("accmsg")) $("accmsg").textContent = "Сохраняю…";
+        pushGroup(g, id, false).then(() => pullAccess()).then(() => {
+          if ($("accmsg")) $("accmsg").textContent = MODULES[id].title + " закрыт для " + g + ".";
+          refreshAdmin();
+        });
+      };
+      $("asclose").appendChild(c);
+    });
+    $("alist").innerHTML = asg.length ? asg.slice(-12).reverse().map((a) => "<li>" + a.group + " · модуль " + a.id + " · " + (a.open ? "открыт" : "закрыт") + "</li>").join("") : "<li>Пока нет назначений</li>";
+    const grants = loadGrants();
+    const map = {};
+    load().forEach((r) => {
+      if (r.status !== "Пройден") return;
+      const n = normName(r.name);
+      if (!map[n]) map[n] = { name: r.name, n: 0 };
+      map[n].n += 1;
+    });
+    grants.forEach((g) => {
+      const n = normName(g.name);
+      if (!map[n]) map[n] = { name: g.name, n: 0 };
+      map[n].extra = (map[n].extra || 0) + 1;
+    });
+    const lines = Object.keys(map).map((n) => {
+      const p = map[n];
+      const extra = p.extra || 0;
+      const closed = p.n >= 1 + extra;
+      return "<li>" + p.name + " · сдач: " + p.n + " · доп. попыток: " + extra + " · " + (closed ? "закрыто" : "можно сдать") + "</li>";
+    });
+    if ($("twinlist")) $("twinlist").innerHTML = lines.length ? lines.join("") : "<li>Пока нет сдавших</li>";
+    if (!fromServer && API_BASE) {
+      apiFetch("results").then(function (data) {
+        if (data && Array.isArray(data.rows)) {
+          save(data.rows);
+          refreshAdmin(true);
+        }
+      }).catch(function () {});
+    }
+  }
+
+  $("fio").addEventListener("input", () => {
+    const el = $("fio");
+    const pos = el.selectionStart;
+    const next = capFio(el.value);
+    if (next !== el.value) {
+      el.value = next;
+      try { el.setSelectionRange(pos, pos); } catch (e) {}
+    }
+    const admin = isAdmin(el.value);
+    $("pwdbox").classList.toggle("hidden", !admin);
+    $("go").textContent = admin ? "Войти в панель" : "Войти в личный кабинет";
+  });
+  $("group").addEventListener("input", () => { $("group").value = $("group").value.toUpperCase(); });
+  $("agrp") && $("agrp").addEventListener("input", () => { $("agrp").value = $("agrp").value.toUpperCase(); });
+  if ($("twinfio")) $("twinfio").addEventListener("input", () => {
+    const el = $("twinfio");
+    const pos = el.selectionStart;
+    const next = capFio(el.value);
+    if (next !== el.value) {
+      el.value = next;
+      try { el.setSelectionRange(pos, pos); } catch (e) {}
+    }
+  });
+  if ($("granttwin")) $("granttwin").onclick = () => {
+    const name = capFio(($("twinfio") && $("twinfio").value) || "").replace(/\s+/g, " ").trim();
+    const msg = $("twinmsg");
+    if (!name || name.split(" ").length < 2) {
+      if (msg) msg.textContent = "Укажите полное ФИО однофамильца.";
+      return;
+    }
+    const grants = loadGrants();
+    grants.push({ name: name, by: fio, date: new Date().toLocaleString("ru-RU") });
+    saveGrants(grants);
+    if ($("twinfio")) $("twinfio").value = name;
+    if (msg) msg.textContent = "Сохраняю допуск…";
+    const n = localGrantCount(name);
+    if (API_BASE) apiFetch("grant", { name: name, by: fio }).catch(function () {});
+    abEnsure("ft" + fioHash(name) + "g" + n, 1).then(function () {
+      if (msg) msg.textContent = "Однофамилец подтверждён. " + name + " может сдать тест ещё один раз.";
+      refreshAdmin();
+    }).catch(function () {
+      if (msg) msg.textContent = "Допуск сохранён на этом устройстве для " + name + ".";
+      refreshAdmin();
+    });
+  };
+
+  $("go").onclick = () => {
+    try { audio(); } catch (e) {}
+    fio = capFio($("fio").value).replace(/\s+/g, " ").trim();
+    $("fio").value = fio;
+    group = normG($("group").value);
+    $("group").value = group;
+    if (!fio || !group) {
+      if ($("starterr")) $("starterr").textContent = "Заполните ФИО и группу.";
+      return;
+    }
+    if ($("starterr")) $("starterr").textContent = "";
+    if (isAdmin(fio)) {
+      if ($("pwd").value !== adminPass(fio)) { $("pwderr").textContent = "Неверный пароль"; return; }
+      $("pwderr").textContent = "";
+      refreshAdmin(); show("admin"); return;
+    }
+    pullAccess().then(() => { renderCab(); show("cabinet"); });
+  };
+  $("cabback").onclick = () => show("start");
+  $("again").onclick = () => { show("start"); mod = null; };
+  if ($("rescab")) $("rescab").onclick = () => { pullAccess().then(() => { renderCab(); show("cabinet"); }); };
+  $("back").onclick = () => show("start");
+  if ($("savepwd")) $("savepwd").onclick = () => {
+    const a = ($("newpwd") && $("newpwd").value) || "";
+    const b = ($("newpwd2") && $("newpwd2").value) || "";
+    const msg = $("pwdmsg");
+    if (a.length < 6) { if (msg) msg.textContent = "Пароль не короче 6 символов."; return; }
+    if (a !== b) { if (msg) msg.textContent = "Пароли не совпадают."; return; }
+    const all = loadPasses();
+    all[normName(fio)] = a;
+    savePasses(all);
+    if ($("newpwd")) $("newpwd").value = "";
+    if ($("newpwd2")) $("newpwd2").value = "";
+    if (msg) msg.textContent = "Пароль сохранён. Дальше входите только с ним.";
+  };
+  function crc32bytes(u8) {
+    let c = ~0 >>> 0;
+    for (let i = 0; i < u8.length; i++) {
+      c ^= u8[i];
+      for (let k = 0; k < 8; k++) c = (c >>> 1) ^ (0xEDB88320 & -(c & 1));
+    }
+    return (~c) >>> 0;
+  }
+  function u16(n) { return new Uint8Array([n & 255, (n >>> 8) & 255]); }
+  function u32(n) { return new Uint8Array([n & 255, (n >>> 8) & 255, (n >>> 16) & 255, (n >>> 24) & 255]); }
+  function cat(parts) {
+    let n = 0; for (let i = 0; i < parts.length; i++) n += parts[i].length;
+    const o = new Uint8Array(n); let p = 0;
+    for (let i = 0; i < parts.length; i++) { o.set(parts[i], p); p += parts[i].length; }
+    return o;
+  }
+  function zipStore(files) {
+    const enc = new TextEncoder();
+    const locals = []; const centrals = [];
+    let offset = 0;
+    const now = new Date();
+    const dosTime = ((now.getHours() << 11) | (now.getMinutes() << 5) | (now.getSeconds() >> 1)) & 0xffff;
+    const dosDate = (((now.getFullYear() - 1980) << 9) | ((now.getMonth() + 1) << 5) | now.getDate()) & 0xffff;
+    files.forEach(function (f) {
+      const name = enc.encode(f.name);
+      const data = typeof f.data === "string" ? enc.encode(f.data) : f.data;
+      const crc = crc32bytes(data);
+      const loc = cat([
+        new Uint8Array([0x50, 0x4b, 0x03, 0x04]), u16(20), u16(0), u16(0), u16(dosTime), u16(dosDate),
+        u32(crc), u32(data.length), u32(data.length), u16(name.length), u16(0), name, data
+      ]);
+      const cen = cat([
+        new Uint8Array([0x50, 0x4b, 0x01, 0x02]), u16(20), u16(20), u16(0), u16(0), u16(dosTime), u16(dosDate),
+        u32(crc), u32(data.length), u32(data.length), u16(name.length), u16(0), u16(0), u16(0), u16(0), u32(0),
+        u32(offset), name
+      ]);
+      locals.push(loc); centrals.push(cen); offset += loc.length;
+    });
+    const cd = cat(centrals);
+    const eocd = cat([
+      new Uint8Array([0x50, 0x4b, 0x05, 0x06]), u16(0), u16(0), u16(files.length), u16(files.length),
+      u32(cd.length), u32(offset), u16(0)
+    ]);
+    return cat(locals.concat([cd, eocd]));
+  }
+  function xmlEsc(s) {
+    return String(s == null ? "" : s)
+      .replace(/&/g, "&" + "amp;")
+      .replace(/</g, "&" + "lt;")
+      .replace(/>/g, "&" + "gt;")
+      .replace(/"/g, "&" + "quot;")
+      .replace(/'/g, "&" + "apos;");
+  }
+  function xlsxCell(col, row, value, num) {
+    const ref = String.fromCharCode(65 + col) + row;
+    if (num) return '<c r="' + ref + '"><v>' + Number(value || 0) + "</v></c>";
+    return '<c r="' + ref + '" t="inlineStr"><is><t>' + xmlEsc(value) + "</t></is></c>";
+  }
+  function buildXlsx(rows) {
+    const heads = ["Дата", "ФИО", "Группа", "Модуль", "Верных", "Всего", "%", "XP", "Сек", "Статус"];
+    let sheet = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>';
+    sheet += '<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">';
+    sheet += '<sheetViews><sheetView tabSelected="1" workbookViewId="0"><pane ySplit="1" topLeftCell="A2" activePane="bottomLeft" state="frozen"/></sheetView></sheetViews>';
+    sheet += '<cols><col min="1" max="1" width="22" customWidth="1"/><col min="2" max="2" width="28" customWidth="1"/><col min="3" max="3" width="18" customWidth="1"/><col min="4" max="4" width="22" customWidth="1"/><col min="5" max="10" width="12" customWidth="1"/></cols>';
+    sheet += "<sheetData><row r=\"1\">";
+    heads.forEach(function (h, i) { sheet += xlsxCell(i, 1, h, false); });
+    sheet += "</row>";
+    rows.forEach(function (r, idx) {
+      const n = idx + 2;
+      const title = (bank()[r.modules] && bank()[r.modules].title) || "Общий тест";
+      sheet += "<row r=\"" + n + "\">";
+      sheet += xlsxCell(0, n, r.date, false);
+      sheet += xlsxCell(1, n, r.name, false);
+      sheet += xlsxCell(2, n, r.group, false);
+      sheet += xlsxCell(3, n, title, false);
+      sheet += xlsxCell(4, n, r.correct, true);
+      sheet += xlsxCell(5, n, r.total, true);
+      sheet += xlsxCell(6, n, r.pct, true);
+      sheet += xlsxCell(7, n, r.xp, true);
+      sheet += xlsxCell(8, n, r.duration, true);
+      sheet += xlsxCell(9, n, r.status, false);
+      sheet += "</row>";
+    });
+    sheet += "</sheetData>";
+    if (rows.length) sheet += '<autoFilter ref="A1:J' + (rows.length + 1) + '"/>';
+    sheet += "</worksheet>";
+    const types = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/><Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/></Types>';
+    const rels = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/></Relationships>';
+    const wb = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets><sheet name="Результаты" sheetId="1" r:id="rId1"/></sheets></workbook>';
+    const wbRels = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/></Relationships>';
+    return zipStore([
+      { name: "[Content_Types].xml", data: types },
+      { name: "_rels/.rels", data: rels },
+      { name: "xl/workbook.xml", data: wb },
+      { name: "xl/_rels/workbook.xml.rels", data: wbRels },
+      { name: "xl/worksheets/sheet1.xml", data: sheet }
+    ]);
+  }
+  if ($("clearasg")) $("clearasg").onclick = () => {
+    if (!window.confirm("Очистить историю назначений группам?")) return;
+    saveAsg([]);
+    refreshAdmin();
+  };
+  $("exp").onclick = () => {
+    const rows = load().filter((r) => r.status !== "СПИСЫВАНИЕ");
+    const bytes = buildXlsx(rows);
+    const blob = new Blob([bytes], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
+    const a = document.createElement("a");
+    const d = new Date();
+    const stamp = d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0");
+    a.href = URL.createObjectURL(blob);
+    a.download = "ОПП_результаты_" + stamp + ".xlsx";
+    a.click();
+    setTimeout(function () { URL.revokeObjectURL(a.href); }, 2000);
+  };
+
+  if (typeof startFactory === "function") {
+    try { startFactory(); } catch (e) {}
+  }
+  watchCheat();
+  (function boot() {
+    const fast = Math.min(innerWidth, innerHeight) < 820;
+    const steps = fast
+      ? [[0, 20, "Питание ячейки…"], [400, 60, "Загрузка модулей…"], [900, 100, "Готово к смене"]]
+      : [
+          [0, 6, "Питание ячейки…"],
+          [700, 22, "Калибровка осей KUKA…"],
+          [1500, 44, "Проверка вакуумного захвата…"],
+          [2300, 67, "Загрузка модулей теста…"],
+          [3200, 86, "Синхронизация линии…"],
+          [4000, 100, "Готово к смене"],
+        ];
+    steps.forEach(([t, p, m]) => setTimeout(() => {
+      $("bootmsg").textContent = m;
+      $("bootpct").textContent = p + "%";
+      $("bootbar").style.width = p + "%";
+    }, t));
+    setTimeout(() => show("start"), fast ? 1400 : 4600);
+  })();
+  pullAccess();
+  setInterval(() => {
+    const cab = $("cabinet");
+    if (cab && !cab.classList.contains("hidden")) pullAccess().then(renderCab);
+  }, 6000);
+})();
