@@ -363,7 +363,7 @@
   }
 
   let mod = null, qs = [], idx = 0, locked = false;
-  let correctN = 0, xp = 0, streak = 0, left = TMAX, timer = null;
+  let correctN = 0, xp = 0, streak = 0, left = TMAX, timer = null, sel = -1;
   let live = false, cheatArmed = false, saved = false, started = 0, fio = "", group = "", twinSlot = 0;
 
   function persist(row) {
@@ -495,10 +495,23 @@
     if (!live || locked) return;
     left -= 1;
     $("qt").textContent = "0:" + String(Math.max(0, left)).padStart(2, "0");
-    if (left <= 0) { stopTimer(); answer(-1); }
+    if (left <= 0) { stopTimer(); answer(sel); }
   }
+  function pick(i) {
+    if (locked) return;
+    sel = i;
+    [...$("opts").children].forEach((b, k) => b.classList.toggle("picked", k === i));
+    if ($("qconfirm")) $("qconfirm").disabled = false;
+  }
+  function confirmAnswer() {
+    if (locked || sel < 0) return;
+    answer(sel);
+  }
+  window.OPP_CONFIRM = confirmAnswer;
   function renderQ() {
     const q = qs[idx];
+    sel = -1;
+    if ($("qconfirm")) { $("qconfirm").disabled = true; $("qconfirm").onclick = confirmAnswer; }
     $("qn").textContent = "Вопрос " + (idx + 1) + " / " + qs.length;
     $("qv").textContent = "Верно: " + correctN;
     $("qtext").textContent = q.q;
@@ -512,13 +525,14 @@
     q.a.forEach((t, i) => {
       const b = document.createElement("button");
       b.className = "opt"; b.type = "button"; b.textContent = t;
-      b.onclick = () => answer(i);
+      b.onclick = () => pick(i);
       $("opts").appendChild(b);
     });
   }
   function answer(choice) {
     if (locked) return;
     locked = true; stopTimer();
+    if ($("qconfirm")) $("qconfirm").disabled = true;
     const q = qs[idx];
     const ok = choice === q.correct;
     [...$("opts").children].forEach((b, i) => {
@@ -542,7 +556,7 @@
     setTimeout(() => {
       if (idx + 1 >= qs.length) finish("Пройден");
       else { idx += 1; locked = false; left = TMAX; renderQ(); startTimer(); }
-    }, 1150);
+    }, 500);
   }
 
   function refreshAdmin(fromServer) {
