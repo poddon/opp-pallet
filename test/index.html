@@ -148,6 +148,13 @@
     .keys { text-align: center; margin-top: 14px; font-size: .78rem; color: var(--muted); }
     @media (hover: none) { .keys { display: none; } }
 
+
+    /* без подсказок о правильности: ответ только отмечается */
+    .verdict, #qx, #qs { display: none !important; }
+    .opt.ok, .opt.bad, .opt.dim { border-color: var(--line); background: #fff; opacity: .45; animation: none; }
+    .opt.ok::before, .opt.bad::before { content: counter(opt); background: var(--mist); color: var(--blue); }
+    .opt.picked { opacity: 1; border-color: var(--blue); background: #F2F6FF; }
+    .ruler span.ok, .ruler span.bad { background: var(--blue); opacity: .55; }
     /* result */
     #result .card { text-align: center; padding-top: 34px; }
     #result .pallet { width: 150px; margin: 0 auto 14px; display: block; }
@@ -376,8 +383,8 @@
   <div id="strip" class="strip" aria-hidden="true"></div>
   <script src="questions.js?v=q2"></script>
   <script src="synology-config.js"></script>
-  <script src="app.js?v=c1"></script>
-  <script src="ui.js?v=n1"></script>
+  <script src="app.js?v=c4"></script>
+  <script src="ui.js?v=n2"></script>
   <script src="cert.js?v=c3"></script>
 </body>
 </html>

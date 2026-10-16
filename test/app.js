@@ -289,8 +289,8 @@
     o.connect(v); v.connect(c.destination);
     o.start(c.currentTime + at); o.stop(c.currentTime + at + d + 0.02);
   }
-  function sfxOk() { tone(523, 0.09, "sine", 0.08, 0); tone(784, 0.12, "sine", 0.07, 0.07); }
-  function sfxBad() { tone(180, 0.22, "sawtooth", 0.06, 0); }
+  function sfxOk() { tone(440, 0.06, "sine", 0.06, 0); }
+  function sfxBad() { sfxOk(); }
   function siren() {
     const c = audio();
     const t0 = c.currentTime, dur = 9, end = t0 + dur;

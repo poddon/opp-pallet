@@ -32,6 +32,11 @@
   new MutationObserver(onQ).observe(qn, { childList: true, characterData: true, subtree: true });
   new MutationObserver(onVerdict).observe(verdict, { attributes: true, attributeFilter: ["class"] });
   new MutationObserver(onTimer).observe(qt, { childList: true, characterData: true, subtree: true });
+  // отмечаем выбранный вариант нейтрально (без «верно/неверно»)
+  $("opts").addEventListener("click", function (e) {
+    var b = e.target.closest ? e.target.closest(".opt") : null;
+    if (b && !b.disabled) b.classList.add("picked");
+  }, true);
   document.addEventListener("keydown", function (e) {
     if ($("quiz").classList.contains("hidden")) return;
     if (e.target && /INPUT|TEXTAREA/.test(e.target.tagName)) return;
