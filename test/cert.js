@@ -55,7 +55,6 @@
     ctx.font = "bold " + 14 * PX + "px " + FONT;
     var label = "Результат итогового тестирования: ";
     ctx.fillText(label, X0, PCT_BASE);
-    ctx.fillStyle = BLUE;
     ctx.fillText(pct + "%", X0 + ctx.measureText(label).width, PCT_BASE);
     return c;
   }
