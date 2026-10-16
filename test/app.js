@@ -409,6 +409,7 @@
     $("rt").textContent = total;
     $("rx").textContent = xp;
     show("result");
+    if (window.OPP_CERT_UI) window.OPP_CERT_UI(fio, pct);
   }
 
   function watchCheat() {
