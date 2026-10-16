@@ -23,7 +23,7 @@
     bgReady = new Promise(function (resolve, reject) {
       if (window.OPP_CERT_BG) return withSrc(window.OPP_CERT_BG, resolve, reject);
       var s = document.createElement("script");
-      s.src = "cert-bg.js?v=1";
+      s.src = "cert-bg.js?v=2";
       s.onload = function () { withSrc(window.OPP_CERT_BG, resolve, reject); };
       s.onerror = function () { bgReady = null; reject(new Error("cert-bg")); };
       document.head.appendChild(s);
