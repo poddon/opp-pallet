@@ -324,6 +324,14 @@
     <div class="card wide">
       <div class="brand"><div class="mark">А</div><div><h1>Админ-панель</h1><div class="sub" id="aname">Администратор</div></div></div>
       <div id="astats" class="stats"></div>
+      <div class="box" id="livePanel">
+        <p style="font-weight:800;color:var(--navy)">Активные тестирования — <span id="liveCount">0</span></p>
+        <p id="liveMessage" class="sub" style="margin-top:6px">Получение данных…</p>
+        <div class="tbl" style="overflow-x:auto"><table>
+          <thead><tr><th>ФИО</th><th>Группа</th><th>Вопрос</th><th>Время</th><th>Статус</th></tr></thead>
+          <tbody id="liveBody"><tr><td colspan="5">Нет данных</td></tr></tbody>
+        </table></div>
+      </div>
       <div class="box">
         <p>Доступ к тесту</p>
         <p class="sub">Откройте тест на паре, и он появится у всех студентов. После занятия закройте.</p>
@@ -378,6 +386,7 @@
   <script src="app.js?v=c10"></script>
   <script src="cloud-sync.js?v=2"></script>
   <script src="admin-sync.js?v=5"></script>
+  <script src="live-tracking.js?v=1"></script>
   <script src="ui.js?v=n3"></script>
 </body>
 </html>
