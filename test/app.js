@@ -851,8 +851,32 @@
     saveAsg([]);
     refreshAdmin();
   };
-  $("exp").onclick = () => {
-    const rows = load().filter((r) => r.status !== "СПИСЫВАНИЕ");
+  $("exp").onclick = async () => {
+    const button = $("exp");
+    button.disabled = true;
+    button.textContent = "Загружаю актуальные результаты…";
+    let rows;
+    try {
+      const response = await fetch("https://munbcjaikjpbpuxzpbqq.supabase.co/functions/v1/quiz-api?action=results", {
+        cache: "no-store",
+        headers: {
+          "x-admin-name": encodeURIComponent(fio),
+          "x-admin-password": $("pwd").value
+        }
+      });
+      if (!response.ok) throw new Error("Ошибка сервера " + response.status);
+      const data = await response.json();
+      if (!data.ok || !Array.isArray(data.rows)) throw new Error("Неверный ответ сервера");
+      rows = data.rows.filter((r) => r.status !== "СПИСЫВАНИЕ");
+      window.OPP_SHARED_RESULTS = data.rows;
+    } catch (e) {
+      alert("Не удалось загрузить актуальные результаты из общей базы. Экспорт отменён. " + e.message);
+      button.disabled = false;
+      button.textContent = "Скачать таблицу Excel";
+      return;
+    }
+    button.disabled = false;
+    button.textContent = "Скачать таблицу Excel";
     const bytes = buildXlsx(rows);
     const blob = new Blob([bytes], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
     const a = document.createElement("a");
