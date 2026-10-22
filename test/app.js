@@ -851,41 +851,30 @@
     saveAsg([]);
     refreshAdmin();
   };
-  $("exp").onclick = async () => {
-    const button = $("exp");
-    button.disabled = true;
-    button.textContent = "Загружаю актуальные результаты…";
-    let rows;
-    try {
-      const response = await fetch("https://munbcjaikjpbpuxzpbqq.supabase.co/functions/v1/quiz-api?action=results", {
-        cache: "no-store",
-        headers: {
-          "x-admin-name": encodeURIComponent(fio),
-          "x-admin-password": $("pwd").value
-        }
-      });
-      if (!response.ok) throw new Error("Ошибка сервера " + response.status);
-      const data = await response.json();
-      if (!data.ok || !Array.isArray(data.rows)) throw new Error("Неверный ответ сервера");
-      rows = data.rows.filter((r) => r.status !== "СПИСЫВАНИЕ");
-      window.OPP_SHARED_RESULTS = data.rows;
-    } catch (e) {
-      alert("Не удалось загрузить актуальные результаты из общей базы. Экспорт отменён. " + e.message);
-      button.disabled = false;
-      button.textContent = "Скачать таблицу Excel";
+  $("exp").onclick = () => {
+    const source = window.OPP_SHARED_RESULTS;
+    if (!Array.isArray(source)) {
+      alert("Общая таблица ещё не загружена. Проверьте сообщение над таблицей и обновите страницу.");
       return;
     }
-    button.disabled = false;
-    button.textContent = "Скачать таблицу Excel";
-    const bytes = buildXlsx(rows);
-    const blob = new Blob([bytes], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
-    const a = document.createElement("a");
-    const d = new Date();
-    const stamp = d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0");
-    a.href = URL.createObjectURL(blob);
-    a.download = "ОПП_результаты_" + stamp + ".xlsx";
-    a.click();
-    setTimeout(function () { URL.revokeObjectURL(a.href); }, 2000);
+    const rows = source.filter(r => r.status !== "СПИСЫВАНИЕ");
+    let blob;
+    try {
+      blob = new Blob([buildXlsx(rows)], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
+    } catch (error) {
+      alert("Ошибка формирования Excel: " + error.message);
+      return;
+    }
+    const now = new Date();
+    const stamp = now.getFullYear() + "-" + String(now.getMonth() + 1).padStart(2, "0") + "-" + String(now.getDate()).padStart(2, "0");
+    const href = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = href;
+    link.download = "ОПП_результаты_" + stamp + ".xlsx";
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    setTimeout(() => URL.revokeObjectURL(href), 60000);
   };
 
   if (typeof startFactory === "function") {
