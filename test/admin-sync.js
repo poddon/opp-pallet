@@ -3,6 +3,7 @@
   const $=id=>document.getElementById(id);
   const escape=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
   let busy=false;
+  if ($("exp")) $("exp").disabled=true;
   async function refresh(){
     const panel=$("admin");
     if(busy||!panel||panel.classList.contains("hidden"))return;
@@ -20,11 +21,13 @@
       const labels=["прохождений","успешных","списываний","средний %"];
       $("astats").innerHTML=values.map((v,i)=>"<div class='stat'><b>"+v+"</b><span>"+labels[i]+"</span></div>").join("");
       window.OPP_SHARED_RESULTS=rows;
+      if ($("exp")) $("exp").disabled=false;
       window.OPP_REMOTE_READY=true;
       window.OPP_REMOTE_REFRESHED=Date.now();
       const info=$("sharedStatus");if(info)info.textContent="Общая база: "+rows.length+" результатов · обновлено "+new Date().toLocaleTimeString("ru-RU");
     }catch(err){
       const info=$("sharedStatus");if(info)info.textContent="Не удалось получить общие результаты: "+err.message;
+      if ($("exp")) $("exp").disabled=!Array.isArray(window.OPP_SHARED_RESULTS);
     }finally{busy=false}
   }
   const admin=$("admin");
@@ -32,9 +35,4 @@
   const table=$("abody")?.closest(".tbl");if(table)table.parentNode.insertBefore(indicator,table);
   $("go").addEventListener("click",()=>setTimeout(refresh,700));
   setInterval(refresh,8000);
-  const exportButton=$("exp");
-  if(exportButton)exportButton.addEventListener("click",()=>{
-    if(!Array.isArray(window.OPP_SHARED_RESULTS))return;
-    const done=JSON.parse(localStorage.getItem("opp50_uploads")||"{}");window.OPP_SHARED_RESULTS.forEach(r=>{done[JSON.stringify(r)]=true});localStorage.setItem("opp50_uploads",JSON.stringify(done));localStorage.setItem("opp50_results_v2",JSON.stringify(window.OPP_SHARED_RESULTS));
-  },true);
 })();
