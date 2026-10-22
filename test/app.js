@@ -851,31 +851,35 @@
     saveAsg([]);
     refreshAdmin();
   };
-  $("exp").onclick = () => {
+  function exportResults(status, name) {
     const source = window.OPP_SHARED_RESULTS;
     if (!Array.isArray(source)) {
-      alert("Общая таблица ещё не загружена. Проверьте сообщение над таблицей и обновите страницу.");
+      alert("Данные из общей базы ещё не загружены. Проверьте сообщение над таблицей.");
       return;
     }
-    const rows = source;
-    let blob;
+    const rows = source.filter(r => r.status === status);
+    if (!rows.length) {
+      alert("В базе пока нет результатов: " + name.toLowerCase() + ".");
+      return;
+    }
     try {
-      blob = new Blob([buildXlsx(rows)], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
+      const blob = new Blob([buildXlsx(rows)], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
+      const now = new Date();
+      const stamp = now.getFullYear() + "-" + String(now.getMonth() + 1).padStart(2, "0") + "-" + String(now.getDate()).padStart(2, "0");
+      const href = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = href;
+      link.download = "ОПП_" + name + "_" + stamp + ".xlsx";
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      setTimeout(() => URL.revokeObjectURL(href), 60000);
     } catch (error) {
       alert("Ошибка формирования Excel: " + error.message);
-      return;
     }
-    const now = new Date();
-    const stamp = now.getFullYear() + "-" + String(now.getMonth() + 1).padStart(2, "0") + "-" + String(now.getDate()).padStart(2, "0");
-    const href = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.href = href;
-    link.download = "ОПП_результаты_" + stamp + ".xlsx";
-    document.body.appendChild(link);
-    link.click();
-    link.remove();
-    setTimeout(() => URL.revokeObjectURL(href), 60000);
-  };
+  }
+  $("exp").onclick = () => exportResults("Пройден", "прошедшие");
+  $("expcheat").onclick = () => exportResults("СПИСЫВАНИЕ", "списывание");
 
   if (typeof startFactory === "function") {
     try { startFactory(); } catch (e) {}
