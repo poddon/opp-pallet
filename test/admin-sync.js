@@ -8,7 +8,7 @@
     if(busy||!panel||panel.classList.contains("hidden"))return;
     busy=true;
     try{
-      const response=await fetch(base,{method:"GET",cache:"no-store",headers:{"x-admin-name":$("fio").value.trim(),"x-admin-password":$("pwd").value}});
+      const response=await fetch(base,{method:"GET",cache:"no-store",headers:{"x-admin-name":encodeURIComponent($("fio").value.trim()),"x-admin-password":$("pwd").value}});
       if(!response.ok)throw Error("HTTP "+response.status);
       const data=await response.json();
       if(!data.ok||!Array.isArray(data.rows))throw Error("Invalid server response");
