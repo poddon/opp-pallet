@@ -33,6 +33,6 @@
   const exportButton=$("exp");
   if(exportButton)exportButton.addEventListener("click",()=>{
     if(!Array.isArray(window.OPP_SHARED_RESULTS))return;
-    localStorage.setItem("opp50_results_v2",JSON.stringify(window.OPP_SHARED_RESULTS));
+    const done=JSON.parse(localStorage.getItem("opp50_uploads")||"{}");window.OPP_SHARED_RESULTS.forEach(r=>{done[JSON.stringify(r)]=true});localStorage.setItem("opp50_uploads",JSON.stringify(done));localStorage.setItem("opp50_results_v2",JSON.stringify(window.OPP_SHARED_RESULTS));
   },true);
 })();
