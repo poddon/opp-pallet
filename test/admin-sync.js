@@ -20,6 +20,8 @@
       const labels=["прохождений","успешных","списываний","средний %"];
       $("astats").innerHTML=values.map((v,i)=>"<div class='stat'><b>"+v+"</b><span>"+labels[i]+"</span></div>").join("");
       window.OPP_SHARED_RESULTS=rows;
+      window.OPP_REMOTE_READY=true;
+      window.OPP_REMOTE_REFRESHED=Date.now();
       const info=$("sharedStatus");if(info)info.textContent="Общая база: "+rows.length+" результатов · обновлено "+new Date().toLocaleTimeString("ru-RU");
     }catch(err){
       const info=$("sharedStatus");if(info)info.textContent="Не удалось получить общие результаты: "+err.message;
