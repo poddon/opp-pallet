@@ -3,13 +3,14 @@
   const $=id=>document.getElementById(id);
   const escape=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
   let busy=false;
-  if ($("exp")) $("exp").disabled=true;
+
   async function refresh(){
     const panel=$("admin");
     if(busy||!panel||panel.classList.contains("hidden"))return;
     busy=true;
     try{
       const response=await fetch(base,{method:"GET",cache:"no-store",headers:{"x-admin-name":encodeURIComponent($("fio").value.trim()),"x-admin-password":$("pwd").value}});
+      if(response.status===401)throw Error("пароль общей базы не совпадает с паролем входа");
       if(!response.ok)throw Error("HTTP "+response.status);
       const data=await response.json();
       if(!data.ok||!Array.isArray(data.rows))throw Error("Invalid server response");
@@ -21,13 +22,13 @@
       const labels=["прохождений","успешных","списываний","средний %"];
       $("astats").innerHTML=values.map((v,i)=>"<div class='stat'><b>"+v+"</b><span>"+labels[i]+"</span></div>").join("");
       window.OPP_SHARED_RESULTS=rows;
-      if ($("exp")) $("exp").disabled=false;
+
       window.OPP_REMOTE_READY=true;
       window.OPP_REMOTE_REFRESHED=Date.now();
       const info=$("sharedStatus");if(info)info.textContent="Общая база: "+rows.length+" результатов · обновлено "+new Date().toLocaleTimeString("ru-RU");
     }catch(err){
       const info=$("sharedStatus");if(info)info.textContent="Не удалось получить общие результаты: "+err.message;
-      if ($("exp")) $("exp").disabled=!Array.isArray(window.OPP_SHARED_RESULTS);
+
     }finally{busy=false}
   }
   const admin=$("admin");
