@@ -167,12 +167,6 @@
     .stat b { display: block; font-family: var(--display); font-weight: 600; font-size: 1.2rem; color: var(--navy); }
     .stat span { font-size: .78rem; color: var(--muted); }
 
-    /* сертификат */
-    .certbox { margin-top: 18px; padding: 18px; border-radius: 6px; background: var(--mist); text-align: left; }
-    .certtitle { font-family: var(--display); font-weight: 600; color: var(--navy); font-size: 1rem; }
-    .certbox .btn { margin-top: 12px; }
-    .certbox .btn.ghost { margin-top: 8px; background: #fff; }
-    .certno { font-size: .9rem; color: var(--ink); line-height: 1.45; }
     /* admin */
     #admin { align-items: flex-start; }
     #admin .wide { width: min(900px, 100%); }
@@ -322,16 +316,6 @@
         <div class="stat"><b id="rt">50</b><span>всего</span></div>
         <div class="stat"><b id="rx">0</b><span>XP</span></div>
       </div>
-      <div id="certbox" class="certbox hidden">
-        <div id="certok" class="hidden">
-          <p class="certtitle">Сертификат готов</p>
-          <p class="sub">Сертификат соответствия компетенции с вашим ФИО и результатом теста.</p>
-          <button class="btn" id="certpdf" type="button">Скачать сертификат (PDF)</button>
-          <button class="btn ghost" id="certpng" type="button">Скачать картинкой (PNG)</button>
-        </div>
-        <p id="certno" class="certno hidden"></p>
-        <p id="certerr" class="err"></p>
-      </div>
       <button class="btn ghost" id="rescab" type="button">В личный кабинет</button>
     </div>
   </div>
@@ -394,6 +378,5 @@
   <script src="cloud-sync.js?v=2"></script>
   <script src="admin-sync.js?v=3"></script>
   <script src="ui.js?v=n3"></script>
-  <script src="cert.js?v=c3"></script>
 </body>
 </html>
