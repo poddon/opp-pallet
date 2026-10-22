@@ -857,7 +857,7 @@
       alert("Общая таблица ещё не загружена. Проверьте сообщение над таблицей и обновите страницу.");
       return;
     }
-    const rows = source.filter(r => r.status !== "СПИСЫВАНИЕ");
+    const rows = source;
     let blob;
     try {
       blob = new Blob([buildXlsx(rows)], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
