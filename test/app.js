@@ -851,18 +851,26 @@
     saveAsg([]);
     refreshAdmin();
   };
-  function exportResults(status, name) {
-    const source = window.OPP_SHARED_RESULTS;
-    if (!Array.isArray(source)) {
-      alert("Данные из общей базы ещё не загружены. Проверьте сообщение над таблицей.");
-      return;
-    }
-    const rows = source.filter(r => r.status === status);
-    if (!rows.length) {
-      alert("В базе пока нет результатов: " + name.toLowerCase() + ".");
-      return;
-    }
+  async function exportResults(status, name) {
+    const button = status === "СПИСЫВАНИЕ" ? $("expcheat") : $("exp");
+    const originalText = button.textContent;
+    button.disabled = true;
+    button.textContent = "Загрузка результатов…";
     try {
+      const response = await fetch("https://munbcjaikjpbpuxzpbqq.supabase.co/functions/v1/quiz-api?action=results", {
+        cache: "no-store",
+        headers: {
+          "x-admin-name": encodeURIComponent(normName($("fio").value)),
+          "x-admin-password": $("pwd").value
+        }
+      });
+      if (response.status === 401) throw new Error("Пароль администратора не совпадает с паролем общей базы. Обратитесь к ответственному за админ-панель для синхронизации пароля.");
+      if (!response.ok) throw new Error("Ошибка загрузки общей базы: HTTP " + response.status);
+      const data = await response.json();
+      if (!data.ok || !Array.isArray(data.rows)) throw new Error("Сервер не вернул таблицу результатов.");
+      window.OPP_SHARED_RESULTS = data.rows;
+      const rows = data.rows.filter(r => r.status === status);
+      if (!rows.length) { alert("В общей базе пока нет результатов: " + name + "."); return; }
       const blob = new Blob([buildXlsx(rows)], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
       const now = new Date();
       const stamp = now.getFullYear() + "-" + String(now.getMonth() + 1).padStart(2, "0") + "-" + String(now.getDate()).padStart(2, "0");
@@ -875,7 +883,10 @@
       link.remove();
       setTimeout(() => URL.revokeObjectURL(href), 60000);
     } catch (error) {
-      alert("Ошибка формирования Excel: " + error.message);
+      alert("Не удалось скачать Excel. " + error.message);
+    } finally {
+      button.disabled = false;
+      button.textContent = originalText;
     }
   }
   $("exp").onclick = () => exportResults("Пройден", "прошедшие");
