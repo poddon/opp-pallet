@@ -720,6 +720,10 @@
       return;
     }
     if ($("starterr")) $("starterr").textContent = "";
+    if (!isAdmin(fio) && !$("rulesAccepted").checked) {
+      if ($("starterr")) $("starterr").textContent = "Подтвердите ознакомление с правилами тестирования.";
+      return;
+    }
     if (isAdmin(fio)) {
       if ($("pwd").value !== adminPass(fio)) { $("pwderr").textContent = "Неверный пароль"; return; }
       $("pwderr").textContent = "";
