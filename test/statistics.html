@@ -1,0 +1,155 @@
+<!doctype html><html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>ОПП · Аналитика тестирования</title>
+<style>
+:root{font-family:"Segoe UI",Arial,sans-serif;color:#152a43;background:#f4f7fb}*{box-sizing:border-box}body{margin:0}header{background:#fff;border-bottom:1px solid #e0e7f1;padding:21px max(18px,calc((100vw - 1200px)/2));display:flex;align-items:center;justify-content:space-between;gap:20px}h1{font-size:22px;margin:0}h2{font-size:18px;margin:0 0 13px}.muted{color:#66758a;font-size:13px}main{max-width:1200px;margin:auto;padding:26px 16px 65px}.panel{background:#fff;border:1px solid #e2e9f3;border-radius:16px;padding:20px;margin-bottom:16px;box-shadow:0 2px 10px #182f4a06}.grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:13px}.kpi{border:1px solid #e2eaf5;border-radius:13px;padding:18px}.kpi strong{display:block;font-size:32px;margin-top:7px}.controls{display:flex;flex-wrap:wrap;gap:10px;align-items:end}.field{display:flex;flex-direction:column;gap:6px;font-size:13px;color:#4b5e73}input,select,button{font:inherit;border-radius:9px;padding:10px 12px}input,select{border:1px solid #cbd6e4;background:white;min-width:130px}button{border:0;background:#1763bd;color:white;cursor:pointer;font-weight:600}button.secondary{background:#e9f1fb;color:#174a84}button:disabled{opacity:.45}.two{display:grid;grid-template-columns:1fr 1fr;gap:16px}.bars{display:grid;gap:10px}.barrow{display:grid;grid-template-columns:92px 1fr 45px;gap:8px;align-items:center;font-size:13px}.track{height:14px;background:#eef2f7;border-radius:6px;overflow:hidden}.fill{height:100%;background:#317cd4;border-radius:6px}.scroll{max-height:530px;overflow:auto}table{border-collapse:collapse;width:100%;font-size:13px}th,td{padding:11px 9px;border-bottom:1px solid #edf1f6;text-align:left;white-space:nowrap}th{position:sticky;top:0;background:#f7f9fc}td.num{text-align:right}.pill{display:inline-block;background:#e3f4ea;color:#146b36;border-radius:15px;padding:4px 9px}.bad{background:#fff1e8;color:#a04d11}.actions{display:flex;gap:10px;flex-wrap:wrap}.hidden{display:none!important}.login{max-width:440px;margin:70px auto}.note{padding:11px 13px;background:#f4f8ff;border-radius:9px;font-size:13px;color:#50657e;margin-top:15px}@media(max-width:760px){.grid{grid-template-columns:repeat(2,1fr)}.two{grid-template-columns:1fr}h1{font-size:19px}header{padding:16px}.kpi strong{font-size:25px}}
+</style></head><body>
+<header><div><h1>ОПП · Аналитика тестирования</h1><div class="muted">Статистика и отчёты по общей базе</div></div><a href="index.html" style="color:#1763bd">Вернуться к тесту</a></header>
+<main>
+<section class="panel login" id="auth"><h2>Вход администратора</h2><div class="field">ФИО<input id="fio" autocomplete="username" placeholder="Фамилия Имя Отчество"></div><div class="field" style="margin-top:12px">Пароль<input id="pwd" type="password" autocomplete="current-password" placeholder="Пароль"></div><button id="login" style="margin-top:16px;width:100%">Войти и загрузить результаты</button><p id="authError" style="color:#b52c32"></p></section>
+<div id="dashboard" class="hidden">
+<div class="panel"><div class="controls">
+<label class="field">Период<select id="period"><option value="today">Сегодня</option><option value="yesterday">Вчера</option><option value="week">Последние 7 дней</option><option value="month">Последние 30 дней</option><option value="all">За всё время</option><option value="custom">Свой период</option></select></label>
+<label class="field">Дата с<input type="date" id="from"></label><label class="field">Дата по<input type="date" id="to"></label>
+<label class="field">Группа<select id="group"><option value="">Все группы</option></select></label>
+<label class="field">Статус<select id="status"><option value="Пройден">Только прошедшие</option><option value="all">Все попытки</option><option value="СПИСЫВАНИЕ">Только списывание</option></select></label>
+<label class="field">Минимальный %<input type="number" min="0" max="100" step="1" id="min" value="0" style="width:110px"></label>
+<label class="field">Поиск по ФИО<input type="search" id="search" placeholder="Фамилия или имя"></label>
+<button class="secondary" id="refresh">Обновить базу</button>
+</div><div class="note" id="hint">Фильтры применяются к таблице, статистике и Excel. Данные берутся из Supabase, не из памяти браузера.</div></div>
+<div class="grid" style="margin-bottom:16px">
+<div class="panel kpi"><span class="muted">Всего попыток</span><strong id="kAll">0</strong></div>
+<div class="panel kpi"><span class="muted">Прошедшие</span><strong id="kPassed">0</strong></div>
+<div class="panel kpi"><span class="muted">Средний результат</span><strong id="kAvg">0%</strong></div>
+<div class="panel kpi"><span class="muted">Доля прошедших</span><strong id="kRate">0%</strong></div>
+</div>
+<div class="two">
+<div class="panel"><h2>Распределение результатов</h2><div class="bars" id="hist"></div><p class="muted">Диапазоны процентов от 0 до 100</p></div>
+<div class="panel"><h2>Статистика по группам</h2><div class="scroll"><table><thead><tr><th>Группа</th><th>Прошли</th><th>Средний %</th></tr></thead><tbody id="groups"></tbody></table></div></div>
+</div>
+<section class="panel"><div style="display:flex;justify-content:space-between;gap:14px;flex-wrap:wrap;align-items:center"><div><h2>Результаты студентов</h2><div class="muted" id="count"></div></div><div class="actions"><button id="export">Скачать Excel по фильтрам</button><button class="secondary" id="exportPassed">Все прошедшие · Excel</button><button class="secondary" id="exportCheat">Все списывания · Excel</button></div></div>
+<div class="scroll" style="margin-top:15px"><table><thead><tr><th>Дата</th><th>ФИО</th><th>Группа</th><th>Верных</th><th>Всего</th><th>%</th><th>Время (с)</th><th>Статус</th></tr></thead><tbody id="tableBody"></tbody></table></div></section>
+</div></main>
+<script>
+(()=>{"use strict";
+const $=id=>document.getElementById(id),api="https://munbcjaikjpbpuxzpbqq.supabase.co/functions/v1/quiz-api?action=results";
+let all=[],filtered=[];
+const esc=x=>String(x??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const dateOf=s=>{const m=String(s??"").match(/^(\d{2})\.(\d{2})\.(\d{4})/);if(m)return m[3]+"-"+m[2]+"-"+m[1];const x=String(s??"").slice(0,10);return /^\d{4}-\d{2}-\d{2}$/.test(x)?x:"";};
+function localDay(offset){const d=new Date();d.setDate(d.getDate()+offset);return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0")}
+function period(){const p=$("period").value;$("from").disabled=$("to").disabled=p!=="custom";if(p==="all"){$("from").value="";$("to").value="";}else if(p!=="custom"){const n=p==="today"?0:p==="yesterday"?-1:p==="week"?-6:-29;$("from").value=localDay(n);$("to").value=localDay(p==="yesterday"?-1:0);}paint()}
+function paint(){const from=$("from").value,to=$("to").value,group=$("group").value,status=$("status").value,min=Number($("min").value)||0,q=$("search").value.trim().toLowerCase();
+filtered=all.filter(r=>{const d=dateOf(r.date);return (!from||d>=from)&&(!to||d<=to)&&(!group||r.group===group)&&(status==="all"||r.status===status)&&Number(r.pct)>=min&&(!q||String(r.name||"").toLowerCase().includes(q))});
+const passed=filtered.filter(r=>r.status==="Пройден");const mean=xs=>xs.length?Math.round(xs.reduce((n,r)=>n+Number(r.pct||0),0)/xs.length):0;
+$("kAll").textContent=filtered.length;$("kPassed").textContent=passed.length;$("kAvg").textContent=mean(passed)+"%";$("kRate").textContent=(filtered.length?Math.round(passed.length/filtered.length*100):0)+"%";
+$("count").textContent=filtered.length+" записей за выбранный период";
+$("tableBody").innerHTML=filtered.length?filtered.map(r=>"<tr><td>"+esc(r.date)+"</td><td>"+esc(r.name)+"</td><td>"+esc(r.group)+"</td><td>"+Number(r.correct||0)+"</td><td>"+Number(r.total||0)+"</td><td>"+Number(r.pct||0)+"%</td><td>"+Number(r.duration||0)+"</td><td><span class='pill "+(r.status==="СПИСЫВАНИЕ"?"bad":"")+"'>"+esc(r.status)+"</span></td></tr>").join(""):"<tr><td colspan='8'>Нет результатов по выбранным условиям</td></tr>";
+const bands=[[0,20],[21,40],[41,60],[61,80],[81,100]],max=Math.max(1,...bands.map(([a,b])=>filtered.filter(r=>Number(r.pct)>=a&&Number(r.pct)<=b).length));
+$("hist").innerHTML=bands.map(([a,b])=>{const n=filtered.filter(r=>Number(r.pct)>=a&&Number(r.pct)<=b).length;return "<div class='barrow'><span>"+a+"–"+b+"%</span><div class='track'><div class='fill' style='width:"+(n/max*100)+"%'></div></div><b>"+n+"</b></div>"}).join("");
+const gs={};for(const r of passed){const g=r.group||"Без группы";(gs[g]??=[]).push(r)}
+$("groups").innerHTML=Object.keys(gs).sort().map(g=>"<tr><td>"+esc(g)+"</td><td>"+gs[g].length+"</td><td>"+mean(gs[g])+"%</td></tr>").join("")||"<tr><td colspan='3'>Нет прошедших студентов</td></tr>";
+}
+async function load(){const btn=$("refresh");btn.disabled=true;try{const resp=await fetch(api,{cache:"no-store",headers:{"x-admin-name":encodeURIComponent($("fio").value.trim().toLowerCase().replace(/\s+/g," ")),"x-admin-password":$("pwd").value}});if(resp.status===401)throw Error("Неверный пароль или он не синхронизирован с общей базой");if(!resp.ok)throw Error("Ошибка сервера "+resp.status);const d=await resp.json();if(!d.ok||!Array.isArray(d.rows))throw Error("Некорректный ответ сервера");all=d.rows;$("auth").classList.add("hidden");$("dashboard").classList.remove("hidden");const current=$("group").value;const groups=[...new Set(all.map(r=>r.group).filter(Boolean))].sort();$("group").innerHTML='<option value="">Все группы</option>'+groups.map(x=>'<option value="'+esc(x)+'">'+esc(x)+'</option>').join("");if(groups.includes(current))$("group").value=current;$("hint").textContent="Общая база: "+all.length+" записей · обновлено "+new Date().toLocaleTimeString("ru-RU")+". Фильтры применяются ко всем графикам и Excel.";paint();$("authError").textContent=""}catch(e){$("authError").textContent=e.message;alert("Не удалось загрузить статистику: "+e.message)}finally{btn.disabled=false}}
+  function crc32bytes(u8) {
+    let c = ~0 >>> 0;
+    for (let i = 0; i < u8.length; i++) {
+      c ^= u8[i];
+      for (let k = 0; k < 8; k++) c = (c >>> 1) ^ (0xEDB88320 & -(c & 1));
+    }
+    return (~c) >>> 0;
+  }
+  function u16(n) { return new Uint8Array([n & 255, (n >>> 8) & 255]); }
+  function u32(n) { return new Uint8Array([n & 255, (n >>> 8) & 255, (n >>> 16) & 255, (n >>> 24) & 255]); }
+  function cat(parts) {
+    let n = 0; for (let i = 0; i < parts.length; i++) n += parts[i].length;
+    const o = new Uint8Array(n); let p = 0;
+    for (let i = 0; i < parts.length; i++) { o.set(parts[i], p); p += parts[i].length; }
+    return o;
+  }
+  function zipStore(files) {
+    const enc = new TextEncoder();
+    const locals = []; const centrals = [];
+    let offset = 0;
+    const now = new Date();
+    const dosTime = ((now.getHours() << 11) | (now.getMinutes() << 5) | (now.getSeconds() >> 1)) & 0xffff;
+    const dosDate = (((now.getFullYear() - 1980) << 9) | ((now.getMonth() + 1) << 5) | now.getDate()) & 0xffff;
+    files.forEach(function (f) {
+      const name = enc.encode(f.name);
+      const data = typeof f.data === "string" ? enc.encode(f.data) : f.data;
+      const crc = crc32bytes(data);
+      const loc = cat([
+        new Uint8Array([0x50, 0x4b, 0x03, 0x04]), u16(20), u16(0), u16(0), u16(dosTime), u16(dosDate),
+        u32(crc), u32(data.length), u32(data.length), u16(name.length), u16(0), name, data
+      ]);
+      const cen = cat([
+        new Uint8Array([0x50, 0x4b, 0x01, 0x02]), u16(20), u16(20), u16(0), u16(0), u16(dosTime), u16(dosDate),
+        u32(crc), u32(data.length), u32(data.length), u16(name.length), u16(0), u16(0), u16(0), u16(0), u32(0),
+        u32(offset), name
+      ]);
+      locals.push(loc); centrals.push(cen); offset += loc.length;
+    });
+    const cd = cat(centrals);
+    const eocd = cat([
+      new Uint8Array([0x50, 0x4b, 0x05, 0x06]), u16(0), u16(0), u16(files.length), u16(files.length),
+      u32(cd.length), u32(offset), u16(0)
+    ]);
+    return cat(locals.concat([cd, eocd]));
+  }
+  function xmlEsc(s) {
+    return String(s == null ? "" : s)
+      .replace(/&/g, "&" + "amp;")
+      .replace(/</g, "&" + "lt;")
+      .replace(/>/g, "&" + "gt;")
+      .replace(/"/g, "&" + "quot;")
+      .replace(/'/g, "&" + "apos;");
+  }
+  function xlsxCell(col, row, value, num) {
+    const ref = String.fromCharCode(65 + col) + row;
+    if (num) return '<c r="' + ref + '"><v>' + Number(value || 0) + "</v></c>";
+    return '<c r="' + ref + '" t="inlineStr"><is><t>' + xmlEsc(value) + "</t></is></c>";
+  }
+  function buildXlsx(rows) {
+    const heads = ["Дата", "ФИО", "Группа", "Модуль", "Верных", "Всего", "%", "XP", "Сек", "Статус"];
+    let sheet = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>';
+    sheet += '<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">';
+    sheet += '<sheetViews><sheetView tabSelected="1" workbookViewId="0"><pane ySplit="1" topLeftCell="A2" activePane="bottomLeft" state="frozen"/></sheetView></sheetViews>';
+    sheet += '<cols><col min="1" max="1" width="22" customWidth="1"/><col min="2" max="2" width="28" customWidth="1"/><col min="3" max="3" width="18" customWidth="1"/><col min="4" max="4" width="22" customWidth="1"/><col min="5" max="10" width="12" customWidth="1"/></cols>';
+    sheet += "<sheetData><row r=\"1\">";
+    heads.forEach(function (h, i) { sheet += xlsxCell(i, 1, h, false); });
+    sheet += "</row>";
+    rows.forEach(function (r, idx) {
+      const n = idx + 2;
+      const title = "Тест ОПП";
+      sheet += "<row r=\"" + n + "\">";
+      sheet += xlsxCell(0, n, r.date, false);
+      sheet += xlsxCell(1, n, r.name, false);
+      sheet += xlsxCell(2, n, r.group, false);
+      sheet += xlsxCell(3, n, title, false);
+      sheet += xlsxCell(4, n, r.correct, true);
+      sheet += xlsxCell(5, n, r.total, true);
+      sheet += xlsxCell(6, n, r.pct, true);
+      sheet += xlsxCell(7, n, r.xp, true);
+      sheet += xlsxCell(8, n, r.duration, true);
+      sheet += xlsxCell(9, n, r.status, false);
+      sheet += "</row>";
+    });
+    sheet += "</sheetData>";
+    if (rows.length) sheet += '<autoFilter ref="A1:J' + (rows.length + 1) + '"/>';
+    sheet += "</worksheet>";
+    const types = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/><Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/></Types>';
+    const rels = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/></Relationships>';
+    const wb = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets><sheet name="Результаты" sheetId="1" r:id="rId1"/></sheets></workbook>';
+    const wbRels = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/></Relationships>';
+    return zipStore([
+      { name: "[Content_Types].xml", data: types },
+      { name: "_rels/.rels", data: rels },
+      { name: "xl/workbook.xml", data: wb },
+      { name: "xl/_rels/workbook.xml.rels", data: wbRels },
+      { name: "xl/worksheets/sheet1.xml", data: sheet }
+    ]);
+  }
+
+function download(rows,label){if(!rows.length){alert("Нет результатов для выгрузки");return}const blob=new Blob([buildXlsx(rows)],{type:"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"}),href=URL.createObjectURL(blob),a=document.createElement("a");a.href=href;a.download="ОПП_"+label+"_"+localDay(0)+".xlsx";document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(href),30000)}
+$("login").onclick=load;$("pwd").onkeydown=e=>{if(e.key==="Enter")load()};$("refresh").onclick=load;
+$("period").onchange=period;for(const id of ["from","to","group","status","min","search"])$(id).addEventListener("input",()=>{if(id==="from"||id==="to")$("period").value="custom";paint()});
+$("export").onclick=()=>download(filtered,"по_фильтрам");$("exportPassed").onclick=()=>download(all.filter(r=>r.status==="Пройден"),"все_прошедшие");$("exportCheat").onclick=()=>download(all.filter(r=>r.status==="СПИСЫВАНИЕ"),"списывание");period();
+})();
+</script></body></html>
