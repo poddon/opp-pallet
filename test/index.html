@@ -243,18 +243,26 @@
   <canvas id="fx" aria-hidden="true"></canvas>
 
   <div id="boot" class="boot">
-    <svg class="kuka-robot" viewBox="0 0 320 240" role="img" aria-label="Промышленный робот KUKA" xmlns="http://www.w3.org/2000/svg">
-  <defs><linearGradient id="kukaOrange" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#ffb13f"/><stop offset="0.52" stop-color="#ff8700"/><stop offset="1" stop-color="#da6100"/></linearGradient></defs>
-  <ellipse cx="156" cy="222" rx="111" ry="11" fill="#122749" opacity=".12"/>
-  <path d="M73 203h99l13 18H62z" fill="#28364a"/><path d="M89 171h63l19 33H70z" fill="url(#kukaOrange)" stroke="#27344a" stroke-width="5" stroke-linejoin="round"/>
-  <path d="M101 154l-9-51 22-13 35 24-1 59z" fill="url(#kukaOrange)" stroke="#27344a" stroke-width="5" stroke-linejoin="round"/>
-  <path d="M116 103L154 43l24 8-32 71z" fill="url(#kukaOrange)" stroke="#27344a" stroke-width="6" stroke-linejoin="round"/>
-  <path d="M164 40l23-7 51 33-13 21-59-23z" fill="url(#kukaOrange)" stroke="#27344a" stroke-width="6" stroke-linejoin="round"/>
-  <path d="M227 64l29 17-18 33-28-15z" fill="url(#kukaOrange)" stroke="#27344a" stroke-width="6" stroke-linejoin="round"/>
-  <path d="M241 100l20 8 20-6 7 17-24 9-23-10z" fill="#26384e"/><path d="M282 109l17-9-2-14m-16 32 18 10-2 14" fill="none" stroke="#26384e" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>
-  <circle cx="121" cy="117" r="19" fill="#26384e"/><circle cx="121" cy="117" r="11" fill="#a9bac9"/><circle cx="174" cy="52" r="18" fill="#26384e"/><circle cx="174" cy="52" r="10" fill="#b4c6d2"/><circle cx="228" cy="79" r="15" fill="#26384e"/><circle cx="228" cy="79" r="8" fill="#c9d3dd"/>
-  <path d="M113 154l-11-36M175 71l49 13" stroke="#ffcf84" stroke-width="5" opacity=".6"/><text x="101" y="194" font-size="15" font-weight="900" fill="#212d3f" font-family="Arial,sans-serif">KUKA</text>
-</svg>
+    <svg class="kuka-robot" viewBox="0 0 320 240" role="img" aria-label="Робот KUKA" xmlns="http://www.w3.org/2000/svg">
+<g stroke="#8FB4F5" stroke-width="3" stroke-linejoin="round" stroke-linecap="round">
+<ellipse cx="151" cy="224" rx="100" ry="8" fill="#0B3277" opacity=".13" stroke="none"/>
+<path d="M66 207h104l13 15H54z" fill="#0B3277"/>
+<path d="M83 174h70l18 33H66z" fill="#123E8C"/>
+<path d="M83 174l18-10h51l1 10z" fill="#2A63C7"/>
+<path d="M104 165l-10-54 20-22 33 14 6 61z" fill="#1D4FA8"/>
+<path d="M94 111l20-22 33 14-18 21z" fill="#2A63C7"/>
+<path d="M113 105l36-70 25 8-35 76z" fill="#123E8C"/>
+<path d="M149 35l14-12 26 12-15 8z" fill="#2A63C7"/>
+<path d="M170 31l23-4 48 37-13 24-62-39z" fill="#1D4FA8"/>
+<path d="M193 27l48 37-12 4-53-35z" fill="#2A63C7"/>
+<path d="M227 67l25 12-14 35-28-14z" fill="#123E8C"/>
+<path d="M252 79l-12 10-13-22 14-3z" fill="#2A63C7"/>
+<path d="M237 110l22 11 20-8 6 13-25 11-25-14z" fill="#1D4FA8"/>
+<path d="M281 119l18-13-1-12M281 130l18 13-1 12" fill="none" stroke="#8FB4F5" stroke-width="7"/>
+<circle cx="124" cy="118" r="18" fill="#0B3277"/><circle cx="124" cy="118" r="10" fill="#DCE7F8"/>
+<circle cx="177" cy="45" r="17" fill="#0B3277"/><circle cx="177" cy="45" r="9" fill="#DCE7F8"/>
+<circle cx="231" cy="86" r="15" fill="#0B3277"/><circle cx="231" cy="86" r="8" fill="#DCE7F8"/>
+</g><text x="101" y="198" font-family="Arial,sans-serif" font-size="13" font-weight="bold" fill="#fff">KUKA</text></svg>
     <h1>Итоговое тестирование по СК ОПП</h1>
     <p class="sub" id="bootmsg">Питание ячейки…</p>
     <div class="bar"><i id="bootbar"></i></div>
@@ -340,18 +348,26 @@
 
   <div id="result" class="wrap hidden">
     <div class="card">
-      <svg class="kuka-robot" viewBox="0 0 320 240" role="img" aria-label="Промышленный робот KUKA" xmlns="http://www.w3.org/2000/svg">
-  <defs><linearGradient id="kukaOrange" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#ffb13f"/><stop offset="0.52" stop-color="#ff8700"/><stop offset="1" stop-color="#da6100"/></linearGradient></defs>
-  <ellipse cx="156" cy="222" rx="111" ry="11" fill="#122749" opacity=".12"/>
-  <path d="M73 203h99l13 18H62z" fill="#28364a"/><path d="M89 171h63l19 33H70z" fill="url(#kukaOrange)" stroke="#27344a" stroke-width="5" stroke-linejoin="round"/>
-  <path d="M101 154l-9-51 22-13 35 24-1 59z" fill="url(#kukaOrange)" stroke="#27344a" stroke-width="5" stroke-linejoin="round"/>
-  <path d="M116 103L154 43l24 8-32 71z" fill="url(#kukaOrange)" stroke="#27344a" stroke-width="6" stroke-linejoin="round"/>
-  <path d="M164 40l23-7 51 33-13 21-59-23z" fill="url(#kukaOrange)" stroke="#27344a" stroke-width="6" stroke-linejoin="round"/>
-  <path d="M227 64l29 17-18 33-28-15z" fill="url(#kukaOrange)" stroke="#27344a" stroke-width="6" stroke-linejoin="round"/>
-  <path d="M241 100l20 8 20-6 7 17-24 9-23-10z" fill="#26384e"/><path d="M282 109l17-9-2-14m-16 32 18 10-2 14" fill="none" stroke="#26384e" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>
-  <circle cx="121" cy="117" r="19" fill="#26384e"/><circle cx="121" cy="117" r="11" fill="#a9bac9"/><circle cx="174" cy="52" r="18" fill="#26384e"/><circle cx="174" cy="52" r="10" fill="#b4c6d2"/><circle cx="228" cy="79" r="15" fill="#26384e"/><circle cx="228" cy="79" r="8" fill="#c9d3dd"/>
-  <path d="M113 154l-11-36M175 71l49 13" stroke="#ffcf84" stroke-width="5" opacity=".6"/><text x="101" y="194" font-size="15" font-weight="900" fill="#212d3f" font-family="Arial,sans-serif">KUKA</text>
-</svg>
+      <svg class="kuka-robot" viewBox="0 0 320 240" role="img" aria-label="Робот KUKA" xmlns="http://www.w3.org/2000/svg">
+<g stroke="#8FB4F5" stroke-width="3" stroke-linejoin="round" stroke-linecap="round">
+<ellipse cx="151" cy="224" rx="100" ry="8" fill="#0B3277" opacity=".13" stroke="none"/>
+<path d="M66 207h104l13 15H54z" fill="#0B3277"/>
+<path d="M83 174h70l18 33H66z" fill="#123E8C"/>
+<path d="M83 174l18-10h51l1 10z" fill="#2A63C7"/>
+<path d="M104 165l-10-54 20-22 33 14 6 61z" fill="#1D4FA8"/>
+<path d="M94 111l20-22 33 14-18 21z" fill="#2A63C7"/>
+<path d="M113 105l36-70 25 8-35 76z" fill="#123E8C"/>
+<path d="M149 35l14-12 26 12-15 8z" fill="#2A63C7"/>
+<path d="M170 31l23-4 48 37-13 24-62-39z" fill="#1D4FA8"/>
+<path d="M193 27l48 37-12 4-53-35z" fill="#2A63C7"/>
+<path d="M227 67l25 12-14 35-28-14z" fill="#123E8C"/>
+<path d="M252 79l-12 10-13-22 14-3z" fill="#2A63C7"/>
+<path d="M237 110l22 11 20-8 6 13-25 11-25-14z" fill="#1D4FA8"/>
+<path d="M281 119l18-13-1-12M281 130l18 13-1 12" fill="none" stroke="#8FB4F5" stroke-width="7"/>
+<circle cx="124" cy="118" r="18" fill="#0B3277"/><circle cx="124" cy="118" r="10" fill="#DCE7F8"/>
+<circle cx="177" cy="45" r="17" fill="#0B3277"/><circle cx="177" cy="45" r="9" fill="#DCE7F8"/>
+<circle cx="231" cy="86" r="15" fill="#0B3277"/><circle cx="231" cy="86" r="8" fill="#DCE7F8"/>
+</g><text x="101" y="198" font-family="Arial,sans-serif" font-size="13" font-weight="bold" fill="#fff">KUKA</text></svg>
       <div class="sub">Тест завершён</div>
       <div class="score" id="rpct">0%</div>
       <div id="rname"></div>
@@ -408,7 +424,7 @@
         <button class="btn" id="savepwd" type="button">Сохранить пароль</button>
         <p id="pwdmsg" class="sub" style="margin-top:8px"></p>
       </div>
-      <a class="admin-report-link" href="statistics.html"><span class="admin-report-mark"><svg viewBox="0 0 32 32" fill="none" aria-hidden="true"><path d="M5 26h22M9 24v-7l6-5 3 3 5-6 4 3-6 8-5-2-3 6" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"/><circle cx="15" cy="12" r="2" fill="currentColor"/><circle cx="23" cy="9" r="2" fill="currentColor"/></svg></span><span class="admin-report-copy"><strong>KUKA · Статистика и отчёты</strong><small>Аналитика, фильтры и выгрузка Excel</small></span></a>
+      <a class="btn" href="statistics.html" style="display:inline-block;text-decoration:none;margin-bottom:10px">Статистика и отчёты · настройки и Excel</a>
       <button class="btn" id="exp" type="button">Скачать Excel — прошедшие</button>
       <button class="btn ghost" id="expcheat" type="button">Скачать Excel — списывание</button>
       <button class="btn ghost" id="back" type="button">На главную</button>
