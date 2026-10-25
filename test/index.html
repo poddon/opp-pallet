@@ -243,26 +243,42 @@
   <canvas id="fx" aria-hidden="true"></canvas>
 
   <div id="boot" class="boot">
-    <svg class="kuka-robot" viewBox="0 0 320 240" role="img" aria-label="Робот KUKA" xmlns="http://www.w3.org/2000/svg">
+    <svg class="kuka-robot" viewBox="0 0 360 270" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="KUKA KR 120 — промышленный шестиосевой робот">
 <g stroke="#8FB4F5" stroke-width="3" stroke-linejoin="round" stroke-linecap="round">
-<ellipse cx="151" cy="224" rx="100" ry="8" fill="#0B3277" opacity=".13" stroke="none"/>
-<path d="M66 207h104l13 15H54z" fill="#0B3277"/>
-<path d="M83 174h70l18 33H66z" fill="#123E8C"/>
-<path d="M83 174l18-10h51l1 10z" fill="#2A63C7"/>
-<path d="M104 165l-10-54 20-22 33 14 6 61z" fill="#1D4FA8"/>
-<path d="M94 111l20-22 33 14-18 21z" fill="#2A63C7"/>
-<path d="M113 105l36-70 25 8-35 76z" fill="#123E8C"/>
-<path d="M149 35l14-12 26 12-15 8z" fill="#2A63C7"/>
-<path d="M170 31l23-4 48 37-13 24-62-39z" fill="#1D4FA8"/>
-<path d="M193 27l48 37-12 4-53-35z" fill="#2A63C7"/>
-<path d="M227 67l25 12-14 35-28-14z" fill="#123E8C"/>
-<path d="M252 79l-12 10-13-22 14-3z" fill="#2A63C7"/>
-<path d="M237 110l22 11 20-8 6 13-25 11-25-14z" fill="#1D4FA8"/>
-<path d="M281 119l18-13-1-12M281 130l18 13-1 12" fill="none" stroke="#8FB4F5" stroke-width="7"/>
-<circle cx="124" cy="118" r="18" fill="#0B3277"/><circle cx="124" cy="118" r="10" fill="#DCE7F8"/>
-<circle cx="177" cy="45" r="17" fill="#0B3277"/><circle cx="177" cy="45" r="9" fill="#DCE7F8"/>
-<circle cx="231" cy="86" r="15" fill="#0B3277"/><circle cx="231" cy="86" r="8" fill="#DCE7F8"/>
-</g><text x="101" y="198" font-family="Arial,sans-serif" font-size="13" font-weight="bold" fill="#fff">KUKA</text></svg>
+<ellipse cx="170" cy="256" rx="116" ry="8" fill="#0B3277" opacity=".12" stroke="none"/>
+<!-- KR 120 floor pedestal and broad rotating shoulder -->
+<path d="M65 232h130l13 18H52z" fill="#0B3277"/>
+<path d="M80 197h100l15 35H65z" fill="#123E8C"/>
+<path d="M80 197l23-11h71l6 11z" fill="#2A63C7"/>
+<path d="M106 184L91 143l19-28 40-6 35 29-6 48z" fill="#1D4FA8"/>
+<path d="M91 143l19-28 40-6-14 26z" fill="#2A63C7"/>
+<!-- sturdy KR 120 lower arm with characteristic slanted, angular casting -->
+<path d="M126 135l-8-17 24-78 25-11 30 19-19 80-20 17z" fill="#123E8C"/>
+<path d="M142 40l25-11 30 19-30 11z" fill="#2A63C7"/>
+<path d="M167 59l30-11-19 80-20 17z" fill="#1D4FA8"/>
+<!-- massive elbow motor housing -->
+<path d="M156 36l15-15 33-3 17 15-8 37-34 3-21-15z" fill="#0B3277"/>
+<path d="M171 21l33-3 17 15-36 5z" fill="#2A63C7"/>
+<!-- KR 120 upper arm: long horizontal tapered housing -->
+<path d="M199 37l27-8 77 27-2 30-85-13-18-19z" fill="#1D4FA8"/>
+<path d="M226 29l77 27-17 9-69-24z" fill="#2A63C7"/>
+<path d="M216 73l85 13-17 9-70-14z" fill="#123E8C"/>
+<!-- articulated wrist and A6 tool flange -->
+<path d="M291 60l23-2 15 17-11 24-29-4 12-22z" fill="#123E8C"/>
+<path d="M303 56l11 2 15 17-13 2z" fill="#2A63C7"/>
+<path d="M316 79l18 3 4 18-18 7-15-10z" fill="#0B3277"/>
+<path d="M338 88h12v13h-12z" fill="#DCE7F8"/>
+<!-- dark motor ports and industrial joint axes -->
+<circle cx="143" cy="130" r="23" fill="#0B3277"/><circle cx="143" cy="130" r="14" fill="#DCE7F8"/><circle cx="143" cy="130" r="5" fill="#2A63C7"/>
+<circle cx="188" cy="47" r="23" fill="#0B3277"/><circle cx="188" cy="47" r="14" fill="#DCE7F8"/><circle cx="188" cy="47" r="5" fill="#2A63C7"/>
+<circle cx="307" cy="77" r="13" fill="#0B3277"/><circle cx="307" cy="77" r="7" fill="#DCE7F8"/>
+<!-- cable routing: geometric, low-detail matching original pallet icon -->
+<path d="M113 116Q109 77 149 35Q166 12 199 26L231 38" fill="none" stroke="#0B3277" stroke-width="7"/>
+<path d="M114 116Q110 78 149 35Q167 12 199 26L231 38" fill="none" stroke="#8FB4F5" stroke-width="2"/>
+</g>
+<text x="101" y="219" font-size="13" font-family="Arial,sans-serif" font-weight="900" fill="#fff">KUKA</text>
+<text x="101" y="230" font-size="8" font-family="Arial,sans-serif" font-weight="700" fill="#DCE7F8">KR 120</text>
+</svg>
     <h1>Итоговое тестирование по СК ОПП</h1>
     <p class="sub" id="bootmsg">Питание ячейки…</p>
     <div class="bar"><i id="bootbar"></i></div>
@@ -348,26 +364,42 @@
 
   <div id="result" class="wrap hidden">
     <div class="card">
-      <svg class="kuka-robot" viewBox="0 0 320 240" role="img" aria-label="Робот KUKA" xmlns="http://www.w3.org/2000/svg">
+      <svg class="kuka-robot" viewBox="0 0 360 270" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="KUKA KR 120 — промышленный шестиосевой робот">
 <g stroke="#8FB4F5" stroke-width="3" stroke-linejoin="round" stroke-linecap="round">
-<ellipse cx="151" cy="224" rx="100" ry="8" fill="#0B3277" opacity=".13" stroke="none"/>
-<path d="M66 207h104l13 15H54z" fill="#0B3277"/>
-<path d="M83 174h70l18 33H66z" fill="#123E8C"/>
-<path d="M83 174l18-10h51l1 10z" fill="#2A63C7"/>
-<path d="M104 165l-10-54 20-22 33 14 6 61z" fill="#1D4FA8"/>
-<path d="M94 111l20-22 33 14-18 21z" fill="#2A63C7"/>
-<path d="M113 105l36-70 25 8-35 76z" fill="#123E8C"/>
-<path d="M149 35l14-12 26 12-15 8z" fill="#2A63C7"/>
-<path d="M170 31l23-4 48 37-13 24-62-39z" fill="#1D4FA8"/>
-<path d="M193 27l48 37-12 4-53-35z" fill="#2A63C7"/>
-<path d="M227 67l25 12-14 35-28-14z" fill="#123E8C"/>
-<path d="M252 79l-12 10-13-22 14-3z" fill="#2A63C7"/>
-<path d="M237 110l22 11 20-8 6 13-25 11-25-14z" fill="#1D4FA8"/>
-<path d="M281 119l18-13-1-12M281 130l18 13-1 12" fill="none" stroke="#8FB4F5" stroke-width="7"/>
-<circle cx="124" cy="118" r="18" fill="#0B3277"/><circle cx="124" cy="118" r="10" fill="#DCE7F8"/>
-<circle cx="177" cy="45" r="17" fill="#0B3277"/><circle cx="177" cy="45" r="9" fill="#DCE7F8"/>
-<circle cx="231" cy="86" r="15" fill="#0B3277"/><circle cx="231" cy="86" r="8" fill="#DCE7F8"/>
-</g><text x="101" y="198" font-family="Arial,sans-serif" font-size="13" font-weight="bold" fill="#fff">KUKA</text></svg>
+<ellipse cx="170" cy="256" rx="116" ry="8" fill="#0B3277" opacity=".12" stroke="none"/>
+<!-- KR 120 floor pedestal and broad rotating shoulder -->
+<path d="M65 232h130l13 18H52z" fill="#0B3277"/>
+<path d="M80 197h100l15 35H65z" fill="#123E8C"/>
+<path d="M80 197l23-11h71l6 11z" fill="#2A63C7"/>
+<path d="M106 184L91 143l19-28 40-6 35 29-6 48z" fill="#1D4FA8"/>
+<path d="M91 143l19-28 40-6-14 26z" fill="#2A63C7"/>
+<!-- sturdy KR 120 lower arm with characteristic slanted, angular casting -->
+<path d="M126 135l-8-17 24-78 25-11 30 19-19 80-20 17z" fill="#123E8C"/>
+<path d="M142 40l25-11 30 19-30 11z" fill="#2A63C7"/>
+<path d="M167 59l30-11-19 80-20 17z" fill="#1D4FA8"/>
+<!-- massive elbow motor housing -->
+<path d="M156 36l15-15 33-3 17 15-8 37-34 3-21-15z" fill="#0B3277"/>
+<path d="M171 21l33-3 17 15-36 5z" fill="#2A63C7"/>
+<!-- KR 120 upper arm: long horizontal tapered housing -->
+<path d="M199 37l27-8 77 27-2 30-85-13-18-19z" fill="#1D4FA8"/>
+<path d="M226 29l77 27-17 9-69-24z" fill="#2A63C7"/>
+<path d="M216 73l85 13-17 9-70-14z" fill="#123E8C"/>
+<!-- articulated wrist and A6 tool flange -->
+<path d="M291 60l23-2 15 17-11 24-29-4 12-22z" fill="#123E8C"/>
+<path d="M303 56l11 2 15 17-13 2z" fill="#2A63C7"/>
+<path d="M316 79l18 3 4 18-18 7-15-10z" fill="#0B3277"/>
+<path d="M338 88h12v13h-12z" fill="#DCE7F8"/>
+<!-- dark motor ports and industrial joint axes -->
+<circle cx="143" cy="130" r="23" fill="#0B3277"/><circle cx="143" cy="130" r="14" fill="#DCE7F8"/><circle cx="143" cy="130" r="5" fill="#2A63C7"/>
+<circle cx="188" cy="47" r="23" fill="#0B3277"/><circle cx="188" cy="47" r="14" fill="#DCE7F8"/><circle cx="188" cy="47" r="5" fill="#2A63C7"/>
+<circle cx="307" cy="77" r="13" fill="#0B3277"/><circle cx="307" cy="77" r="7" fill="#DCE7F8"/>
+<!-- cable routing: geometric, low-detail matching original pallet icon -->
+<path d="M113 116Q109 77 149 35Q166 12 199 26L231 38" fill="none" stroke="#0B3277" stroke-width="7"/>
+<path d="M114 116Q110 78 149 35Q167 12 199 26L231 38" fill="none" stroke="#8FB4F5" stroke-width="2"/>
+</g>
+<text x="101" y="219" font-size="13" font-family="Arial,sans-serif" font-weight="900" fill="#fff">KUKA</text>
+<text x="101" y="230" font-size="8" font-family="Arial,sans-serif" font-weight="700" fill="#DCE7F8">KR 120</text>
+</svg>
       <div class="sub">Тест завершён</div>
       <div class="score" id="rpct">0%</div>
       <div id="rname"></div>
