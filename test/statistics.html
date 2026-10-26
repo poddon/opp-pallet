@@ -107,44 +107,36 @@ async function load(){const btn=$("refresh");btn.disabled=true;try{const resp=aw
     return '<c r="' + ref + '" t="inlineStr"><is><t>' + xmlEsc(value) + "</t></is></c>";
   }
   function buildXlsx(rows) {
-    const heads = ["Дата", "ФИО", "Группа", "Модуль", "Верных", "Всего", "%", "XP", "Сек", "Статус"];
-    let sheet = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>';
-    sheet += '<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">';
-    sheet += '<sheetViews><sheetView tabSelected="1" workbookViewId="0"><pane ySplit="1" topLeftCell="A2" activePane="bottomLeft" state="frozen"/></sheetView></sheetViews>';
-    sheet += '<cols><col min="1" max="1" width="22" customWidth="1"/><col min="2" max="2" width="28" customWidth="1"/><col min="3" max="3" width="18" customWidth="1"/><col min="4" max="4" width="22" customWidth="1"/><col min="5" max="10" width="12" customWidth="1"/></cols>';
-    sheet += "<sheetData><row r=\"1\">";
-    heads.forEach(function (h, i) { sheet += xlsxCell(i, 1, h, false); });
-    sheet += "</row>";
-    rows.forEach(function (r, idx) {
-      const n = idx + 2;
-      const title = "Тест ОПП";
-      sheet += "<row r=\"" + n + "\">";
-      sheet += xlsxCell(0, n, r.date, false);
-      sheet += xlsxCell(1, n, r.name, false);
-      sheet += xlsxCell(2, n, r.group, false);
-      sheet += xlsxCell(3, n, title, false);
-      sheet += xlsxCell(4, n, r.correct, true);
-      sheet += xlsxCell(5, n, r.total, true);
-      sheet += xlsxCell(6, n, r.pct, true);
-      sheet += xlsxCell(7, n, r.xp, true);
-      sheet += xlsxCell(8, n, r.duration, true);
-      sheet += xlsxCell(9, n, r.status, false);
-      sheet += "</row>";
-    });
-    sheet += "</sheetData>";
-    if (rows.length) sheet += '<autoFilter ref="A1:J' + (rows.length + 1) + '"/>';
-    sheet += "</worksheet>";
-    const types = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/><Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/></Types>';
-    const rels = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/></Relationships>';
-    const wb = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets><sheet name="Результаты" sheetId="1" r:id="rId1"/></sheets></workbook>';
-    const wbRels = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/></Relationships>';
-    return zipStore([
-      { name: "[Content_Types].xml", data: types },
-      { name: "_rels/.rels", data: rels },
-      { name: "xl/workbook.xml", data: wb },
-      { name: "xl/_rels/workbook.xml.rels", data: wbRels },
-      { name: "xl/worksheets/sheet1.xml", data: sheet }
-    ]);
+    const header = ["Дата", "Время", "ФИО", "Направление", "Результат, %"];
+    const normalizeGroup = x => String(x || "").trim().replace(/\\s+/g," ").replace(/\\bWEB\\b/gi,"ВЕБ").replace(/\\bVEB\\b/gi,"ВЕБ");
+    const dates = str => {
+      const s=String(str||""); const m=s.match(/^(\\d{2}\\.\\d{2}\\.\\d{4})(?:[,\\s]+(\\d{1,2}:\\d{2}(?::\\d{2})?))?/);
+      if(m)return [m[1],m[2]||""];
+      const iso=s.match(/^(\\d{4})-(\\d{2})-(\\d{2})(?:[T\\s](\\d{2}:\\d{2}(?::\\d{2})?))?/);
+      return iso?[iso[3]+"."+iso[2]+"."+iso[1],iso[4]||""]: [s,""];
+    };
+    const col=(v,n=0)=> n?'<c s="'+n+'" t="inlineStr"><is><t>'+xmlEsc(v)+'</t></is></c>':'<c t="inlineStr"><is><t>'+xmlEsc(v)+'</t></is></c>';
+    let xml='<?xml version="1.0" encoding="UTF-8" standalone="yes"?>';
+    xml+='<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">';
+    xml+='<sheetViews><sheetView showGridLines="0" workbookViewId="0"><pane ySplit="11" topLeftCell="A12" activePane="bottomLeft" state="frozen"/></sheetView></sheetViews>';
+    xml+='<cols><col min="1" max="1" width="18" customWidth="1"/><col min="2" max="2" width="15" customWidth="1"/><col min="3" max="3" width="35" customWidth="1"/><col min="4" max="4" width="25" customWidth="1"/><col min="5" max="5" width="20" customWidth="1"/></cols>';
+    xml+='<sheetData>';
+    xml+='<row r="1" ht="29" customHeight="1"><c r="A1" s="1" t="inlineStr"><is><t>РЕЗУЛЬТАТЫ ТЕСТИРОВАНИЯ</t></is></c></row>';
+    xml+='<row r="4"><c r="A4" s="2" t="inlineStr"><is><t>ОПП  |  Учебный год 2026–2027</t></is></c></row>';
+    xml+='<row r="6"><c r="A6" s="3" t="inlineStr"><is><t>КОЛИЧЕСТВО ПРОХОЖДЕНИЙ</t></is></c><c r="D6" s="3" t="inlineStr"><is><t>СРЕДНИЙ ПРОЦЕНТ</t></is></c></row>';
+    xml+='<row r="7" ht="38" customHeight="1"><c r="A7" s="4"><f>COUNTA(C12:C10000)</f><v>'+rows.length+'</v></c><c r="D7" s="5"><f>IFERROR(AVERAGE(E12:E10000),0)</f><v>'+(rows.length?rows.reduce((n,r)=>n+(Number(r.pct)||0),0)/rows.length:0).toFixed(3)+'</v></c></row>';
+    xml+='<row r="11" ht="30" customHeight="1">'+header.map((h,i)=>'<c r="'+String.fromCharCode(65+i)+'11" s="6" t="inlineStr"><is><t>'+xmlEsc(h)+'</t></is></c>').join("")+'</row>';
+    rows.forEach((r,i)=>{const n=i+12,[date,time]=dates(r.date),cells=[date,time,r.name,normalizeGroup(r.group)];xml+='<row r="'+n+'" ht="24" customHeight="1">'+cells.map((v,j)=>'<c r="'+String.fromCharCode(65+j)+n+'" s="'+(i%2?8:7)+'" t="inlineStr"><is><t>'+xmlEsc(v)+'</t></is></c>').join("")+'<c r="E'+n+'" s="'+(i%2?10:9)+'"><v>'+(Number(r.pct)||0)+'</v></c></row>'});
+    xml+='</sheetData><mergeCells count="4"><mergeCell ref="A1:E2"/><mergeCell ref="A4:E4"/><mergeCell ref="A6:B6"/><mergeCell ref="D6:E6"/></mergeCells>';
+    xml+='<autoFilter ref="A11:E'+Math.max(11,rows.length+11)+'"/>';
+    if(rows.length)xml+='<conditionalFormatting sqref="E12:E'+(rows.length+11)+'"><cfRule type="dataBar" priority="1"><dataBar><cfvo type="num" val="0"/><cfvo type="num" val="100"/><color rgb="FF74A8E6"/></dataBar></cfRule></conditionalFormatting>';
+    xml+='</worksheet>';
+    const styles='<?xml version="1.0" encoding="UTF-8" standalone="yes"?><styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><fonts count="4"><font><sz val="11"/><name val="Aptos"/></font><font><b/><sz val="19"/><color rgb="FFFFFFFF"/><name val="Aptos Display"/></font><font><sz val="11"/><color rgb="FF55708E"/><name val="Aptos"/></font><font><b/><sz val="11"/><color rgb="FFFFFFFF"/><name val="Aptos"/></font></fonts><fills count="6"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill><fill><patternFill patternType="solid"><fgColor rgb="FF123C74"/></patternFill></fill><fill><patternFill patternType="solid"><fgColor rgb="FFE8F1FC"/></patternFill></fill><fill><patternFill patternType="solid"><fgColor rgb="FFFFFFFF"/></patternFill></fill><fill><patternFill patternType="solid"><fgColor rgb="FFF4F7FC"/></patternFill></fill></fills><borders count="1"><border><left/><right/><top/><bottom/><diagonal/></border></borders><cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs><cellXfs count="11"><xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/><xf numFmtId="0" fontId="1" fillId="2" borderId="0" xfId="0" applyFont="1" applyFill="1"/><xf numFmtId="0" fontId="2" fillId="0" borderId="0" xfId="0" applyFont="1"/><xf numFmtId="0" fontId="2" fillId="3" borderId="0" xfId="0" applyFill="1"/><xf numFmtId="0" fontId="1" fillId="2" borderId="0" xfId="0" applyFont="1" applyFill="1"/><xf numFmtId="2" fontId="1" fillId="2" borderId="0" xfId="0" applyFont="1" applyFill="1" applyNumberFormat="1"/><xf numFmtId="0" fontId="3" fillId="2" borderId="0" xfId="0" applyFill="1" applyFont="1"/><xf numFmtId="0" fontId="0" fillId="4" borderId="0" xfId="0" applyFill="1"/><xf numFmtId="0" fontId="0" fillId="5" borderId="0" xfId="0" applyFill="1"/><xf numFmtId="2" fontId="0" fillId="4" borderId="0" xfId="0" applyNumberFormat="1"/><xf numFmtId="2" fontId="0" fillId="5" borderId="0" xfId="0" applyNumberFormat="1"/></cellXfs></styleSheet>';
+    const types='<?xml version="1.0" encoding="UTF-8"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/><Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/><Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/></Types>';
+    const rels='<?xml version="1.0" encoding="UTF-8"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/></Relationships>';
+    const wb='<?xml version="1.0" encoding="UTF-8"?><workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets><sheet name="Результаты" sheetId="1" r:id="rId1"/></sheets></workbook>';
+    const wbRels='<?xml version="1.0" encoding="UTF-8"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/><Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/></Relationships>';
+    return zipStore([{name:"[Content_Types].xml",data:types},{name:"_rels/.rels",data:rels},{name:"xl/workbook.xml",data:wb},{name:"xl/_rels/workbook.xml.rels",data:wbRels},{name:"xl/styles.xml",data:styles},{name:"xl/worksheets/sheet1.xml",data:xml}]);
   }
 
 function download(rows,label){if(!rows.length){alert("Нет результатов для выгрузки");return}const blob=new Blob([buildXlsx(rows)],{type:"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"}),href=URL.createObjectURL(blob),a=document.createElement("a");a.href=href;a.download="ОПП_"+label+"_"+localDay(0)+".xlsx";document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(href),30000)}
