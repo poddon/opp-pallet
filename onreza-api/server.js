@@ -13,7 +13,7 @@ if(!process.env.DATABASE_URL||!process.env.ADMIN_NAME||!process.env.ADMIN_PASSWO
 const pool=new pg.Pool({connectionString:process.env.DATABASE_URL,ssl:{rejectUnauthorized:true},max:12,connectionTimeoutMillis:10000,idleTimeoutMillis:30000});
 const bool=o=>Boolean(o);
 const validId=s=>typeof s==="string"&&/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(s);
-const norm=s=>String(s||"").trim().toLocaleLowerCase("ru").replace(/\\s+/g," ");
+const norm=s=>String(s||"").trim().toLocaleLowerCase("ru").replace(/\s+/g," ");
 function admin(req,res,next){
  let name="";try{name=decodeURIComponent(req.get("x-admin-name")||"")}catch{return res.status(401).json({ok:false})}
  const supplied=crypto.createHash("sha256").update(req.get("x-admin-password")||"").digest("hex");
