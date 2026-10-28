@@ -398,6 +398,8 @@
     }
     if (status === "СПИСЫВАНИЕ") {
       if ($("cheatwho")) $("cheatwho").textContent = (fio + " · " + group).toUpperCase();
+      const cp = document.querySelector("#cheat .cheat-stamp p");
+      if (cp && window.OPP_CHEAT_REASON) cp.textContent = window.OPP_CHEAT_REASON + ". Обратитесь к преподавателю.";
       $("cheat").classList.remove("hidden");
       siren(); speak();
       return;
@@ -413,7 +415,20 @@
   }
 
   function watchCheat() {
-    const hide = () => { if (live && cheatArmed) { live = false; finish("СПИСЫВАНИЕ"); } };
+    const hide = (why) => {
+      if (live && cheatArmed) {
+        live = false;
+        window.OPP_CHEAT_REASON = why || "Выход со страницы теста";
+        finish("СПИСЫВАНИЕ");
+      }
+    };
+    window.OPP_AC = {
+      flag: hide,
+      armed: function () { return live && cheatArmed; },
+      who: function () { return { fio: fio, group: group }; },
+      isFS: isFS,
+      goFS: goFS
+    };
     document.addEventListener("visibilitychange", () => {
       if (document.visibilityState === "hidden") hide();
     });
