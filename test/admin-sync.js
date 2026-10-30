@@ -35,5 +35,5 @@
   const indicator=document.createElement("p");indicator.id="sharedStatus";indicator.className="sub";indicator.textContent="Общая база: ожидание входа";
   const table=$("abody")?.closest(".tbl");if(table)table.parentNode.insertBefore(indicator,table);
   $("go").addEventListener("click",()=>setTimeout(refresh,700));
-  setInterval(refresh,8000);
+  setInterval(refresh,15000);
 })();

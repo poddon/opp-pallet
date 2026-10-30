@@ -35,6 +35,6 @@ $("liveBody").innerHTML=rows.length?rows.map(x=>"<tr><td>"+safe(x.name)+"</td><t
 $("liveMessage").textContent="Обновлено: "+new Date().toLocaleTimeString("ru-RU");
 }catch(e){$("liveMessage").textContent="Не удалось обновить: "+e.message}finally{refreshing=false}
 }
-setInterval(adminRefresh,3000);
+setInterval(adminRefresh,5000);
 $("go")?.addEventListener("click",()=>setTimeout(adminRefresh,800));
 })();
