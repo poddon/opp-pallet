@@ -1,5 +1,5 @@
 (()=>{
-const KEY="opp50_results_v2",DONE="opp50_uploads_v2",OLD="opp50_uploads",API="https://munbcjaikjpbpuxzpbqq.supabase.co/functions/v1/quiz-api?action=results";
+const KEY="opp50_results_v2",DONE="opp50_uploads_v2",OLD="opp50_uploads",API=(window.OPP_DB_URL||"https://munbcjaikjpbpuxzpbqq.supabase.co/functions/v1/quiz-api")+"?action=results";
 let busy=false;
 const read=(k,empty)=>{try{return JSON.parse(localStorage.getItem(k)||"null")||empty}catch{return empty}};
 const uid=()=>typeof crypto!=="undefined"&&crypto.randomUUID?crypto.randomUUID():"xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g,c=>{const n=Math.random()*16|0;return(c==="x"?n:n&3|8).toString(16)});

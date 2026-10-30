@@ -1,5 +1,5 @@
 (()=>{
-const API="https://munbcjaikjpbpuxzpbqq.supabase.co/functions/v1/quiz-api?action=live";
+const API=(window.OPP_DB_URL||"https://munbcjaikjpbpuxzpbqq.supabase.co/functions/v1/quiz-api")+"?action=live";
 const $=id=>document.getElementById(id);
 const clean=s=>String(s||"").trim();
 let sessionId="",lastState="",sending=false;

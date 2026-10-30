@@ -24,6 +24,13 @@
     const sep = API_BASE.indexOf("?") >= 0 ? "&" : "?";
     const url = API_BASE + sep + "action=" + encodeURIComponent(action);
     const opt = { method: body ? "POST" : "GET", headers: { Accept: "application/json" } };
+    try {
+      const an = document.getElementById("fio"), ap = document.getElementById("pwd");
+      if (an && ap && ap.value) {
+        opt.headers["X-Admin-Name"] = encodeURIComponent(an.value.trim());
+        opt.headers["X-Admin-Password"] = ap.value;
+      }
+    } catch (e) {}
     if (body) {
       opt.headers["Content-Type"] = "application/json";
       opt.body = JSON.stringify(body);

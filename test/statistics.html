@@ -28,9 +28,10 @@
 <section class="panel"><div style="display:flex;justify-content:space-between;gap:14px;flex-wrap:wrap;align-items:center"><div><h2>Результаты студентов</h2><div class="muted" id="count"></div></div><div class="actions"><button id="export">Скачать Excel по фильтрам</button><button class="secondary" id="exportPassed">Все прошедшие · Excel</button><button class="secondary" id="exportCheat">Все списывания · Excel</button></div></div>
 <div class="scroll" style="margin-top:15px"><table><thead><tr><th>Дата</th><th>ФИО</th><th>Группа</th><th>Верных</th><th>Всего</th><th>%</th><th>Время (с)</th><th>Статус</th></tr></thead><tbody id="tableBody"></tbody></table></div></section>
 </div></main>
+<script src="synology-config.js?v=2"></script>
 <script>
 (()=>{"use strict";
-const $=id=>document.getElementById(id),api="https://munbcjaikjpbpuxzpbqq.supabase.co/functions/v1/quiz-api?action=results";
+const $=id=>document.getElementById(id),api=(window.OPP_DB_URL||"https://munbcjaikjpbpuxzpbqq.supabase.co/functions/v1/quiz-api")+"?action=results";
 let all=[],filtered=[];
 const esc=x=>String(x??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 const dateOf=s=>{const m=String(s??"").match(/^(\d{2})\.(\d{2})\.(\d{4})/);if(m)return m[3]+"-"+m[2]+"-"+m[1];const x=String(s??"").slice(0,10);return /^\d{4}-\d{2}-\d{2}$/.test(x)?x:"";};

@@ -1,5 +1,5 @@
 (()=>{
-  const base="https://munbcjaikjpbpuxzpbqq.supabase.co/functions/v1/quiz-api?action=results";
+  const base=(window.OPP_DB_URL||"https://munbcjaikjpbpuxzpbqq.supabase.co/functions/v1/quiz-api")+"?action=results";
   const $=id=>document.getElementById(id);
   const escape=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
   let busy=false;
