@@ -14,9 +14,7 @@
    Что блокирует: выделение текста, копирование, вставку, перетаскивание,
    контекстное меню и долгое нажатие (Google Lens), печать.
 
-   Скриншот на телефоне (кнопки питание + громкость) сайт технически запретить
-   не может — поэтому поверх вопроса идёт водяной знак с ФИО, группой и временем:
-   любой «слитый» скриншот однозначно указывает, чей он. */
+   Скриншот на телефоне (кнопки питание + громкость) сайт технически запретить не может. */
 (function () {
   "use strict";
 
@@ -24,17 +22,13 @@
   var armed = function () { var a = AC(); return !!(a && a.armed()); };
   var flag = function (why) { var a = AC(); if (a && a.armed()) a.flag(why); };
 
-  /* ---------- 1. Стили: запрет выделения, долгого нажатия, водяной знак ---------- */
+  /* ---------- 1. Стили: запрет выделения и долгого нажатия ---------- */
   var css = document.createElement("style");
   css.textContent = [
     "#quiz, #quiz * { -webkit-user-select: none !important; user-select: none !important;",
     "  -webkit-touch-callout: none !important; -webkit-user-drag: none !important; }",
     "#quiz img { pointer-events: none; }",
     "body.ac-on { overscroll-behavior: none; touch-action: manipulation; }",
-    "#ac-wm { position: fixed; inset: -50%; z-index: 40; pointer-events: none; display: none;",
-    "  transform: rotate(-28deg); opacity: .10; font: 700 15px/2.4 system-ui, sans-serif; color: #0B1B36;",
-    "  white-space: nowrap; overflow: hidden; word-spacing: 1.2em; }",
-    "body.ac-on #ac-wm { display: block; }",
     "@media print { body { display: none !important; } }",
     "#ac-warn { position: fixed; left: 50%; top: 12px; transform: translateX(-50%); z-index: 70;",
     "  background: #C4141C; color: #fff; font: 700 14px/1.3 system-ui, sans-serif; padding: 10px 16px;",
@@ -42,26 +36,11 @@
   ].join("\n");
   document.head.appendChild(css);
 
-  var wm = document.createElement("div");
-  wm.id = "ac-wm";
-  wm.setAttribute("aria-hidden", "true");
   var warn = document.createElement("div");
   warn.id = "ac-warn";
   document.addEventListener("DOMContentLoaded", function () {
-    document.body.appendChild(wm);
     document.body.appendChild(warn);
   });
-
-  function stamp() {
-    var a = AC(); if (!a) return;
-    var w = a.who();
-    var t = new Date().toLocaleString("ru-RU");
-    var line = (w.fio + " · " + w.group + " · " + t + "   ").repeat(6);
-    var rows = [];
-    for (var i = 0; i < 60; i++) rows.push(i % 2 ? "   " + line : line);
-    wm.textContent = "";
-    wm.innerHTML = rows.map(function (r) { return "<div>" + r.replace(/</g, "&lt;") + "</div>"; }).join("");
-  }
 
   var warnTimer = null;
   function showWarn(text) {
@@ -167,14 +146,13 @@
     var on = armed();
     if (on && !wasArmed) {
       document.body.classList.add("ac-on");
-      stamp(); resetBase();
+      resetBase();
       var a = AC(); wasFS = !!(a && a.isFS());
       try { window.getSelection().removeAllRanges(); } catch (x) {}
     }
     if (!on && wasArmed) {
       document.body.classList.remove("ac-on");
     }
-    if (on && Date.now() % 30000 < 250) stamp(); // обновляем время в водяном знаке
     wasArmed = on;
   }, 200);
 })();

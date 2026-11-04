@@ -849,11 +849,11 @@
     xml+='<row r="7" ht="38" customHeight="1"><c r="A7" s="4"><f>COUNTA(C12:C10000)</f><v>'+rows.length+'</v></c><c r="D7" s="5"><f>IFERROR(AVERAGE(E12:E10000),0)</f><v>'+(rows.length?rows.reduce((n,r)=>n+(Number(r.pct)||0),0)/rows.length:0).toFixed(3)+'</v></c></row>';
     xml+='<row r="11" ht="30" customHeight="1">'+header.map((h,i)=>'<c r="'+String.fromCharCode(65+i)+'11" s="6" t="inlineStr"><is><t>'+xmlEsc(h)+'</t></is></c>').join("")+'</row>';
     rows.forEach((r,i)=>{const n=i+12,[date,time]=dates(r.date),cells=[date,time,r.name,normalizeGroup(r.group)];xml+='<row r="'+n+'" ht="24" customHeight="1">'+cells.map((v,j)=>'<c r="'+String.fromCharCode(65+j)+n+'" s="'+(i%2?8:7)+'" t="inlineStr"><is><t>'+xmlEsc(v)+'</t></is></c>').join("")+'<c r="E'+n+'" s="'+(i%2?10:9)+'"><v>'+(Number(r.pct)||0)+'</v></c></row>'});
-    xml+='</sheetData><mergeCells count="4"><mergeCell ref="A1:E2"/><mergeCell ref="A4:E4"/><mergeCell ref="A6:B6"/><mergeCell ref="D6:E6"/></mergeCells>';
-    xml+='<autoFilter ref="A11:E'+Math.max(11,rows.length+11)+'"/>';
+    xml+='</sheetData>';xml+='<autoFilter ref="A11:E'+Math.max(11,rows.length+11)+'"/>';xml+='<mergeCells count="4"><mergeCell ref="A1:E2"/><mergeCell ref="A4:E4"/><mergeCell ref="A6:B6"/><mergeCell ref="D6:E6"/></mergeCells>';
+    
     if(rows.length)xml+='<conditionalFormatting sqref="E12:E'+(rows.length+11)+'"><cfRule type="dataBar" priority="1"><dataBar><cfvo type="num" val="0"/><cfvo type="num" val="100"/><color rgb="FF74A8E6"/></dataBar></cfRule></conditionalFormatting>';
     xml+='</worksheet>';
-    const styles='<?xml version="1.0" encoding="UTF-8" standalone="yes"?><styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><fonts count="4"><font><sz val="11"/><name val="Aptos"/></font><font><b/><sz val="19"/><color rgb="FFFFFFFF"/><name val="Aptos Display"/></font><font><sz val="11"/><color rgb="FF55708E"/><name val="Aptos"/></font><font><b/><sz val="11"/><color rgb="FFFFFFFF"/><name val="Aptos"/></font></fonts><fills count="6"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill><fill><patternFill patternType="solid"><fgColor rgb="FF123C74"/></patternFill></fill><fill><patternFill patternType="solid"><fgColor rgb="FFE8F1FC"/></patternFill></fill><fill><patternFill patternType="solid"><fgColor rgb="FFFFFFFF"/></patternFill></fill><fill><patternFill patternType="solid"><fgColor rgb="FFF4F7FC"/></patternFill></fill></fills><borders count="1"><border><left/><right/><top/><bottom/><diagonal/></border></borders><cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs><cellXfs count="11"><xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/><xf numFmtId="0" fontId="1" fillId="2" borderId="0" xfId="0" applyFont="1" applyFill="1"/><xf numFmtId="0" fontId="2" fillId="0" borderId="0" xfId="0" applyFont="1"/><xf numFmtId="0" fontId="2" fillId="3" borderId="0" xfId="0" applyFill="1"/><xf numFmtId="0" fontId="1" fillId="2" borderId="0" xfId="0" applyFont="1" applyFill="1"/><xf numFmtId="2" fontId="1" fillId="2" borderId="0" xfId="0" applyFont="1" applyFill="1" applyNumberFormat="1"/><xf numFmtId="0" fontId="3" fillId="2" borderId="0" xfId="0" applyFill="1" applyFont="1"/><xf numFmtId="0" fontId="0" fillId="4" borderId="0" xfId="0" applyFill="1"/><xf numFmtId="0" fontId="0" fillId="5" borderId="0" xfId="0" applyFill="1"/><xf numFmtId="2" fontId="0" fillId="4" borderId="0" xfId="0" applyNumberFormat="1"/><xf numFmtId="2" fontId="0" fillId="5" borderId="0" xfId="0" applyNumberFormat="1"/></cellXfs></styleSheet>';
+    const styles='<?xml version="1.0" encoding="UTF-8" standalone="yes"?><styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><fonts count="4"><font><sz val="11"/><name val="Aptos"/></font><font><b/><sz val="19"/><color rgb="FFFFFFFF"/><name val="Aptos Display"/></font><font><sz val="11"/><color rgb="FF55708E"/><name val="Aptos"/></font><font><b/><sz val="11"/><color rgb="FFFFFFFF"/><name val="Aptos"/></font></fonts><fills count="6"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill><fill><patternFill patternType="solid"><fgColor rgb="FF123C74"/></patternFill></fill><fill><patternFill patternType="solid"><fgColor rgb="FFE8F1FC"/></patternFill></fill><fill><patternFill patternType="solid"><fgColor rgb="FFFFFFFF"/></patternFill></fill><fill><patternFill patternType="solid"><fgColor rgb="FFF4F7FC"/></patternFill></fill></fills><borders count="1"><border><left/><right/><top/><bottom/><diagonal/></border></borders><cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs><cellXfs count="11"><xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/><xf numFmtId="0" fontId="1" fillId="2" borderId="0" xfId="0" applyFont="1" applyFill="1"/><xf numFmtId="0" fontId="2" fillId="0" borderId="0" xfId="0" applyFont="1"/><xf numFmtId="0" fontId="2" fillId="3" borderId="0" xfId="0" applyFill="1"/><xf numFmtId="0" fontId="1" fillId="2" borderId="0" xfId="0" applyFont="1" applyFill="1"/><xf numFmtId="2" fontId="1" fillId="2" borderId="0" xfId="0" applyFont="1" applyFill="1" applyNumberFormat="1"/><xf numFmtId="0" fontId="3" fillId="2" borderId="0" xfId="0" applyFill="1" applyFont="1"/><xf numFmtId="0" fontId="0" fillId="4" borderId="0" xfId="0" applyFill="1"/><xf numFmtId="0" fontId="0" fillId="5" borderId="0" xfId="0" applyFill="1"/><xf numFmtId="2" fontId="0" fillId="4" borderId="0" xfId="0" applyNumberFormat="1"/><xf numFmtId="2" fontId="0" fillId="5" borderId="0" xfId="0" applyNumberFormat="1"/></cellXfs><cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles></styleSheet>';
     const types='<?xml version="1.0" encoding="UTF-8"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/><Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/><Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/></Types>';
     const rels='<?xml version="1.0" encoding="UTF-8"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/></Relationships>';
     const wb='<?xml version="1.0" encoding="UTF-8"?><workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets><sheet name="Результаты" sheetId="1" r:id="rId1"/></sheets></workbook>';
@@ -872,20 +872,30 @@
     button.disabled = true;
     button.textContent = "Загрузка результатов…";
     try {
-      const response = await fetch("https://munbcjaikjpbpuxzpbqq.supabase.co/functions/v1/quiz-api?action=results", {
-        cache: "no-store",
-        headers: {
-          "x-admin-name": encodeURIComponent(normName($("fio").value)),
-          "x-admin-password": $("pwd").value
-        }
-      });
-      if (response.status === 401) throw new Error("Пароль администратора не совпадает с паролем общей базы. Обратитесь к ответственному за админ-панель для синхронизации пароля.");
-      if (!response.ok) throw new Error("Ошибка загрузки общей базы: HTTP " + response.status);
-      const data = await response.json();
-      if (!data.ok || !Array.isArray(data.rows)) throw new Error("Сервер не вернул таблицу результатов.");
-      window.OPP_SHARED_RESULTS = data.rows;
+      let all = null, note = "";
+      try {
+        const base = window.OPP_DB_URL || "https://munbcjaikjpbpuxzpbqq.supabase.co/functions/v1/quiz-api";
+        const response = await fetch(base + "?action=results", {
+          cache: "no-store",
+          headers: {
+            "x-admin-name": encodeURIComponent(normName($("fio").value)),
+            "x-admin-password": $("pwd").value
+          }
+        });
+        if (response.status === 401) throw new Error("пароль администратора не совпадает с паролем общей базы");
+        if (!response.ok) throw new Error("HTTP " + response.status);
+        const data = await response.json();
+        if (!data.ok || !Array.isArray(data.rows)) throw new Error("сервер не вернул таблицу");
+        all = data.rows;
+        window.OPP_SHARED_RESULTS = all;
+      } catch (netErr) {
+        // общая база недоступна — выгружаем то, что уже есть: последняя загруженная таблица или результаты этого устройства
+        all = Array.isArray(window.OPP_SHARED_RESULTS) && window.OPP_SHARED_RESULTS.length ? window.OPP_SHARED_RESULTS : load();
+        note = "Общая база недоступна (" + netErr.message + "). В файл попали результаты, уже загруженные на этом устройстве.";
+      }
+      const data = { rows: all };
       const rows = data.rows.filter(r => r.status === status);
-      if (!rows.length) { alert("В общей базе пока нет результатов: " + name + "."); return; }
+      if (!rows.length) { alert((note ? note + "\n\n" : "") + "Нет результатов для выгрузки: " + name + "."); return; }
       const blob = new Blob([buildXlsx(rows)], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
       const now = new Date();
       const stamp = now.getFullYear() + "-" + String(now.getMonth() + 1).padStart(2, "0") + "-" + String(now.getDate()).padStart(2, "0");
@@ -897,6 +907,7 @@
       link.click();
       link.remove();
       setTimeout(() => URL.revokeObjectURL(href), 60000);
+      if (note) setTimeout(() => alert(note), 300);
     } catch (error) {
       alert("Не удалось скачать Excel. " + error.message);
     } finally {
