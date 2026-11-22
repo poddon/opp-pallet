@@ -25,11 +25,15 @@ function reportError(error) {
 async function loadSetup() {
   const setup = await api(adminPath + "setup");
   const tests = setup.tests.map(item => ({label: item.title, value: item.id}));
+  const past = setup.pastTests.map(item => ({label: item.title, value: item.id}));
+  options($("openTest"), setup.tests.map(item => ({
+    label: item.title + " (вопросов: " + item.questions + ")", value: item.id
+  })), "Выберите тест");
   options($("direction"), setup.directions, "Выберите направление");
   options($("existingGroup"), setup.groups, "Выберите группу");
   $("existingGroups").hidden = setup.groups.length === 0;
   options($("filterGroup"), setup.groups, "Все группы");
-  options($("filterTest"), [...tests, {label: "Архивные тесты", value: "archive"}], "Все тесты");
+  options($("filterTest"), [...tests, ...past, {label: "Архивные тесты", value: "archive"}], "Все тесты");
   $("missingConsent").hidden = setup.consentConfigured;
   canOpen = setup.consentConfigured;
   $("openButton").disabled = !canOpen;
@@ -250,6 +254,8 @@ submit("groupForm", async (data, form) => {
   $("existingGroup").value = item.code;
 });
 submit("openForm", async data => {
+  const testId = data.get("test");
+  if (!testId) throw new Error("Выберите тест.");
   if (data.getAll("groupNumber").length || $("extraNumbers").value.trim()) addProgramGroups();
   if ($("existingGroup").value) addExistingGroup();
   if (!selectedGroups.size) throw new Error("Выберите хотя бы одну группу.");
@@ -260,7 +266,7 @@ submit("openForm", async data => {
     else groups.push(code);
   }
   const result = await api(adminPath + "assignments", {
-    groups, programs, minutes: Number(data.get("minutes"))
+    groups, programs, test: testId, minutes: Number(data.get("minutes"))
   });
   selectedGroups.clear();
   renderSelectedGroups();

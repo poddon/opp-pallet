@@ -133,6 +133,28 @@ func (a *app) groups(ctx context.Context, activeOnly bool) ([]string, error) {
 	return groups, rows.Err()
 }
 
+// pastTests lists tests that were assigned earlier but are no longer in the question bank,
+// so their results stay available in the filters.
+func (a *app) pastTests(ctx context.Context) ([]map[string]string, error) {
+	rows, err := a.db.QueryContext(ctx, `SELECT DISTINCT ON (test_id) test_id,title FROM quiz_assignments
+		ORDER BY test_id, id DESC`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	out := []map[string]string{}
+	for rows.Next() {
+		var id, title string
+		if err := rows.Scan(&id, &title); err != nil {
+			return nil, err
+		}
+		if !slices.ContainsFunc(a.catalog, func(t test) bool { return t.ID == id }) {
+			out = append(out, map[string]string{"id": id, "title": title})
+		}
+	}
+	return out, rows.Err()
+}
+
 func (a *app) studentPortal(web fs.FS) http.Handler {
 	mux := portal(web, "student")
 	mux.HandleFunc("GET /api/student/groups", route(func(w http.ResponseWriter, r *http.Request) error {
@@ -254,11 +276,16 @@ func (a *app) adminPortal(web fs.FS) http.Handler {
 		if err != nil {
 			return err
 		}
-		tests := make([]map[string]string,0,len(a.catalog))
+		tests := make([]map[string]any,0,len(a.catalog))
 		for _, t := range a.catalog {
-			tests = append(tests,map[string]string{"id":t.ID,"title":t.Title})
+			tests = append(tests,map[string]any{"id":t.ID,"title":t.Title,"questions":len(t.Questions)})
 		}
-		writeJSON(w,200,map[string]any{"groups":groups,"directions":directions,"tests":tests,"consentConfigured":a.consent!=""})
+		past, err := a.pastTests(r.Context())
+		if err != nil {
+			return err
+		}
+		writeJSON(w,200,map[string]any{"groups":groups,"directions":directions,"tests":tests,
+			"pastTests":past,"consentConfigured":a.consent!=""})
 		return nil
 	}))
 	mux.HandleFunc("POST "+adminPath+"groups",a.admin(a.addGroup))
@@ -303,6 +330,7 @@ func (a *app) openAssignment(w http.ResponseWriter, r *http.Request) error {
 	var req struct {
 		Groups   []string       `json:"groups"`
 		Programs []programGroup `json:"programs"`
+		Test     string         `json:"test"`
 		Minutes  int            `json:"minutes"`
 	}
 	if err := readJSON(w, r, &req); err != nil {
@@ -310,6 +338,10 @@ func (a *app) openAssignment(w http.ResponseWriter, r *http.Request) error {
 	}
 	if a.consent == "" {
 		return problem{409, "Настройте текст согласия на обработку персональных данных"}
+	}
+	index := slices.IndexFunc(a.catalog, func(t test) bool { return t.ID == req.Test })
+	if index < 0 {
+		return problem{400, "Выберите тест"}
 	}
 	if req.Minutes < 1 || req.Minutes > 1440 || len(req.Groups)+len(req.Programs) == 0 {
 		return problem{400, "Выберите группы и укажите срок от 1 до 1440 минут"}
@@ -333,10 +365,6 @@ func (a *app) openAssignment(w http.ResponseWriter, r *http.Request) error {
 	slices.Sort(groups)
 	groups = slices.Compact(groups)
 
-	index := slices.IndexFunc(a.catalog, func(t test) bool { return t.ID == "general" })
-	if index < 0 {
-		return errors.New("общий тест отсутствует в банке вопросов")
-	}
 	selected := a.catalog[index]
 	questions, err := json.Marshal(selected.Questions)
 	if err != nil {

@@ -51,19 +51,22 @@ func readCatalog() ([]test, error) {
 	if err := json.Unmarshal(body, &catalog); err != nil {
 		return nil, err
 	}
-	general := test{ID: "general", Title: "Общий тест"}
+	if len(catalog) == 0 {
+		return nil, errors.New("банк вопросов пуст")
+	}
+	seen := make(map[string]bool, len(catalog))
 	for _, t := range catalog {
-		if t.ID == "" || t.Title == "" || len(t.Questions) == 0 {
+		if t.ID == "" || t.Title == "" || len(t.Questions) == 0 || seen[t.ID] {
 			return nil, errors.New("некорректный тест в банке вопросов")
 		}
+		seen[t.ID] = true
 		for _, q := range t.Questions {
 			if q.Text == "" || len(q.Choices) < 2 || q.Correct < 0 || q.Correct >= len(q.Choices) {
 				return nil, fmt.Errorf("некорректный вопрос теста %s", t.ID)
 			}
 		}
-		general.Questions = append(general.Questions, t.Questions...)
 	}
-	return append([]test{general}, catalog...), nil
+	return catalog, nil
 }
 
 func digest(s string) string {

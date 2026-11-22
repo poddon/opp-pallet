@@ -97,7 +97,7 @@ func (p startupInput) configure(dir string) (config, error) {
 	ask(&c.database, "Имя существующей базы", saved.Database, false)
 	ask(&c.user, "Пользователь PostgreSQL", saved.User, false)
 	ask(&c.password, "Пароль PostgreSQL", saved.Password, true)
-	ask(&c.adminPassword, "Отдельный пароль админки, минимум 12 символов", os.Getenv("OPP_ADMIN_PASSWORD"), true)
+	ask(&c.adminPassword, "Пароль админки, минимум 12 символов (Enter — сохранённый или новый автоматически)", os.Getenv("OPP_ADMIN_PASSWORD"), true)
 
 	consent := os.Getenv("OPP_CONSENT_FILE")
 	if consent == "" {

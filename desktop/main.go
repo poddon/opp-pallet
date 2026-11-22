@@ -50,7 +50,8 @@ func parseConfig(args []string) (config, error) {
 	} else {
 		flags.StringVar(&c.studentHost, "student-bind", "0.0.0.0", "интерфейс портала студента")
 		flags.StringVar(&c.adminHost, "admin-bind", "127.0.0.1", "интерфейс портала администратора")
-		flags.StringVar(&c.adminPassword, "admin-password", "", "пароль администратора (или OPP_ADMIN_PASSWORD), минимум 12 символов")
+		flags.StringVar(&c.adminPassword, "admin-password", "", "пароль администратора (или OPP_ADMIN_PASSWORD), минимум 12 символов; "+
+			"сохраняется в базе. Если не задан, используется сохранённый, а при первом запуске создаётся новый")
 		flags.StringVar(&c.consentFile, "consent-file", os.Getenv("OPP_CONSENT_FILE"), "файл с текстом согласия в UTF-8")
 	}
 	if err := flags.Parse(args[1:]); err != nil {
@@ -78,7 +79,7 @@ func validateConfig(c config) (config, error) {
 	if c.user == "" {
 		c.user = c.database
 	}
-	if !c.cleanup && len([]rune(c.adminPassword)) < 12 {
+	if !c.cleanup && c.adminPassword != "" && len([]rune(c.adminPassword)) < 12 {
 		return c, errors.New("пароль администратора должен содержать не менее 12 символов")
 	}
 	return c, nil
@@ -143,6 +144,10 @@ func run(c config) error {
 	if err := a.migrate(ctx); err != nil {
 		return fmt.Errorf("подготовка таблиц (проверьте права роли PostgreSQL): %w", err)
 	}
+	generated, err := a.resolveAdminPassword(ctx, c.adminPassword)
+	if err != nil {
+		return fmt.Errorf("пароль администратора: %w", err)
+	}
 	student, err := net.Listen("tcp", net.JoinHostPort(c.studentHost, "8004"))
 	if err != nil {
 		return fmt.Errorf("порт студента 8004: %w. Если приложение уже запущено, закройте предыдущий экземпляр", err)
@@ -173,6 +178,10 @@ func run(c config) error {
 	go a.schedule(signalCtx)
 	fmt.Println("Студент       http://localhost:8004")
 	fmt.Println("Администратор http://localhost:8005")
+	if generated != "" {
+		fmt.Println("Пароль администратора создан при первом запуске и показан один раз:", generated)
+		fmt.Println("Запишите его. Заменить пароль можно запуском с --admin-password.")
+	}
 	if c.consentFile == "" {
 		fmt.Println("Текст согласия ОПД не задан. Для допуска к тестам укажите --consent-file.")
 	}
@@ -197,7 +206,6 @@ func (a *app) configure(c config) error {
 	if err != nil {
 		return err
 	}
-	a.passwordHash = digest(c.adminPassword)
 	if c.consentFile == "" {
 		return nil
 	}

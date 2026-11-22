@@ -79,6 +79,10 @@ CREATE TABLE IF NOT EXISTS quiz_answers (
     answered_at TIMESTAMPTZ NOT NULL DEFAULT clock_timestamp(),
     PRIMARY KEY (session_id, question)
 );
+CREATE TABLE IF NOT EXISTS quiz_app_settings (
+    key TEXT PRIMARY KEY,
+    value TEXT NOT NULL
+);
 CREATE TABLE IF NOT EXISTS quiz_admin_sessions (
     token_hash TEXT PRIMARY KEY,
     expires_at TIMESTAMPTZ NOT NULL

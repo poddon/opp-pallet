@@ -29,9 +29,10 @@ func TestPortalsPostgreSQL(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(a.catalog) != 5 || a.catalog[0].ID != "general" || len(a.catalog[0].Questions) != 50 {
-		t.Fatal("expected a general test with all 50 questions and four thematic tests")
+	if len(a.catalog) != 4 || a.catalog[0].ID != "robotics" {
+		t.Fatal("expected four thematic tests without a combined general test")
 	}
+	robotics := a.catalog[0]
 	if err := a.migrate(ctx); err != nil {
 		t.Fatal(err)
 	}
@@ -41,6 +42,26 @@ func TestPortalsPostgreSQL(t *testing.T) {
 	web, err := fs.Sub(files,"web")
 	if err != nil {
 		t.Fatal(err)
+	}
+	fresh := &app{db: db}
+	if _, err := db.Exec("DELETE FROM quiz_app_settings WHERE key=$1", adminSetting); err != nil {
+		t.Fatal(err)
+	}
+	generated, err := fresh.resolveAdminPassword(ctx, "")
+	if err != nil || len(generated) != 16 || fresh.passwordHash != digest(generated) {
+		t.Fatalf("first start must create a password: %q %v", generated, err)
+	}
+	again := &app{db: db}
+	if repeated, err := again.resolveAdminPassword(ctx, ""); err != nil || repeated != "" || again.passwordHash != digest(generated) {
+		t.Fatalf("second start must reuse the saved password: %q %v", repeated, err)
+	}
+	explicit := &app{db: db}
+	if repeated, err := explicit.resolveAdminPassword(ctx, "explicit-password-1"); err != nil || repeated != "" || explicit.passwordHash != digest("explicit-password-1") {
+		t.Fatalf("explicit password: %q %v", repeated, err)
+	}
+	after := &app{db: db}
+	if _, err := after.resolveAdminPassword(ctx, ""); err != nil || after.passwordHash != digest("explicit-password-1") {
+		t.Fatal("explicit password must be saved for later starts")
 	}
 	student, admin := a.studentPortal(web), a.adminPortal(web)
 	var adminCookie *http.Cookie
@@ -86,7 +107,21 @@ func TestPortalsPostgreSQL(t *testing.T) {
 		{Direction: "Промышленная робототехника", Number: "26-2"},
 		{Direction: "Промышленная автоматика", Number: "26-1"},
 	}
-	batch := map[string]any{"groups": []string{group, group}, "programs": programs, "minutes": 2}
+	var setup struct {
+		Tests []struct{ ID string; Questions int }
+		PastTests []map[string]string
+	}
+	request(admin,"GET","/api/admin/setup",nil,200,&setup)
+	if len(setup.Tests) != 4 || setup.Tests[0].ID != "robotics" || setup.Tests[0].Questions != len(robotics.Questions) {
+		t.Fatalf("setup tests: %+v", setup.Tests)
+	}
+	for _, missing := range []map[string]any{
+		{"groups": []string{group}, "minutes": 2},
+		{"groups": []string{group}, "test": "general", "minutes": 2},
+	} {
+		request(admin, "POST", endpoint, missing, 400, nil)
+	}
+	batch := map[string]any{"groups": []string{group, group}, "programs": programs, "test": "robotics", "minutes": 2}
 	var opened bulkAssignmentResult
 	request(admin, "POST", endpoint, batch, 201, &opened)
 	if len(opened.Opened) != 4 || len(opened.AlreadyOpen) != 0 || opened.Opened[group] == 0 {
@@ -95,7 +130,7 @@ func TestPortalsPostgreSQL(t *testing.T) {
 	for _, program := range programs {
 		var tests []assignment
 		request(student, "GET", "/api/student/tests?"+url.Values{"group": {program.code()}}.Encode(), nil, 200, &tests)
-		if len(tests) != 1 || tests[0].ID != opened.Opened[program.code()] || tests[0].Title != "Общий тест" {
+		if len(tests) != 1 || tests[0].ID != opened.Opened[program.code()] || tests[0].Title != robotics.Title {
 			t.Fatalf("tests for %s: %+v", program.code(), tests)
 		}
 	}
@@ -106,7 +141,7 @@ func TestPortalsPostgreSQL(t *testing.T) {
 	}
 	request(admin, "POST", endpoint, map[string]any{"programs": []programGroup{
 		{Direction: programs[0].Direction, Number: "26-0"},
-	}, "minutes": 2}, 400, nil)
+	}, "test": "robotics", "minutes": 2}, 400, nil)
 
 	id := opened.Opened[group]
 	token, err := newToken()
@@ -120,7 +155,7 @@ func TestPortalsPostgreSQL(t *testing.T) {
 	req.Consent = digest(a.consent)
 	request(student,"POST",studentAttempt,req,200,&view)
 	request(student,"POST",studentAttempt,req,200,&view)
-	if view.Position != 1 || view.Total != 50 || len(view.Choices) < 2 {
+	if view.Position != 1 || view.Total != len(robotics.Questions) || len(view.Choices) < 2 {
 		t.Fatalf("unexpected initial question: %+v",view)
 	}
 	var live []map[string]any
@@ -152,7 +187,7 @@ func TestPortalsPostgreSQL(t *testing.T) {
 	if view.Status != closed || view.Score != 1 {
 		t.Fatalf("result after manual close: %+v", view)
 	}
-	query := "?"+url.Values{"test":{"general"}, "status":{closed}, "name":{"Иванов"}, "group":{group}}.Encode()
+	query := "?"+url.Values{"test":{"robotics"}, "status":{closed}, "name":{"Иванов"}, "group":{group}}.Encode()
 	var matches struct{ Rows []resultRow }
 	request(admin,"GET","/api/admin/results"+query,nil,200,&matches)
 	if len(matches.Rows)==0 || matches.Rows[0].Group != group {
@@ -185,7 +220,7 @@ func TestPortalsPostgreSQL(t *testing.T) {
 		t.Fatal("closing one group must leave the other group open")
 	}
 	var reopened bulkAssignmentResult
-	request(admin, "POST", endpoint, map[string]any{"groups": []string{group}, "minutes": 2}, 201, &reopened)
+	request(admin, "POST", endpoint, map[string]any{"groups": []string{group}, "test": "robotics", "minutes": 2}, 201, &reopened)
 	id = reopened.Opened[group]
 	if id == 0 {
 		t.Fatal("group did not reopen")
