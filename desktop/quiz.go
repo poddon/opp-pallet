@@ -27,7 +27,7 @@ const (
 type app struct {
 	db *sql.DB
 	catalog []test
-	passwordHash, consent string
+	passwordHash, fileConsent string
 }
 
 type question struct {
@@ -271,8 +271,15 @@ func (a *app) advance(ctx context.Context, req attemptAction) (attemptView, erro
 		if ended {
 			return attemptView{}, problem{409, "Тест для этой группы уже закрыт"}
 		}
-		if a.consent == "" || digest(a.consent) != req.Consent || !req.Rules {
+		consent, err := a.consentText(ctx, tx)
+		if err != nil {
+			return attemptView{}, err
+		}
+		if consent == "" || req.Consent == "" || !req.Rules {
 			return attemptView{}, problem{400, "Подтвердите согласие и ознакомление с правилами"}
+		}
+		if digest(consent) != req.Consent {
+			return attemptView{}, problem{412, "Текст согласия обновился. Ознакомьтесь с ним и подтвердите согласие заново."}
 		}
 		name := normalize(req.Name)
 		if !validLength(name, 160) {
@@ -295,7 +302,7 @@ func (a *app) advance(ctx context.Context, req attemptAction) (attemptView, erro
 			VALUES ($1,$2,$3,1,$4,$5,$6,$7,$8,$9,$7,$10,$11,$7,$12)
 			ON CONFLICT DO NOTHING RETURNING session_id`,
 			hash, name, group, s.Total, s.view(now).Seconds, s.Status, now, req.Assignment,
-			strings.ToLower(name), s.Deadline, string(questions), a.consent).Scan(&id)
+			strings.ToLower(name), s.Deadline, string(questions), consent).Scan(&id)
 		if errors.Is(err, sql.ErrNoRows) {
 			s, err = loadAttempt(ctx, tx, hash, req.Assignment)
 			if errors.Is(err, sql.ErrNoRows) {

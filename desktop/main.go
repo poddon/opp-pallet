@@ -174,7 +174,7 @@ func run(c config) error {
 	fmt.Println("Студент       http://localhost:8004")
 	fmt.Println("Администратор http://localhost:8005")
 	if c.consentFile == "" {
-		fmt.Println("Текст согласия ОПД не задан. Для допуска к тестам укажите --consent-file.")
+		fmt.Println("Согласие на обработку персональных данных можно настроить в админке.")
 	}
 	select {
 	case err = <-errs:
@@ -205,15 +205,15 @@ func (a *app) configure(c config) error {
 	if err != nil {
 		return err
 	}
-	if info.Size() > 65536 {
+	if info.Size() > maxConsentBytes {
 		return errors.New("файл согласия превышает 64 КБ")
 	}
 	body, err := os.ReadFile(c.consentFile)
 	if err != nil {
 		return err
 	}
-	a.consent = strings.TrimSpace(strings.TrimPrefix(string(body), "\uFEFF"))
-	if a.consent == "" {
+	a.fileConsent = strings.TrimSpace(strings.TrimPrefix(string(body), "\uFEFF"))
+	if a.fileConsent == "" {
 		return errors.New("пустой файл согласия")
 	}
 	return nil

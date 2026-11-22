@@ -51,11 +51,15 @@ func writeJSON(w http.ResponseWriter, code int, data any) {
 }
 
 func readJSON(w http.ResponseWriter, r *http.Request, dest any) error {
+	return readJSONLimit(w, r, dest, 32768)
+}
+
+func readJSONLimit(w http.ResponseWriter, r *http.Request, dest any, limit int64) error {
 	contentType, _, _ := mime.ParseMediaType(r.Header.Get("Content-Type"))
 	if contentType != "application/json" {
 		return problem{415, "Ожидается JSON"}
 	}
-	dec := json.NewDecoder(http.MaxBytesReader(w, r.Body, 32768))
+	dec := json.NewDecoder(http.MaxBytesReader(w, r.Body, limit))
 	dec.DisallowUnknownFields()
 	if err := dec.Decode(dest); err != nil || dec.Decode(new(any)) != io.EOF {
 		return problem{400, "Некорректный запрос"}
@@ -140,11 +144,15 @@ func (a *app) studentPortal(web fs.FS) http.Handler {
 		if err != nil {
 			return err
 		}
-		version := ""
-		if a.consent != "" {
-			version = digest(a.consent)
+		consent, err := a.consentText(r.Context(), a.db)
+		if err != nil {
+			return err
 		}
-		writeJSON(w, 200, map[string]any{"groups": groups, "consent":a.consent, "version":version})
+		version := ""
+		if consent != "" {
+			version = digest(consent)
+		}
+		writeJSON(w, 200, map[string]any{"groups": groups, "consent": consent, "version": version})
 		return nil
 	}))
 	mux.HandleFunc("GET /api/student/tests", route(func(w http.ResponseWriter, r *http.Request) error {
@@ -258,10 +266,15 @@ func (a *app) adminPortal(web fs.FS) http.Handler {
 		for _, t := range a.catalog {
 			tests = append(tests,map[string]string{"id":t.ID,"title":t.Title})
 		}
-		writeJSON(w,200,map[string]any{"groups":groups,"directions":directions,"tests":tests,"consentConfigured":a.consent!=""})
+		consent, err := a.consentText(r.Context(), a.db)
+		if err != nil {
+			return err
+		}
+		writeJSON(w, 200, map[string]any{"groups": groups, "directions": directions, "tests": tests, "consent": consent})
 		return nil
 	}))
 	mux.HandleFunc("POST "+adminPath+"groups",a.admin(a.addGroup))
+	mux.HandleFunc("POST "+adminPath+"consent", a.admin(a.saveConsent))
 	mux.HandleFunc("GET "+adminPath+"assignments",a.admin(func(w http.ResponseWriter,r *http.Request) error {
 		rows, err := a.assignments(r.Context(),"")
 		if err != nil {
@@ -308,8 +321,12 @@ func (a *app) openAssignment(w http.ResponseWriter, r *http.Request) error {
 	if err := readJSON(w, r, &req); err != nil {
 		return err
 	}
-	if a.consent == "" {
-		return problem{409, "Настройте текст согласия на обработку персональных данных"}
+	consent, err := a.consentText(r.Context(), a.db)
+	if err != nil {
+		return err
+	}
+	if consent == "" {
+		return problem{409, "Сохраните текст согласия на обработку персональных данных в админке"}
 	}
 	if req.Minutes < 1 || req.Minutes > 1440 || len(req.Groups)+len(req.Programs) == 0 {
 		return problem{400, "Выберите группы и укажите срок от 1 до 1440 минут"}

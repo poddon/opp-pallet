@@ -31,7 +31,16 @@
     </nav>
     <section id="open" class="card">
       <h1>Открыть тест для групп</h1>
-      <p id="missingConsent" hidden class="error">Настройте текст согласия на обработку персональных данных в параметрах запуска.</p>
+      <p id="missingConsent" hidden class="error">Чтобы открыть тест, сохраните текст согласия ниже.</p>
+      <details id="consentSettings">
+        <summary>Согласие на обработку персональных данных</summary>
+        <form id="consentForm" class="stack">
+          <label>Текст согласия для студентов
+            <textarea id="consentInput" name="text" rows="6" maxlength="65536" required placeholder="Вставьте текст согласия, утверждённый вашей организацией"></textarea>
+          </label>
+          <div class="actions"><button type="submit">Сохранить согласие</button><span id="consentSaved" role="status"></span></div>
+        </form>
+      </details>
       <form id="openForm" class="stack">
         <div class="fields">
           <label>Направление <select id="direction"></select></label>

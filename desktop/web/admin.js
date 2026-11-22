@@ -22,6 +22,16 @@ function reportError(error) {
   if (error.status === 401) showDashboard(false);
 }
 
+function showConsent(text, saved = false) {
+  const field = $("consentInput");
+  if (saved || field.value === field.defaultValue) field.value = text;
+  field.defaultValue = text;
+  canOpen = Boolean(text);
+  $("missingConsent").hidden = canOpen;
+  $("openButton").disabled = !canOpen;
+  if (!canOpen) $("consentSettings").open = true;
+}
+
 async function loadSetup() {
   const setup = await api(adminPath + "setup");
   const tests = setup.tests.map(item => ({label: item.title, value: item.id}));
@@ -30,9 +40,7 @@ async function loadSetup() {
   $("existingGroups").hidden = setup.groups.length === 0;
   options($("filterGroup"), setup.groups, "Все группы");
   options($("filterTest"), [...tests, {label: "Архивные тесты", value: "archive"}], "Все тесты");
-  $("missingConsent").hidden = setup.consentConfigured;
-  canOpen = setup.consentConfigured;
-  $("openButton").disabled = !canOpen;
+  showConsent(setup.consent);
   showDashboard(true);
 }
 
@@ -249,6 +257,14 @@ submit("groupForm", async (data, form) => {
   $("existingGroups").open = true;
   $("existingGroup").value = item.code;
 });
+$("consentInput").addEventListener("input", () => { $("consentSaved").textContent = ""; });
+submit("consentForm", async data => {
+  $("consentSaved").textContent = "";
+  const result = await api(adminPath + "consent", {text: data.get("text")});
+  showConsent(result.consent, true);
+  $("consentSaved").textContent = "Согласие сохранено. Можно открыть тест.";
+});
+
 submit("openForm", async data => {
   if (data.getAll("groupNumber").length || $("extraNumbers").value.trim()) addProgramGroups();
   if ($("existingGroup").value) addExistingGroup();

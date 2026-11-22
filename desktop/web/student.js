@@ -93,6 +93,11 @@ async function send(operation, fields = {}) {
     showAttempt(await api(studentPath + "attempt", {...current, operation, ...fields}));
     $("message").textContent = "";
   } catch (error) {
+    if (operation === "start" && error.status === 412) {
+      $("entry").elements.consent.checked = false;
+      await loadGroups();
+      $("consentText").closest("details").open = true;
+    }
     $("message").textContent = error.message;
     if (error.status === 404 || (operation === "start" && error.status >= 400 && error.status < 500)) {
       current = null;
@@ -130,7 +135,7 @@ $("entry").addEventListener("submit", event => {
     current = {token, assignment};
     sessionStorage.setItem(storeKey, JSON.stringify(current));
   }
-  void send("start", {name, group: form.get("group"), consent: consentVersion, rules: form.get("rules") === "on"});
+  void send("start", {name, group: form.get("group"), consent: form.get("consent") === "on" ? consentVersion : "", rules: form.get("rules") === "on"});
 });
 $("choices").addEventListener("change", () => { $("submitAnswer").disabled = pending; });
 $("answer").addEventListener("submit", event => {
