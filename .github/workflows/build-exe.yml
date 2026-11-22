@@ -69,6 +69,8 @@ jobs:
           if ($LASTEXITCODE -ne 1 -or $wizard -notmatch '127\.0\.0\.1:1 / opp' -or $wizard -match 'ci-secret') {
             throw "Unexpected startup output: $wizard"
           }
+          Write-Host "Windows startup and expected PostgreSQL error verified"
+          exit 0
   release:
     if: github.ref == 'refs/heads/main'
     needs: windows-startup
