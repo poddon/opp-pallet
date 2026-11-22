@@ -29,8 +29,8 @@ func TestPortalsPostgreSQL(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(a.catalog) != 4 {
-		t.Fatalf("catalog size: %d", len(a.catalog))
+	if len(a.catalog) != 5 || a.catalog[0].ID != "general" || len(a.catalog[0].Questions) != 50 {
+		t.Fatal("expected a general test with all 50 questions and four thematic tests")
 	}
 	if err := a.migrate(ctx); err != nil {
 		t.Fatal(err)
@@ -86,7 +86,7 @@ func TestPortalsPostgreSQL(t *testing.T) {
 		request(admin,"POST","/api/admin/assignments",map[string]any{"test":testID,"group":group,"minutes":2},201,&out)
 		return out["id"]
 	}
-	id := open("robotics")
+	id := open("general")
 	token, err := newToken()
 	if err != nil {
 		t.Fatal(err)
@@ -98,7 +98,7 @@ func TestPortalsPostgreSQL(t *testing.T) {
 	req.Consent = digest(a.consent)
 	request(student,"POST",studentAttempt,req,200,&view)
 	request(student,"POST",studentAttempt,req,200,&view)
-	if view.Position != 1 || len(view.Choices) < 2 {
+	if view.Position != 1 || view.Total != 50 || len(view.Choices) < 2 {
 		t.Fatalf("unexpected initial question: %+v",view)
 	}
 	var live []map[string]any
@@ -106,29 +106,52 @@ func TestPortalsPostgreSQL(t *testing.T) {
 	if len(live) == 0 || live[0]["group"] != group {
 		t.Fatal("missing progress")
 	}
-	choice := 0
-	req.Operation,req.Position,req.Choice = "answer",1,&choice
+	var bank []byte
+	if err := db.QueryRow("SELECT question_set FROM quiz_live WHERE session_id=$1", digest(token)).Scan(&bank); err != nil {
+		t.Fatal(err)
+	}
+	var questions []question
+	if err := json.Unmarshal(bank, &questions); err != nil {
+		t.Fatal(err)
+	}
+	correctChoice := questions[0].Correct
+	req.Operation, req.Position, req.Choice = "answer", 1, &correctChoice
 	request(student,"POST",studentAttempt,req,200,&view)
 	request(student,"POST",studentAttempt,req,200,&view)
 	if view.Position != 2 {
 		t.Fatalf("answer retry changed position: %+v",view)
 	}
+	wrongChoice := (questions[1].Correct + 1) % len(questions[1].Choices)
+	req.Position, req.Choice = 2, &wrongChoice
+	request(student, "POST", studentAttempt, req, 200, &view)
 	request(admin,"POST","/api/admin/assignments/"+strconv.FormatInt(id,10)+"/close",map[string]string{},204,nil)
 	req.Operation = "status"
 	request(student,"POST",studentAttempt,req,200,&view)
-	if view.Status != closed {
-		t.Fatalf("status after manual close: %s",view.Status)
+	if view.Status != closed || view.Score != 1 {
+		t.Fatalf("result after manual close: %+v", view)
 	}
-	query := "?"+url.Values{"test":{"robotics"}, "status":{closed}, "name":{"Иванов"}, "group":{group}}.Encode()
+	query := "?"+url.Values{"test":{"general"}, "status":{closed}, "name":{"Иванов"}, "group":{group}}.Encode()
 	var matches struct{ Rows []resultRow }
 	request(admin,"GET","/api/admin/results"+query,nil,200,&matches)
 	if len(matches.Rows)==0 || matches.Rows[0].Group != group {
 		t.Fatalf("filtered results: %+v",matches)
 	}
-	var details struct { Answers []struct{ Selected string } }
+	var details struct {
+		Answers []struct {
+			Selected string
+			Expected string
+			Correct  bool
+		}
+	}
 	request(admin,"GET","/api/admin/answers/"+digest(token),nil,200,&details)
-	if len(details.Answers)!=view.Total || details.Answers[0].Selected=="" || details.Answers[1].Selected!="" {
-		t.Fatalf("stored answers: %+v",details)
+	if len(details.Answers) != view.Total {
+		t.Fatalf("stored answer count: %d", len(details.Answers))
+	}
+	right, wrong, empty := details.Answers[0], details.Answers[1], details.Answers[2]
+	if !right.Correct || right.Selected == "" || right.Selected != right.Expected ||
+		wrong.Correct || wrong.Selected == "" || wrong.Selected == wrong.Expected ||
+		empty.Correct || empty.Selected != "" || empty.Expected == "" {
+		t.Fatalf("stored answers: correct=%+v, incorrect=%+v, unanswered=%+v", right, wrong, empty)
 	}
 	export := request(admin,"GET","/api/admin/results"+query+"&format=xlsx",nil,200,nil)
 	if !bytes.HasPrefix(export.Body.Bytes(),[]byte("PK")) {

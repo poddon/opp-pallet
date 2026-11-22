@@ -60,3 +60,7 @@ dialog p { margin-block: 4px; }
 #openForm, #filters, #resultRows { margin-bottom: 16px; }
 .table-box + .actions { margin-top: 14px; }
 dialog h2 { margin-top: 12px; }
+
+.answer-status { display: table; margin-bottom: 6px; padding: 2px 8px; border-radius: 6px; font-size: 14px; font-weight: 650; color: #374b65; background: #eaf1fa; }
+.answer-correct { color: #18533a; background: #e2f3e9; }
+.answer-incorrect { color: #85201f; background: #fdeae9; }

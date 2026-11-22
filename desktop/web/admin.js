@@ -112,13 +112,27 @@ async function loadAnswers(id) {
       const li = document.createElement("li");
       const question = document.createElement("strong");
       question.textContent = item.text;
-      const selected = document.createElement("p");
-      selected.textContent = item.selected ? "Ответ студента — " + item.selected +
-        (item.correct ? " ✓" : " ✗") : "Нет ответа";
+      const status = document.createElement("span");
+      status.className = "answer-status";
+      if (!item.selected) {
+        status.textContent = "Без ответа";
+      } else if (item.correct) {
+        status.textContent = "Правильно";
+        status.classList.add("answer-correct");
+      } else {
+        status.textContent = "Неправильно";
+        status.classList.add("answer-incorrect");
+      }
+      li.append(status, question);
+      if (item.selected) {
+        const selected = document.createElement("p");
+        selected.textContent = "Ответ студента — " + item.selected;
+        li.append(selected);
+      }
       const expected = document.createElement("p");
       expected.className = "muted";
       expected.textContent = "Правильный ответ — " + item.expected;
-      li.append(question, selected, expected);
+      li.append(expected);
       return li;
     }));
     if (!$("answerDetails").open) $("answerDetails").showModal();
