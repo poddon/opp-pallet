@@ -80,13 +80,35 @@ func TestPortalsPostgreSQL(t *testing.T) {
 	adminCookie = login.Result().Cookies()[0]
 	group := "CI "+strconv.FormatInt(time.Now().UnixNano(),10)
 	request(admin,"POST","/api/admin/groups",map[string]any{"code":group},200,nil)
-	open := func(testID string) int64 {
-		t.Helper()
-		var out map[string]int64
-		request(admin,"POST","/api/admin/assignments",map[string]any{"test":testID,"group":group,"minutes":2},201,&out)
-		return out["id"]
+	const endpoint = "/api/admin/assignments"
+	programs := []programGroup{
+		{Direction: "Промышленная робототехника", Number: "26-1"},
+		{Direction: "Промышленная робототехника", Number: "26-2"},
+		{Direction: "Промышленная автоматика", Number: "26-1"},
 	}
-	id := open("general")
+	batch := map[string]any{"groups": []string{group, group}, "programs": programs, "minutes": 2}
+	var opened bulkAssignmentResult
+	request(admin, "POST", endpoint, batch, 201, &opened)
+	if len(opened.Opened) != 4 || len(opened.AlreadyOpen) != 0 || opened.Opened[group] == 0 {
+		t.Fatalf("bulk assignment: %+v", opened)
+	}
+	for _, program := range programs {
+		var tests []assignment
+		request(student, "GET", "/api/student/tests?"+url.Values{"group": {program.code()}}.Encode(), nil, 200, &tests)
+		if len(tests) != 1 || tests[0].ID != opened.Opened[program.code()] || tests[0].Title != "Общий тест" {
+			t.Fatalf("tests for %s: %+v", program.code(), tests)
+		}
+	}
+	var retry bulkAssignmentResult
+	request(admin, "POST", endpoint, batch, 201, &retry)
+	if len(retry.Opened) != 0 || len(retry.AlreadyOpen) != 4 {
+		t.Fatalf("repeat bulk assignment: %+v", retry)
+	}
+	request(admin, "POST", endpoint, map[string]any{"programs": []programGroup{
+		{Direction: programs[0].Direction, Number: "26-0"},
+	}, "minutes": 2}, 400, nil)
+
+	id := opened.Opened[group]
 	token, err := newToken()
 	if err != nil {
 		t.Fatal(err)
@@ -157,7 +179,17 @@ func TestPortalsPostgreSQL(t *testing.T) {
 	if !bytes.HasPrefix(export.Body.Bytes(),[]byte("PK")) {
 		t.Fatal("xlsx is not a ZIP")
 	}
-	id = open("robotics")
+	var stillOpen []assignment
+	request(student, "GET", "/api/student/tests?"+url.Values{"group": {programs[0].code()}}.Encode(), nil, 200, &stillOpen)
+	if len(stillOpen) != 1 {
+		t.Fatal("closing one group must leave the other group open")
+	}
+	var reopened bulkAssignmentResult
+	request(admin, "POST", endpoint, map[string]any{"groups": []string{group}, "minutes": 2}, 201, &reopened)
+	id = reopened.Opened[group]
+	if id == 0 {
+		t.Fatal("group did not reopen")
+	}
 	newID := strconv.FormatInt(id,10)
 	if _, err := db.Exec("UPDATE quiz_assignments SET opened_at=clock_timestamp()-interval '3 minutes',closes_at=clock_timestamp()-interval '1 minute' WHERE id=$1",id); err != nil {
 		t.Fatal(err)

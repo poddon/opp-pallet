@@ -64,3 +64,10 @@ dialog h2 { margin-top: 12px; }
 .answer-status { display: table; margin-bottom: 6px; padding: 2px 8px; border-radius: 6px; font-size: 14px; font-weight: 650; color: #374b65; background: #eaf1fa; }
 .answer-correct { color: #18533a; background: #e2f3e9; }
 .answer-incorrect { color: #85201f; background: #fdeae9; }
+
+#openForm > .fields:first-child { align-items: center; }
+.group-numbers { display: flex; gap: 14px; margin: 0; min-width: 0; border: 1px solid var(--border); border-radius: 8px; }
+.group-numbers label { white-space: nowrap; }
+.selected-groups { display: grid; gap: 6px; list-style: none; margin: 0; padding: 0; }
+.selected-groups li { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+#existingGroups .fields { margin-top: 8px; }

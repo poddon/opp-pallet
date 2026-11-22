@@ -30,13 +30,37 @@
       <button type="button" class="secondary" data-tab="results">Результаты</button>
     </nav>
     <section id="open" class="card">
-      <h1>Открыть тест для группы</h1>
+      <h1>Открыть тест для групп</h1>
       <p id="missingConsent" hidden class="error">Настройте текст согласия на обработку персональных данных в параметрах запуска.</p>
-      <form id="openForm" class="fields">
-        <label>Группа <select id="openGroup" name="group" required></select></label>
-        <label>Тест <select id="openTest" name="test" required></select></label>
-        <label>Время доступа, мин <input name="minutes" type="number" min="1" max="1440" value="30" required></label>
-        <button id="openButton">Открыть</button>
+      <form id="openForm" class="stack">
+        <div class="fields">
+          <label>Направление <select id="direction"></select></label>
+          <fieldset class="group-numbers">
+            <legend>Номер группы</legend>
+            <label class="check"><input type="checkbox" name="groupNumber" value="26-1"> 26-1</label>
+            <label class="check"><input type="checkbox" name="groupNumber" value="26-2"> 26-2</label>
+          </fieldset>
+          <label>Другие номера
+            <input id="extraNumbers" placeholder="26-3, 25-1" maxlength="100">
+          </label>
+        </div>
+        <div class="actions"><button class="secondary" id="addProgramGroups" type="button">Добавить в список</button></div>
+        <details id="existingGroups">
+          <summary>Выбрать группу из базы</summary>
+          <div class="fields">
+            <label>Группа <select id="existingGroup"></select></label>
+            <div class="actions"><button id="addExistingGroup" type="button" class="secondary">Добавить в список</button></div>
+          </div>
+        </details>
+        <div>
+          <h2>Выбранные группы</h2>
+          <p id="emptyGroups" class="muted">Добавьте одну или несколько групп.</p>
+          <ul id="selectedGroups" class="selected-groups" aria-label="Выбранные группы"></ul>
+        </div>
+        <div class="fields">
+          <label>Время доступа, мин <input name="minutes" type="number" min="1" max="1440" value="30" required></label>
+          <div class="actions"><button type="submit" id="openButton">Открыть тест</button></div>
+        </div>
       </form>
       <details>
         <summary>Добавить группу</summary>
@@ -48,6 +72,7 @@
     </section>
     <section id="active" class="card" hidden>
       <h1>Активные тесты</h1>
+      <p id="openingSummary" class="muted" role="status" hidden></p>
       <div class="table-box"><table>
         <thead><tr><th>Группа</th><th>Тест</th><th>Закрытие, МСК</th><th>Действие</th></tr></thead>
         <tbody id="activeRows"></tbody>

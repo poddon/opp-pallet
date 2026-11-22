@@ -12,9 +12,12 @@ import (
 	"log"
 	"mime"
 	"net/http"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/lib/pq"
 )
 
 type problem struct {
@@ -256,7 +259,7 @@ func (a *app) adminPortal(web fs.FS) http.Handler {
 		for _, t := range a.catalog {
 			tests = append(tests,map[string]string{"id":t.ID,"title":t.Title})
 		}
-		writeJSON(w,200,map[string]any{"groups":groups,"tests":tests,"consentConfigured":a.consent!=""})
+		writeJSON(w,200,map[string]any{"groups":groups,"directions":directions,"tests":tests,"consentConfigured":a.consent!=""})
 		return nil
 	}))
 	mux.HandleFunc("POST "+adminPath+"groups",a.admin(a.addGroup))
@@ -292,51 +295,108 @@ func (a *app) addGroup(w http.ResponseWriter,r *http.Request) error {
 	return nil
 }
 
-func (a *app) openAssignment(w http.ResponseWriter,r *http.Request) error {
+type bulkAssignmentResult struct {
+	Opened      map[string]int64 `json:"opened"`
+	AlreadyOpen []string         `json:"alreadyOpen"`
+}
+
+func (a *app) openAssignment(w http.ResponseWriter, r *http.Request) error {
 	var req struct {
-		Test string `json:"test"`
-		Group string `json:"group"`
-		Minutes int `json:"minutes"`
+		Groups   []string       `json:"groups"`
+		Programs []programGroup `json:"programs"`
+		Minutes  int            `json:"minutes"`
 	}
-	if err := readJSON(w,r,&req); err != nil {
+	if err := readJSON(w, r, &req); err != nil {
 		return err
 	}
 	if a.consent == "" {
-		return problem{409,"Настройте текст согласия на обработку персональных данных"}
+		return problem{409, "Настройте текст согласия на обработку персональных данных"}
 	}
-	if req.Minutes < 1 || req.Minutes > 1440 || !validLength(req.Group,80) {
-		return problem{400,"Выберите группу и укажите срок от 1 до 1440 минут"}
+	if req.Minutes < 1 || req.Minutes > 1440 || len(req.Groups)+len(req.Programs) == 0 {
+		return problem{400, "Выберите группы и укажите срок от 1 до 1440 минут"}
 	}
-	var selected *test
-	for i := range a.catalog {
-		if a.catalog[i].ID == req.Test {
-			selected = &a.catalog[i]
-			break
+	groups := make([]string, 0, len(req.Groups)+len(req.Programs))
+	createdGroups := make([]string, 0, len(req.Programs))
+	for _, code := range req.Groups {
+		if !validLength(code, 80) {
+			return problem{400, "Некорректное название группы"}
 		}
+		groups = append(groups, code)
 	}
-	if selected == nil {
-		return problem{400,"Выберите тест"}
+	for _, entry := range req.Programs {
+		code := entry.code()
+		if code == "" {
+			return problem{400, "Выберите направление и укажите номер группы в формате 26-1"}
+		}
+		groups = append(groups, code)
+		createdGroups = append(createdGroups, code)
 	}
-	ctx := r.Context()
-	if err := a.expire(ctx); err != nil {
-		return err
+	slices.Sort(groups)
+	groups = slices.Compact(groups)
+
+	index := slices.IndexFunc(a.catalog, func(t test) bool { return t.ID == "general" })
+	if index < 0 {
+		return errors.New("общий тест отсутствует в банке вопросов")
 	}
+	selected := a.catalog[index]
 	questions, err := json.Marshal(selected.Questions)
 	if err != nil {
 		return err
 	}
-	var id int64
-	err = a.db.QueryRowContext(ctx,`INSERT INTO quiz_assignments(group_code,test_id,title,questions,opened_at,closes_at)
-		SELECT code,$2,$3,$4,t, t + make_interval(mins => $5)
-		FROM quiz_groups CROSS JOIN (SELECT clock_timestamp() AS t) stamp WHERE code=$1
-		ON CONFLICT DO NOTHING RETURNING id`,req.Group,selected.ID,selected.Title,string(questions),req.Minutes).Scan(&id)
-	if errors.Is(err,sql.ErrNoRows) {
-		return problem{409,"Тест уже открыт для этой группы или группа не найдена"}
+
+	ctx := r.Context()
+	if err := a.expire(ctx); err != nil {
+		return err
 	}
+	tx, err := a.db.BeginTx(ctx, nil)
 	if err != nil {
 		return err
 	}
-	writeJSON(w,201,map[string]int64{"id":id})
+	defer tx.Rollback()
+	if _, err := tx.ExecContext(ctx, `INSERT INTO quiz_groups(code)
+		SELECT code FROM unnest($1::text[]) AS names(code) ORDER BY code
+		ON CONFLICT DO NOTHING`, pq.Array(createdGroups)); err != nil {
+		return err
+	}
+	var groupCount int
+	if err := tx.QueryRowContext(ctx, "SELECT count(*) FROM quiz_groups WHERE code=ANY($1::text[])",
+		pq.Array(groups)).Scan(&groupCount); err != nil {
+		return err
+	}
+	if groupCount != len(groups) {
+		return problem{400, "Одна из выбранных групп не найдена. Обновите список групп."}
+	}
+	rows, err := tx.QueryContext(ctx, `INSERT INTO quiz_assignments(group_code,test_id,title,questions,opened_at,closes_at)
+		SELECT code,$2,$3,$4,t,t + make_interval(mins => $5)
+		FROM quiz_groups CROSS JOIN (SELECT clock_timestamp() AS t) stamp
+		WHERE code=ANY($1::text[]) ORDER BY code
+		ON CONFLICT DO NOTHING RETURNING group_code,id`,
+		pq.Array(groups), selected.ID, selected.Title, string(questions), req.Minutes)
+	if err != nil {
+		return err
+	}
+	defer rows.Close()
+	result := bulkAssignmentResult{Opened: make(map[string]int64), AlreadyOpen: []string{}}
+	for rows.Next() {
+		var code string
+		var id int64
+		if err := rows.Scan(&code, &id); err != nil {
+			return err
+		}
+		result.Opened[code] = id
+	}
+	if err := rows.Err(); err != nil {
+		return err
+	}
+	for _, code := range groups {
+		if _, ok := result.Opened[code]; !ok {
+			result.AlreadyOpen = append(result.AlreadyOpen, code)
+		}
+	}
+	if err := tx.Commit(); err != nil {
+		return err
+	}
+	writeJSON(w, 201, result)
 	return nil
 }
 

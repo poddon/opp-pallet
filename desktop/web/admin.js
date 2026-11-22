@@ -7,6 +7,8 @@ let filters = new URLSearchParams();
 let page = 1;
 let resultsRequest = 0;
 let refreshing = false;
+let canOpen = false;
+const selectedGroups = new Map();
 
 function showDashboard(visible) {
   $("dashboard").hidden = !visible;
@@ -23,12 +25,14 @@ function reportError(error) {
 async function loadSetup() {
   const setup = await api(adminPath + "setup");
   const tests = setup.tests.map(item => ({label: item.title, value: item.id}));
-  options($("openGroup"), setup.groups, "Выберите группу");
-  options($("openTest"), tests, "Выберите тест");
+  options($("direction"), setup.directions, "Выберите направление");
+  options($("existingGroup"), setup.groups, "Выберите группу");
+  $("existingGroups").hidden = setup.groups.length === 0;
   options($("filterGroup"), setup.groups, "Все группы");
   options($("filterTest"), [...tests, {label: "Архивные тесты", value: "archive"}], "Все тесты");
   $("missingConsent").hidden = setup.consentConfigured;
-  $("openButton").disabled = !setup.consentConfigured || !setup.groups.length;
+  canOpen = setup.consentConfigured;
+  $("openButton").disabled = !canOpen;
   showDashboard(true);
 }
 
@@ -61,6 +65,63 @@ function action(label, handler, kind = "secondary") {
   button.className = kind;
   button.addEventListener("click", handler);
   return button;
+}
+
+function renderSelectedGroups() {
+  $("emptyGroups").hidden = selectedGroups.size > 0;
+  const items = Array.from(selectedGroups, ([code, entry]) => {
+    const row = document.createElement("li");
+    const label = document.createElement("span");
+    label.textContent = entry ? entry.direction + " " + entry.number : code;
+    const remove = action("Убрать", () => {
+      selectedGroups.delete(code);
+      renderSelectedGroups();
+    });
+    remove.setAttribute("aria-label", "Убрать " + label.textContent);
+    row.append(label, remove);
+    return row;
+  });
+  $("selectedGroups").replaceChildren(...items);
+}
+
+function addProgramGroups() {
+  const direction = $("direction").value;
+  const checkboxes = Array.from($("openForm").querySelectorAll("[name=groupNumber]"));
+  const other = $("extraNumbers").value.trim().split(/[,\s]+/).filter(Boolean);
+  const numbers = [...checkboxes.filter(box => box.checked).map(box => box.value), ...other];
+  if (!direction || !numbers.length || numbers.some(number => !/^\d{2}-[1-9]\d*$/.test(number))) {
+    throw new Error("Выберите направление и укажите номер группы в формате 26-1.");
+  }
+  for (const number of numbers) {
+    const label = direction + " " + number;
+    if (label.length > 80) throw new Error("Название группы слишком длинное.");
+  }
+  for (const number of numbers) {
+    const code = (direction + " " + number).toUpperCase();
+    selectedGroups.set(code, {direction, number});
+  }
+  for (const box of checkboxes) box.checked = false;
+  $("extraNumbers").value = "";
+  renderSelectedGroups();
+}
+
+function addExistingGroup() {
+  const select = $("existingGroup");
+  if (!select.value) throw new Error("Выберите группу из списка.");
+  if (!selectedGroups.has(select.value)) selectedGroups.set(select.value, null);
+  select.value = "";
+  renderSelectedGroups();
+}
+
+for (const [id, add] of [["addProgramGroups", addProgramGroups], ["addExistingGroup", addExistingGroup]]) {
+  $(id).addEventListener("click", () => {
+    try {
+      add();
+      $("message").textContent = "";
+    } catch (error) {
+      reportError(error);
+    }
+  });
 }
 
 async function loadActive() {
@@ -162,7 +223,7 @@ function submit(id, submitForm) {
   $(id).addEventListener("submit", async event => {
     event.preventDefault();
     const form = event.currentTarget;
-    const button = form.querySelector("button");
+    const button = event.submitter || form.querySelector("button[type=submit], button:not([type])");
     button.disabled = true;
     $("message").textContent = "";
     try {
@@ -170,7 +231,7 @@ function submit(id, submitForm) {
     } catch (error) {
       reportError(error);
     } finally {
-      button.disabled = false;
+      button.disabled = id === "openForm" && !canOpen;
     }
   });
 }
@@ -185,13 +246,32 @@ submit("groupForm", async (data, form) => {
   const item = await api(adminPath + "groups", {code: data.get("code")});
   form.reset();
   await loadSetup();
-  $("openGroup").value = item.code;
+  $("existingGroups").open = true;
+  $("existingGroup").value = item.code;
 });
 submit("openForm", async data => {
-  await api(adminPath + "assignments", {
-    group: data.get("group"), test: data.get("test"), minutes: Number(data.get("minutes"))
+  if (data.getAll("groupNumber").length || $("extraNumbers").value.trim()) addProgramGroups();
+  if ($("existingGroup").value) addExistingGroup();
+  if (!selectedGroups.size) throw new Error("Выберите хотя бы одну группу.");
+  const groups = [];
+  const programs = [];
+  for (const [code, entry] of selectedGroups) {
+    if (entry) programs.push(entry);
+    else groups.push(code);
+  }
+  const result = await api(adminPath + "assignments", {
+    groups, programs, minutes: Number(data.get("minutes"))
   });
+  selectedGroups.clear();
+  renderSelectedGroups();
+  await loadSetup();
   await selectTab("active");
+  const opened = Object.keys(result.opened);
+  const summary = [];
+  if (opened.length) summary.push("Тест открыт для групп: " + opened.join(", ") + ".");
+  if (result.alreadyOpen.length) summary.push("Тест уже был открыт для групп: " + result.alreadyOpen.join(", ") + ".");
+  $("openingSummary").textContent = summary.join(" ");
+  $("openingSummary").hidden = false;
 });
 
 $("logout").addEventListener("click", async () => {
