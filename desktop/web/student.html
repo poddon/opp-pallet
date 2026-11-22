@@ -3,28 +3,48 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Тестирование ОПП — студент</title>
+  <title>Итоговое тестирование по СК ОПП</title>
   <link rel="stylesheet" href="/portal.css">
+  <link rel="stylesheet" href="/student-brand.css">
   <script defer src="/common.js"></script>
   <script defer src="/student.js"></script>
 </head>
-<body>
-<header><div class="wrap"><strong>ОПП · Портал студента</strong></div></header>
-<main class="wrap narrow">
+<body class="student-portal">
+<main class="student-page">
   <p id="message" class="error" role="status"></p>
-  <section id="registration" class="card">
-    <h1>Тестирование</h1>
-    <p id="availability" class="muted">Загрузка групп…</p>
-    <form id="entry" class="stack" hidden>
-      <label>ФИО <input name="name" autocomplete="name" maxlength="160" required></label>
-      <label>Группа <select name="group" id="studentGroup" required></select></label>
-      <label>Тест <select id="studentTest" name="assignment" required></select></label>
-      <details><summary>Согласие на обработку персональных данных</summary><div id="consentText"></div></details>
-      <label class="check"><input name="consent" type="checkbox" required> Даю согласие на обработку персональных данных на указанных условиях</label>
-      <label class="check"><input name="rules" type="checkbox" required> Ознакомлен с правилами. Переход на другую вкладку или сворачивание браузера завершает попытку</label>
-      <div class="actions"><button id="start">Начать тест</button></div>
-    </form>
-    <button type="button" id="refreshGroups" class="secondary" hidden>Обновить список</button>
+  <section id="registration" class="student-login" aria-labelledby="studentTitle">
+    <div class="student-hero">
+      <img class="student-logo" src="/logo-alabuga-white.png" alt="Алабуга" width="614" height="127">
+      <h1 id="studentTitle">Итоговое тестирование по СК ОПП</h1>
+      <img class="student-robot" src="/robot-blueprint.svg" alt="" width="360" height="453">
+      <div class="student-facts">
+        <div><strong>50</strong>вопросов</div>
+        <div><strong>55 с</strong>на ответ</div>
+        <div><strong>1</strong>попытка</div>
+      </div>
+    </div>
+    <div class="student-entry">
+      <h2>Вход в личный кабинет</h2>
+      <p id="availability" class="muted">Загрузка групп…</p>
+      <form id="entry" class="stack" hidden>
+        <label>ФИО полностью
+          <input name="name" autocomplete="name" maxlength="160" placeholder="Иванов Иван Иванович" required>
+        </label>
+        <label>Направление и номер группы
+          <select name="group" id="studentGroup" required></select>
+        </label>
+        <label id="studentTestField" hidden>Тест
+          <select id="studentTest" name="assignment"></select>
+        </label>
+        <div class="student-consent">
+          <details><summary>Согласие на обработку персональных данных</summary><div id="consentText"></div></details>
+          <label class="check"><input name="consent" type="checkbox" required> Даю согласие на обработку персональных данных на указанных условиях</label>
+        </div>
+        <label class="check student-rules"><input name="rules" type="checkbox" required> Я ознакомлен(а) с правилами тестирования. Переход на другую вкладку или сворачивание браузера завершает попытку.</label>
+        <button id="start">Начать тест</button>
+      </form>
+      <button type="button" id="refreshGroups" class="secondary" hidden>Обновить список</button>
+    </div>
   </section>
   <section id="taking" class="card" hidden>
     <div class="question-top"><p id="position"></p><p id="timer" class="timer"></p></div>

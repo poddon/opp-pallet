@@ -69,12 +69,22 @@ func readJSONLimit(w http.ResponseWriter, r *http.Request, dest any, limit int64
 
 func portal(web fs.FS, name string) *http.ServeMux {
 	mux := http.NewServeMux()
-	for path, file := range map[string]string{
-		"/{$}": name+".html",
+	assets := map[string]string{
+		"/{$}": name + ".html",
 		"/portal.css": "portal.css",
 		"/common.js": "common.js",
-		"/"+name+".js": name+".js",
-	} {
+		"/" + name + ".js": name + ".js",
+	}
+	if name == "student" {
+		for _, file := range []string{
+			"student-brand.css", "logo-alabuga-white.png", "robot-blueprint.svg",
+			"manrope-cyrillic.woff2", "manrope-latin.woff2", "unbounded-cyrillic.woff2", "unbounded-latin.woff2",
+			"manrope-OFL.txt", "unbounded-OFL.txt",
+		} {
+			assets["/"+file] = file
+		}
+	}
+	for path, file := range assets {
 		mux.HandleFunc("GET "+path, func(w http.ResponseWriter, r *http.Request) {
 			http.ServeFileFS(w, r, web, file)
 		})

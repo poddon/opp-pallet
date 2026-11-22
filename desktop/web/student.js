@@ -36,6 +36,9 @@ async function loadGroups() {
 async function loadTests() {
   const group = studentGroup.value;
   options(studentTest, [], "Выберите тест");
+  const testField = $("studentTestField");
+  testField.hidden = true;
+  studentTest.required = false;
   if (!group) return;
   try {
     const tests = await api(studentPath + "tests?" + new URLSearchParams({group}));
@@ -44,6 +47,12 @@ async function loadTests() {
       label: t.title + " · до " + dateFormat.format(new Date(t.closes)) + " МСК",
       value: String(t.id)
     })), tests.length ? "Выберите тест" : "Нет открытых тестов");
+    if (tests.length === 1) {
+      studentTest.value = String(tests[0].id);
+    } else {
+      testField.hidden = false;
+      studentTest.required = true;
+    }
   } catch (error) {
     $("message").textContent = error.message;
   }
@@ -128,6 +137,10 @@ $("entry").addEventListener("submit", event => {
   event.preventDefault();
   const form = new FormData(event.currentTarget);
   const assignment = Number(form.get("assignment"));
+  if (!assignment) {
+    $("message").textContent = "Выберите группу с открытым тестом.";
+    return;
+  }
   const name = form.get("name");
   if (current?.assignment !== assignment) {
     const bytes = crypto.getRandomValues(new Uint8Array(32));
