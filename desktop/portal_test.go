@@ -72,11 +72,15 @@ func TestPortalsPostgreSQL(t *testing.T) {
 
 	request(student,"GET","/",nil,200,nil)
 	request(admin,"GET","/",nil,200,nil)
-	for _, asset := range []string{"/student-brand.css", "/logo-alabuga-white.png", "/robot-blueprint.svg",
+	for _, asset := range []string{"/brand.css", "/logo-alabuga-white.png", "/robot-blueprint.svg",
 		"/manrope-cyrillic.woff2", "/manrope-latin.woff2", "/unbounded-cyrillic.woff2", "/unbounded-latin.woff2"} {
 		request(student, "GET", asset, nil, 200, nil)
-		request(admin, "GET", asset, nil, 404, nil)
+		request(admin, "GET", asset, nil, 200, nil)
 	}
+	request(student, "GET", "/student-brand.css", nil, 200, nil)
+	request(admin, "GET", "/admin-brand.css", nil, 200, nil)
+	request(student, "GET", "/admin-brand.css", nil, 404, nil)
+	request(admin, "GET", "/student-brand.css", nil, 404, nil)
 	request(student,"GET","/admin.js",nil,404,nil)
 	request(admin,"GET","/student.js",nil,404,nil)
 	request(admin,"GET","/api/admin/results",nil,401,nil)

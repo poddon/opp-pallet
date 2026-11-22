@@ -1,0 +1,76 @@
+.admin-page:has(#dashboard[hidden]) {
+  display: grid;
+  align-content: center;
+  justify-items: center;
+  min-height: 100vh;
+  min-height: 100svh;
+}
+
+.admin-page:has(#dashboard[hidden]) > .error { width: min(940px, 100%); }
+.admin-login .brand-robot { width: min(300px, 100%); }
+.admin-login label { font-size: .82rem; font-weight: 700; }
+
+.admin-header {
+  background-color: var(--navy);
+  background-image:
+    linear-gradient(rgba(255,255,255,.06) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255,255,255,.06) 1px, transparent 1px);
+  background-size: 30px 30px;
+}
+
+.admin-brand { display: flex; align-items: center; gap: 20px; min-width: 0; }
+.admin-brand img { width: 145px; height: auto; }
+.admin-brand strong { font: 600 clamp(.78rem, 2vw, 1rem)/1.35 var(--display); }
+.admin-header #logout {
+  border-color: #91ade0;
+  border-radius: 4px;
+  background: #0b3277;
+  color: #fff;
+  font-weight: 700;
+}
+.admin-header #logout:hover { background: var(--blue-hover); }
+
+#dashboard nav {
+  gap: 8px;
+  padding: 8px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: #fff;
+}
+#dashboard nav button { flex: 1 1 auto; }
+#dashboard nav button[aria-current="page"] { border-color: var(--blue); }
+#dashboard nav button:not([aria-current="page"]):hover { background: #eef3fb; }
+
+#dashboard .card {
+  border-radius: 6px;
+  box-shadow: 0 24px 48px -30px rgba(6,42,107,.35);
+}
+#dashboard h1, #dashboard h2, .admin-portal dialog h2 {
+  color: var(--navy);
+  font-family: var(--display);
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+#dashboard h1 { font-size: clamp(1.2rem, 3.2vw, 1.75rem); margin-bottom: 16px; }
+#dashboard h2, .admin-portal dialog h2 { font-size: clamp(1rem, 2.4vw, 1.2rem); }
+
+.admin-page input, .admin-page select, .admin-page textarea {
+  border-color: var(--border);
+  border-radius: 4px;
+}
+.admin-page button, .admin-page .button, .admin-portal dialog button { border-radius: 4px; font-weight: 700; }
+#dashboard details, #dashboard .group-numbers { border-radius: 5px; }
+#dashboard summary, #dashboard legend { color: var(--navy); font-weight: 700; }
+
+#dashboard .table-box { border: 1px solid var(--border); border-radius: 5px; }
+#dashboard th { background: var(--navy); color: #fff; white-space: nowrap; }
+#dashboard tr:nth-child(even) td { background: #f7faff; }
+#dashboard tbody tr:last-child td { border-bottom: 0; }
+.admin-portal dialog { border-radius: 6px; }
+.admin-portal :focus-visible { outline-color: #19b5f0; }
+
+@media (max-width: 760px) {
+  .admin-login .brand-robot { width: min(175px, 100%); }
+  .admin-brand { gap: 10px; }
+  .admin-brand img { width: clamp(80px, 24vw, 130px); }
+}

@@ -11,7 +11,7 @@ const selectedGroups = new Map();
 
 function showDashboard(visible) {
   $("dashboard").hidden = !visible;
-  $("logout").hidden = !visible;
+  $("adminHeader").hidden = !visible;
   $("login").hidden = visible;
   if (!visible && $("answerDetails").open) $("answerDetails").close();
 }

@@ -2,25 +2,41 @@
 <html lang="ru">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>Тестирование ОПП — администратор</title>
   <link rel="stylesheet" href="/portal.css">
+  <link rel="stylesheet" href="/brand.css">
+  <link rel="stylesheet" href="/admin-brand.css">
   <script defer src="/common.js"></script>
   <script defer src="/admin.js"></script>
 </head>
-<body>
-<header><div class="wrap">
-  <strong>ОПП · Портал администратора</strong>
-  <button id="logout" class="secondary" hidden>Выйти</button>
-</div></header>
-<main class="wrap">
+<body class="portal-theme admin-portal">
+<header id="adminHeader" class="admin-header" hidden>
+  <div class="wrap">
+    <div class="admin-brand">
+      <img src="/logo-alabuga-white.png" alt="Алабуга" width="614" height="127">
+      <strong>Портал администратора</strong>
+    </div>
+    <button id="logout" type="button" class="secondary">Выйти</button>
+  </div>
+</header>
+<main class="wrap admin-page">
   <p id="message" class="error" role="status"></p>
-  <section id="login" class="card narrow">
-    <h1>Вход администратора</h1>
-    <form id="loginForm" class="stack">
-      <label>Пароль <input name="password" type="password" autocomplete="current-password" required autofocus></label>
-      <div class="actions"><button>Войти</button></div>
-    </form>
+  <section id="login" class="brand-login admin-login" aria-labelledby="adminTitle">
+    <div class="brand-hero">
+      <img class="brand-logo" src="/logo-alabuga-white.png" alt="Алабуга" width="614" height="127">
+      <h1 id="adminTitle">Портал администратора СК ОПП</h1>
+      <img class="brand-robot" src="/robot-blueprint.svg" alt="" width="360" height="453">
+    </div>
+    <div class="brand-entry">
+      <h2>Вход администратора</h2>
+      <form id="loginForm" class="stack">
+        <label>Пароль
+          <input name="password" type="password" autocomplete="current-password" required autofocus>
+        </label>
+        <button type="submit">Войти</button>
+      </form>
+    </div>
   </section>
   <div id="dashboard" hidden>
     <nav aria-label="Разделы портала">
