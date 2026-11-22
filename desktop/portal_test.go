@@ -90,10 +90,7 @@ func TestPortalsPostgreSQL(t *testing.T) {
 		{Direction: "Промышленная автоматика", Number: "26-1"},
 	}
 	batch := map[string]any{"groups": []string{group, group}, "programs": programs, "minutes": 2}
-	request(admin, "POST", endpoint, batch, 409, nil)
 	request(admin, "POST", consentEndpoint, map[string]string{"text": "   "}, 400, nil)
-	const oldConsent = "Первая версия согласия для проверки"
-	request(admin, "POST", consentEndpoint, map[string]string{"text": oldConsent}, 200, nil)
 	var opened bulkAssignmentResult
 	request(admin, "POST", endpoint, batch, 201, &opened)
 	if len(opened.Opened) != 4 || len(opened.AlreadyOpen) != 0 || opened.Opened[group] == 0 {
@@ -124,6 +121,8 @@ func TestPortalsPostgreSQL(t *testing.T) {
 	const studentAttempt = "/api/student/attempt"
 	var view attemptView
 	request(student,"POST",studentAttempt,req,400,nil)
+	const oldConsent = "Первая версия согласия для проверки"
+	request(admin, "POST", consentEndpoint, map[string]string{"text": oldConsent}, 200, nil)
 	const newConsent = "Вторая версия согласия для проверки"
 	request(admin, "POST", consentEndpoint, map[string]string{"text": newConsent}, 200, nil)
 	var studentConfig map[string]any

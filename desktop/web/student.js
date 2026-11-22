@@ -22,9 +22,9 @@ async function loadGroups() {
     const available = Boolean(data.version && data.groups.length);
     $("entry").hidden = !available;
     $("refreshGroups").hidden = available;
-    $("availability").textContent = available ? "" : data.version
-      ? "Сейчас нет открытых тестов. Обновите список после открытия теста преподавателем."
-      : "Регистрация пока недоступна. Обратитесь к преподавателю.";
+    $("availability").textContent = available ? "" : data.groups.length
+      ? "Тест открыт. Дождитесь, пока преподаватель настроит согласие, и обновите список."
+      : "Сейчас нет открытых тестов. Обновите список после открытия теста преподавателем.";
     $("message").textContent = "";
     await loadTests();
   } catch (error) {

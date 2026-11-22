@@ -7,7 +7,6 @@ let filters = new URLSearchParams();
 let page = 1;
 let resultsRequest = 0;
 let refreshing = false;
-let canOpen = false;
 const selectedGroups = new Map();
 
 function showDashboard(visible) {
@@ -26,10 +25,7 @@ function showConsent(text, saved = false) {
   const field = $("consentInput");
   if (saved || field.value === field.defaultValue) field.value = text;
   field.defaultValue = text;
-  canOpen = Boolean(text);
-  $("missingConsent").hidden = canOpen;
-  $("openButton").disabled = !canOpen;
-  if (!canOpen) $("consentSettings").open = true;
+  $("missingConsent").hidden = Boolean(text);
 }
 
 async function loadSetup() {
@@ -233,13 +229,15 @@ function submit(id, submitForm) {
     const form = event.currentTarget;
     const button = event.submitter || form.querySelector("button[type=submit], button:not([type])");
     button.disabled = true;
-    $("message").textContent = "";
+    const errorMessage = id === "openForm" ? $("openTestError") : $("message");
+    errorMessage.textContent = "";
     try {
       await submitForm(new FormData(form), form);
     } catch (error) {
-      reportError(error);
+      if (error.status === 401) reportError(error);
+      else errorMessage.textContent = error.message;
     } finally {
-      button.disabled = id === "openForm" && !canOpen;
+      button.disabled = false;
     }
   });
 }
@@ -262,7 +260,7 @@ submit("consentForm", async data => {
   $("consentSaved").textContent = "";
   const result = await api(adminPath + "consent", {text: data.get("text")});
   showConsent(result.consent, true);
-  $("consentSaved").textContent = "Согласие сохранено. Можно открыть тест.";
+  $("consentSaved").textContent = "Согласие сохранено.";
 });
 
 submit("openForm", async data => {

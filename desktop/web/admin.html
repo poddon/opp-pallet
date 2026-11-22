@@ -31,7 +31,7 @@
     </nav>
     <section id="open" class="card">
       <h1>Открыть тест для групп</h1>
-      <p id="missingConsent" hidden class="error">Чтобы открыть тест, сохраните текст согласия ниже.</p>
+      <p id="missingConsent" hidden class="muted">Тест можно назначить сейчас. Чтобы студенты могли начать, сохраните текст согласия.</p>
       <details id="consentSettings">
         <summary>Согласие на обработку персональных данных</summary>
         <form id="consentForm" class="stack">
@@ -68,8 +68,9 @@
         </div>
         <div class="fields">
           <label>Время доступа, мин <input name="minutes" type="number" min="1" max="1440" value="30" required></label>
-          <div class="actions"><button type="submit" id="openButton">Открыть тест</button></div>
+          <div class="actions"><button type="submit">Открыть тест</button></div>
         </div>
+        <p id="openTestError" class="error" role="alert"></p>
       </form>
       <details>
         <summary>Добавить группу</summary>

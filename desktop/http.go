@@ -321,13 +321,6 @@ func (a *app) openAssignment(w http.ResponseWriter, r *http.Request) error {
 	if err := readJSON(w, r, &req); err != nil {
 		return err
 	}
-	consent, err := a.consentText(r.Context(), a.db)
-	if err != nil {
-		return err
-	}
-	if consent == "" {
-		return problem{409, "Сохраните текст согласия на обработку персональных данных в админке"}
-	}
 	if req.Minutes < 1 || req.Minutes > 1440 || len(req.Groups)+len(req.Programs) == 0 {
 		return problem{400, "Выберите группы и укажите срок от 1 до 1440 минут"}
 	}
