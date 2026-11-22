@@ -14,6 +14,7 @@ import (
 	"net/url"
 	"os"
 	"os/signal"
+	"runtime"
 	"strconv"
 	"strings"
 	"time"
@@ -42,27 +43,43 @@ func parseConfig(args []string) (config, error) {
 	flags.IntVar(&c.port, "port", 5432, "порт PostgreSQL")
 	flags.StringVar(&c.database, "name", "opp", "имя существующей базы PostgreSQL")
 	flags.StringVar(&c.user, "user", os.Getenv("PGUSER"), "роль PostgreSQL (по умолчанию совпадает с --name)")
-	flags.StringVar(&c.password, "password", os.Getenv("PGPASSWORD"), "пароль PostgreSQL")
+	flags.StringVar(&c.password, "password", "", "пароль PostgreSQL (или PGPASSWORD)")
 	flags.StringVar(&c.sslmode, "sslmode", "disable", "режим TLS PostgreSQL (disable, require, verify-ca, verify-full)")
 	if c.cleanup {
 		flags.BoolVar(&c.apply, "apply", false, "удалить устаревшие технические записи после просмотра")
 	} else {
 		flags.StringVar(&c.studentHost, "student-bind", "0.0.0.0", "интерфейс портала студента")
 		flags.StringVar(&c.adminHost, "admin-bind", "127.0.0.1", "интерфейс портала администратора")
-		flags.StringVar(&c.adminPassword, "admin-password", os.Getenv("OPP_ADMIN_PASSWORD"), "пароль администратора, минимум 12 символов")
+		flags.StringVar(&c.adminPassword, "admin-password", "", "пароль администратора (или OPP_ADMIN_PASSWORD), минимум 12 символов")
 		flags.StringVar(&c.consentFile, "consent-file", os.Getenv("OPP_CONSENT_FILE"), "файл с текстом согласия в UTF-8")
 	}
 	if err := flags.Parse(args[1:]); err != nil {
 		return c, err
 	}
-	if flags.NArg() != 0 || c.port < 1 || c.port > 65535 || c.database == "" || c.host == "" {
+	if flags.NArg() != 0 {
 		return c, errors.New("проверьте параметры запуска")
+	}
+	if c.password == "" {
+		c.password = os.Getenv("PGPASSWORD")
+	}
+	if c.adminPassword == "" && !c.cleanup {
+		c.adminPassword = os.Getenv("OPP_ADMIN_PASSWORD")
+	}
+	return validateConfig(c)
+}
+
+func validateConfig(c config) (config, error) {
+	if c.port < 1 || c.port > 65535 {
+		return c, errors.New("порт PostgreSQL должен быть от 1 до 65535")
+	}
+	if c.database == "" || c.host == "" {
+		return c, errors.New("укажите адрес PostgreSQL и имя существующей базы")
 	}
 	if c.user == "" {
 		c.user = c.database
 	}
 	if !c.cleanup && len([]rune(c.adminPassword)) < 12 {
-		return c, errors.New("задайте OPP_ADMIN_PASSWORD из 12 или более символов")
+		return c, errors.New("пароль администратора должен содержать не менее 12 символов")
 	}
 	return c, nil
 }
@@ -108,11 +125,7 @@ func (a *app) migrate(ctx context.Context) error {
 	return tx.Commit()
 }
 
-func run(args []string) error {
-	c, err := parseConfig(args)
-	if err != nil {
-		return err
-	}
+func run(c config) error {
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 	db, err := openDB(ctx, c)
@@ -128,16 +141,16 @@ func run(args []string) error {
 		return err
 	}
 	if err := a.migrate(ctx); err != nil {
-		return fmt.Errorf("подготовка таблиц: %w", err)
+		return fmt.Errorf("подготовка таблиц (проверьте права роли PostgreSQL): %w", err)
 	}
 	student, err := net.Listen("tcp", net.JoinHostPort(c.studentHost, "8004"))
 	if err != nil {
-		return fmt.Errorf("порт студента 8004: %w", err)
+		return fmt.Errorf("порт студента 8004: %w. Если приложение уже запущено, закройте предыдущий экземпляр", err)
 	}
 	defer student.Close()
 	admin, err := net.Listen("tcp", net.JoinHostPort(c.adminHost, "8005"))
 	if err != nil {
-		return fmt.Errorf("порт администратора 8005: %w", err)
+		return fmt.Errorf("порт администратора 8005: %w. Если приложение уже запущено, закройте предыдущий экземпляр", err)
 	}
 	defer admin.Close()
 
@@ -207,8 +220,26 @@ func (a *app) configure(c config) error {
 }
 
 func main() {
-	if err := run(os.Args[1:]); err != nil && !errors.Is(err, flag.ErrHelp) {
+	args := os.Args[1:]
+	wizard := runtime.GOOS == "windows" && len(args) == 0
+	input := newStartupInput(os.Stdin, os.Stdout)
+
+	var c config
+	var err error
+	if wizard {
+		c, err = input.configure(executableDir())
+	} else {
+		c, err = parseConfig(args)
+	}
+	if err == nil {
+		err = run(c)
+	}
+	if err != nil && !errors.Is(err, flag.ErrHelp) {
 		log.Print(err)
+		if wizard || ownsConsole() {
+			fmt.Fprintln(os.Stderr, "Нажмите Enter, чтобы закрыть окно.")
+			_, _ = input.reader.ReadString('\n')
+		}
 		os.Exit(1)
 	}
 }
