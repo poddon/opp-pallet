@@ -1,80 +1,65 @@
 name: Build Windows EXE
 on:
   push:
+    branches: [main, 'codex/**']
+  pull_request:
     branches: [main]
   workflow_dispatch:
 permissions:
-  contents: write
+  contents: read
 jobs:
   build:
     runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: opp
+          POSTGRES_PASSWORD: opp-ci-password
+          POSTGRES_DB: opp
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U opp"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    defaults:
+      run:
+        working-directory: desktop
     steps:
       - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
       - uses: actions/setup-go@v5
         with:
-          go-version: "1.22"
-      - name: Pack working site from gh-pages
-        run: |
-          mkdir -p desktop/web
-          git checkout origin/gh-pages -- index.html app.js questions.js factory.js matter.min.js synology-config.js || true
-          cp index.html app.js questions.js factory.js matter.min.js desktop/web/
-          if [ -f synology-config.js ]; then cp synology-config.js desktop/web/; fi
-          python3 desktop/slim-table.py
-          python3 - <<'PY'
-          from pathlib import Path
-          p = Path('desktop/web/index.html')
-          s = p.read_text(encoding='utf-8')
-          if 'id="again"' not in s:
-              s = s.replace(
-                  '<button class="btn ghost" id="rescab" type="button">В личный кабинет</button>',
-                  '<button class="btn ghost" id="rescab" type="button">В личный кабинет</button>\n      <button id="again" type="button" hidden></button>'
-              )
-              p.write_text(s, encoding='utf-8')
-          PY
-      - name: Make icon and embed into EXE
-        working-directory: desktop
-        run: |
-          pip install pillow -q
-          python3 <<'PY'
-          from PIL import Image, ImageDraw, ImageFont, ImageFilter
-          def make(size):
-              img = Image.new('RGBA', (size, size), (0,0,0,0))
-              d = ImageDraw.Draw(img)
-              pad = max(1, size//16); r = max(6, size//5)
-              d.rounded_rectangle([pad, pad, size-pad, size-pad], radius=r, fill=(10,47,92,255))
-              inset = pad + max(2, size//18)
-              d.rounded_rectangle([inset, inset, size-pad-2, size-pad-2], radius=max(4,r-size//16), fill=(20,87,168,255))
-              slat_y = int(size*0.72); slat_h = max(2,size//22)
-              for i in range(3):
-                  y=slat_y+i*(slat_h+2)
-                  d.rounded_rectangle([int(size*0.22),y,int(size*0.78),y+slat_h], radius=1, fill=(232,242,252,230))
-              try:
-                  font=ImageFont.truetype('/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf', int(size*0.42))
-                  d.text((size*0.28, size*0.16), 'A', font=font, fill=(255,255,255,255))
-              except: pass
-              return img
-          sizes=[16,24,32,48,64,128,256]
-          imgs=[make(s) for s in sizes]
-          imgs[-1].save('icon.ico', format='ICO', sizes=[(s,s) for s in sizes])
-          imgs[-1].save('OPP-icon.png')
-          PY
-          go install github.com/akavel/rsrc@v0.10.2
-          rsrc -arch amd64 -ico icon.ico -o rsrc_windows_amd64.syso
-      - name: Build OPP-test.exe
-        working-directory: desktop
+          go-version: '1.22.x'
+          cache-dependency-path: desktop/go.sum
+      - name: Test against PostgreSQL
         env:
-          CGO_ENABLED: "0"
+          OPP_TEST_POSTGRES: '1'
+        run: go test -v ./...
+      - name: Build Windows executable
+        env:
+          CGO_ENABLED: '0'
           GOOS: windows
           GOARCH: amd64
         run: go build -trimpath -ldflags="-s -w" -o OPP-test.exe .
-      - name: Attach to release site-latest
-        uses: softprops/action-gh-release@v2
+      - uses: actions/upload-artifact@v4
+        with:
+          name: OPP-test-windows-x64
+          path: desktop/OPP-test.exe
+          if-no-files-found: error
+  release:
+    if: github.ref == 'refs/heads/main'
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: OPP-test-windows-x64
+      - uses: softprops/action-gh-release@v2
         with:
           tag_name: site-latest
-          files: |
-            desktop/OPP-test.exe
-            desktop/pg-config.json
-            desktop/OPP-icon.png
+          files: OPP-test.exe
           fail_on_unmatched_files: true
