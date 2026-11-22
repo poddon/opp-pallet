@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Тестирование ОПП — студент</title>
+  <link rel="stylesheet" href="/portal.css">
+  <script defer src="/common.js"></script>
+  <script defer src="/student.js"></script>
+</head>
+<body>
+<header><div class="wrap"><strong>ОПП · Портал студента</strong></div></header>
+<main class="wrap narrow">
+  <p id="message" class="error" role="status"></p>
+  <section id="registration" class="card">
+    <h1>Тестирование</h1>
+    <p id="availability" class="muted">Загрузка групп…</p>
+    <form id="entry" class="stack" hidden>
+      <label>ФИО <input name="name" autocomplete="name" maxlength="160" required></label>
+      <label>Группа <select name="group" id="studentGroup" required></select></label>
+      <label>Тест <select id="studentTest" name="assignment" required></select></label>
+      <details><summary>Согласие на обработку персональных данных</summary><div id="consentText"></div></details>
+      <label class="check"><input name="consent" type="checkbox" required> Даю согласие на обработку персональных данных на указанных условиях</label>
+      <label class="check"><input name="rules" type="checkbox" required> Ознакомлен с правилами. Переход на другую вкладку или сворачивание браузера завершает попытку</label>
+      <div class="actions"><button id="start">Начать тест</button></div>
+    </form>
+    <button type="button" id="refreshGroups" class="secondary" hidden>Обновить список</button>
+  </section>
+  <section id="taking" class="card" hidden>
+    <div class="question-top"><p id="position"></p><p id="timer" class="timer"></p></div>
+    <progress id="progress"></progress>
+    <h2 id="question"></h2>
+    <form id="answer" class="stack">
+      <div id="choices" class="stack"></div>
+      <div class="actions">
+        <button id="submitAnswer" disabled>Ответить</button>
+        <button id="skip" class="secondary" type="button">Пропустить</button>
+      </div>
+    </form>
+  </section>
+  <section id="finished" class="card" hidden>
+    <h1 id="resultTitle"></h1>
+    <p id="score"></p>
+    <button id="back" class="secondary">К списку тестов</button>
+  </section>
+</main>
+</body>
+</html>

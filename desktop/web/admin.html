@@ -1,0 +1,102 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Тестирование ОПП — администратор</title>
+  <link rel="stylesheet" href="/portal.css">
+  <script defer src="/common.js"></script>
+  <script defer src="/admin.js"></script>
+</head>
+<body>
+<header><div class="wrap">
+  <strong>ОПП · Портал администратора</strong>
+  <button id="logout" class="secondary" hidden>Выйти</button>
+</div></header>
+<main class="wrap">
+  <p id="message" class="error" role="status"></p>
+  <section id="login" class="card narrow">
+    <h1>Вход администратора</h1>
+    <form id="loginForm" class="stack">
+      <label>Пароль <input name="password" type="password" autocomplete="current-password" required autofocus></label>
+      <div class="actions"><button>Войти</button></div>
+    </form>
+  </section>
+  <div id="dashboard" hidden>
+    <nav aria-label="Разделы портала">
+      <button type="button" class="secondary" data-tab="open">Открыть тест</button>
+      <button type="button" class="secondary" data-tab="active">Активные тесты</button>
+      <button type="button" class="secondary" data-tab="live">Сейчас проходят</button>
+      <button type="button" class="secondary" data-tab="results">Результаты</button>
+    </nav>
+    <section id="open" class="card">
+      <h1>Открыть тест для группы</h1>
+      <p id="missingConsent" hidden class="error">Настройте текст согласия на обработку персональных данных в параметрах запуска.</p>
+      <form id="openForm" class="fields">
+        <label>Группа <select id="openGroup" name="group" required></select></label>
+        <label>Тест <select id="openTest" name="test" required></select></label>
+        <label>Время доступа, мин <input name="minutes" type="number" min="1" max="1440" value="30" required></label>
+        <button id="openButton">Открыть</button>
+      </form>
+      <details>
+        <summary>Добавить группу</summary>
+        <form id="groupForm" class="fields">
+          <label>Название группы <input name="code" placeholder="ПРОМРОБО 25-3" maxlength="80" required></label>
+          <div class="actions"><button class="secondary">Добавить</button></div>
+        </form>
+      </details>
+    </section>
+    <section id="active" class="card" hidden>
+      <h1>Активные тесты</h1>
+      <div class="table-box"><table>
+        <thead><tr><th>Группа</th><th>Тест</th><th>Закрытие, МСК</th><th>Действие</th></tr></thead>
+        <tbody id="activeRows"></tbody>
+      </table></div>
+    </section>
+    <section id="live" class="card" hidden>
+      <h1>Сейчас проходят</h1>
+      <p class="muted">Показываются студенты, от которых поступало обновление за последние 25 секунд.</p>
+      <div class="table-box"><table>
+        <thead><tr><th>ФИО</th><th>Группа</th><th>Тест</th><th>Вопрос</th><th>Осталось, с</th></tr></thead>
+        <tbody id="liveRows"></tbody>
+      </table></div>
+    </section>
+    <section id="results" class="card" hidden>
+      <h1>Результаты</h1>
+      <form id="filters" class="stack">
+        <div class="fields">
+          <label>ФИО <input name="name" type="search" maxlength="160"></label>
+          <label>Группа <select id="filterGroup" name="group"></select></label>
+          <label>Тест <select id="filterTest" name="test"></select></label>
+          <label>Статус <select name="status">
+            <option value="">Все статусы</option><option>Пройден</option>
+            <option>Тест закрыт</option><option>СПИСЫВАНИЕ</option>
+          </select></label>
+          <label>Дата с <input name="from" type="date"></label>
+          <label>Дата по <input name="to" type="date"></label>
+        </div>
+        <div class="actions">
+          <button>Применить</button>
+          <button class="secondary" type="reset">Сбросить</button>
+          <a id="export" class="button secondary" href="/api/admin/results?format=xlsx">Скачать Excel</a>
+        </div>
+      </form>
+      <div class="table-box"><table>
+        <thead><tr><th>Дата, МСК</th><th>Время</th><th>ФИО</th><th>Группа</th><th>Тест</th><th>Статус</th><th>Результат</th><th>Ответы</th></tr></thead>
+        <tbody id="resultRows"></tbody>
+      </table></div>
+      <div class="actions">
+        <button id="prev" type="button" class="secondary">Назад</button>
+        <span id="page"></span>
+        <button id="next" type="button" class="secondary">Далее</button>
+      </div>
+    </section>
+  </div>
+</main>
+<dialog id="answerDetails">
+  <form method="dialog" class="actions"><button class="secondary">Закрыть</button></form>
+  <h2 id="answerHeading"></h2>
+  <ol id="answerList"></ol>
+</dialog>
+</body>
+</html>
