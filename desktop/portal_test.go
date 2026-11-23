@@ -35,7 +35,7 @@ func TestPortalsPostgreSQL(t *testing.T) {
 	if err := a.loadCatalog(); err != nil {
 		t.Fatal(err)
 	}
-	if len(a.catalog) != 5 || a.catalog[0].ID != generalTest || len(a.catalog[0].Questions) != 50 || len(a.modules) != 4 {
+	if len(a.catalog) != 5 || a.catalog[0].ID != generalTest || len(a.catalog[0].Questions) != 50 || len(a.modules) != 4 || a.modules[0] != "Модуль 1" || a.modules[3] != "Модуль 4" {
 		t.Fatal("expected a general test with all 50 questions from four modules")
 	}
 	for _, q := range a.catalog[0].Questions {

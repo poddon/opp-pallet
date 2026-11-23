@@ -28,7 +28,8 @@ const (
 type app struct {
 	db *sql.DB
 	catalog []test
-	modules []string          // module titles in catalogue order
+	modules []string          // module labels in catalogue order: "Модуль 1", "Модуль 2", …
+	moduleLabel map[string]string // module title -> label
 	moduleOf map[string]string // question text -> module, for attempts saved before modules were stored
 	passwordHash string
 }
@@ -87,9 +88,11 @@ func (a *app) loadCatalog() error {
 	if err != nil {
 		return err
 	}
-	a.catalog, a.modules, a.moduleOf = catalog, nil, map[string]string{}
-	for _, t := range catalog[1:] {
-		a.modules = append(a.modules, t.Title)
+	a.catalog, a.modules, a.moduleOf, a.moduleLabel = catalog, nil, map[string]string{}, map[string]string{}
+	for k, t := range catalog[1:] {
+		label := fmt.Sprintf("Модуль %d", k+1)
+		a.modules = append(a.modules, label)
+		a.moduleLabel[t.Title] = label
 		for _, q := range t.Questions {
 			a.moduleOf[q.Text] = t.Title
 		}
@@ -97,12 +100,14 @@ func (a *app) loadCatalog() error {
 	return nil
 }
 
+// moduleFor returns the module label ("Модуль 1") of a stored question.
 func (a *app) moduleFor(q question) string {
-	if q.Module != "" {
-		return q.Module
+	title := q.Module
+	if title == "" {
+		title = a.moduleOf[q.Text]
 	}
-	if m := a.moduleOf[q.Text]; m != "" {
-		return m
+	if label := a.moduleLabel[title]; label != "" {
+		return label
 	}
 	return "Без модуля"
 }
