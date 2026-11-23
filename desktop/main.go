@@ -125,7 +125,7 @@ func run(c config) error {
 	defer cancel()
 	db, err := openDB(ctx, c)
 	if err != nil {
-		return fmt.Errorf("PostgreSQL %s:%d / %s: %w", c.host, c.port, c.database, err)
+		return dbError(c, err)
 	}
 	defer db.Close()
 	a := &app{db: db}
