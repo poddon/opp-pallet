@@ -48,7 +48,7 @@ func parseConfig(args []string) (config, error) {
 		flags.BoolVar(&c.apply, "apply", false, "удалить устаревшие технические записи после просмотра")
 	} else {
 		flags.StringVar(&c.studentHost, "student-bind", "0.0.0.0", "интерфейс портала студента")
-		flags.StringVar(&c.adminHost, "admin-bind", "127.0.0.1", "интерфейс портала администратора")
+		flags.StringVar(&c.adminHost, "admin-bind", "0.0.0.0", "интерфейс портала администратора (127.0.0.1 — только с этого компьютера)")
 	}
 	if err := flags.Parse(args[1:]); err != nil {
 		return c, err
@@ -186,6 +186,17 @@ func run(c config) error {
 	go a.schedule(signalCtx)
 	fmt.Println("Студент       http://localhost:8004")
 	fmt.Println("Администратор http://localhost:8005")
+	if ips := lanAddresses(); len(ips) > 0 {
+		fmt.Println("С других устройств в сети:")
+		for _, ip := range ips {
+			if c.studentHost == "0.0.0.0" {
+				fmt.Printf("  студент       http://%s:8004\n", ip)
+			}
+			if c.adminHost == "0.0.0.0" {
+				fmt.Printf("  администратор http://%s:8005\n", ip)
+			}
+		}
+	}
 	select {
 	case err = <-errs:
 	case <-signalCtx.Done():
@@ -239,4 +250,23 @@ func main() {
 func interactive() bool {
 	info, err := os.Stdin.Stat()
 	return err == nil && info.Mode()&os.ModeCharDevice != 0
+}
+
+// lanAddresses lists the computer's IPv4 addresses in the local network.
+func lanAddresses() []string {
+	var out []string
+	addrs, err := net.InterfaceAddrs()
+	if err != nil {
+		return nil
+	}
+	for _, addr := range addrs {
+		ipnet, ok := addr.(*net.IPNet)
+		if !ok || ipnet.IP.IsLoopback() || ipnet.IP.IsLinkLocalUnicast() {
+			continue
+		}
+		if ip := ipnet.IP.To4(); ip != nil {
+			out = append(out, ip.String())
+		}
+	}
+	return out
 }

@@ -75,7 +75,7 @@ func (p startupInput) configure(dir string) (config, error) {
 	}
 	fmt.Fprintln(p.out, "Тестирование ОПП. Подключение к существующей PostgreSQL.")
 	fmt.Fprintln(p.out, "Enter оставляет значение в квадратных скобках.")
-	c := config{sslmode: "disable", studentHost: "0.0.0.0", adminHost: "127.0.0.1"}
+	c := config{sslmode: "disable", studentHost: "0.0.0.0", adminHost: "0.0.0.0"}
 	ask := func(dest *string, label, fallback string, secret bool) {
 		if err != nil {
 			return
