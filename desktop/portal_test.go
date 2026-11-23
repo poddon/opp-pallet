@@ -11,6 +11,7 @@ import (
 	"net/http/httptest"
 	"net/url"
 	"os"
+	"slices"
 	"strconv"
 	"strings"
 	"testing"
@@ -126,6 +127,22 @@ func TestPortalsPostgreSQL(t *testing.T) {
 	adminCookie = nil
 	request(admin,"POST","/api/admin/login",map[string]any{"login":"Тестовый Администратор Ёлкин","password":"admin-test-password"},401,nil)
 	request(admin,"POST","/api/admin/login",map[string]any{"login":"Тестовый Администратор Ёлкин","password":"new-admin-password"},200,nil)
+	adminCookie = saved
+	request(admin,"POST","/api/admin/admins",map[string]string{"name":"Петров","password":"secret-pass"},400,nil)
+	request(admin,"POST","/api/admin/admins",map[string]string{"name":"Петров Пётр Петрович","password":"123"},400,nil)
+	request(admin,"POST","/api/admin/admins",map[string]string{"name":"Петров  Пётр Петрович","password":"secret-pass"},201,nil)
+	request(admin,"POST","/api/admin/admins",map[string]string{"name":"петров пётр петрович","password":"other-pass"},409,nil)
+	request(student,"GET","/api/admin/admins",nil,404,nil)
+	var admins []adminAccount
+	request(admin,"GET","/api/admin/admins",nil,200,&admins)
+	if len(admins) != 6 || !slices.ContainsFunc(admins, func(x adminAccount) bool {
+		return x.Name == "Петров Пётр Петрович" && x.CreatedBy == "Тестовый Администратор Ёлкин"
+	}) {
+		t.Fatalf("admins: %+v", admins)
+	}
+	adminCookie = nil
+	request(admin,"POST","/api/admin/login",map[string]any{"login":"Петров Пётр Петрович","password":"other-pass"},401,nil)
+	request(admin,"POST","/api/admin/login",map[string]any{"login":"Петров Пётр Петрович","password":"secret-pass"},200,nil)
 	adminCookie = saved
 	group := "CI "+strconv.FormatInt(time.Now().UnixNano(),10)
 	request(admin,"POST","/api/admin/groups",map[string]any{"code":group},200,nil)

@@ -267,6 +267,8 @@ func (a *app) adminPortal(web fs.FS) http.Handler {
 	mux.HandleFunc("POST "+adminPath+"login",route(a.login))
 	mux.HandleFunc("POST "+adminPath+"logout",a.admin(a.logout))
 	mux.HandleFunc("POST "+adminPath+"password",a.admin(a.changePassword))
+	mux.HandleFunc("GET "+adminPath+"admins",a.admin(a.listAdmins))
+	mux.HandleFunc("POST "+adminPath+"admins",a.admin(a.createAdmin))
 	mux.HandleFunc("GET "+adminPath+"setup",a.admin(func(w http.ResponseWriter,r *http.Request) error {
 		groups, err := a.groups(r.Context(),false)
 		if err != nil {

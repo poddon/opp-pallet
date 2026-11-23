@@ -17,7 +17,11 @@ func TestDBError(t *testing.T) {
 	if err := dbError(c, &pq.Error{Code: "28P01"}); !strings.Contains(err.Error(), `неверный пароль пользователя "skopp"`) {
 		t.Fatal(err)
 	}
-	if err := migrationError(c, &pq.Error{Code: "42501", Message: "permission denied for schema public"}); !strings.Contains(err.Error(), `GRANT CREATE, USAGE ON SCHEMA public TO "skopp"`) {
+	if err := migrationError(c, &pq.Error{Code: "42501", Message: "permission denied for schema public"}, nil); !strings.Contains(err.Error(), `GRANT CREATE, USAGE ON SCHEMA public TO "skopp"`) {
 		t.Fatal(err)
+	}
+	owned := migrationError(c, &pq.Error{Code: "42501"}, map[string]string{"quiz_live": "postgres"})
+	if !strings.Contains(owned.Error(), "уже созданы другим пользователем (postgres)") || !strings.Contains(owned.Error(), "OWNER TO %I', t, 'skopp')") {
+		t.Fatal(owned)
 	}
 }

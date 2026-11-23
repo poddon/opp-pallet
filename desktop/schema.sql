@@ -93,3 +93,5 @@ CREATE TABLE IF NOT EXISTS quiz_admins (
     changed_at TIMESTAMPTZ
 );
 ALTER TABLE quiz_admin_sessions ADD COLUMN IF NOT EXISTS admin_login TEXT;
+ALTER TABLE quiz_admins ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ DEFAULT clock_timestamp();
+ALTER TABLE quiz_admins ADD COLUMN IF NOT EXISTS created_by TEXT;

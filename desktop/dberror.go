@@ -3,6 +3,7 @@ package main
 import (
 	"errors"
 	"fmt"
+	"sort"
 	"strings"
 	"syscall"
 	"unicode/utf8"
@@ -67,16 +68,34 @@ func readable(s string) string {
 }
 
 // migrationError explains a failure to create the application tables.
-func migrationError(c config, err error) error {
+// foreign lists quiz_* tables owned by another PostgreSQL user.
+func migrationError(c config, err error, foreign map[string]string) error {
 	var pqErr *pq.Error
-	if errors.As(err, &pqErr) && pqErr.Code == "42501" {
-		return fmt.Errorf("у пользователя %q нет прав создавать таблицы в базе %s (схема public). "+
-			"Выдайте права от имени postgres в Query Tool базы %s:\n"+
-			"GRANT CREATE, USAGE ON SCHEMA public TO %s;\nОтвет сервера: %s",
-			c.user, c.database, c.database, pq.QuoteIdentifier(c.user), readable(pqErr.Message))
+	if !errors.As(err, &pqErr) {
+		return fmt.Errorf("создание таблиц в базе %s: %w", c.database, err)
 	}
-	if errors.As(err, &pqErr) {
+	if pqErr.Code != "42501" {
 		return fmt.Errorf("создание таблиц в базе %s: %s (код %s)", c.database, readable(pqErr.Message), pqErr.Code)
 	}
-	return fmt.Errorf("создание таблиц в базе %s: %w", c.database, err)
+	if len(foreign) > 0 {
+		owners := map[string]bool{}
+		for _, owner := range foreign {
+			owners[owner] = true
+		}
+		list := make([]string, 0, len(owners))
+		for owner := range owners {
+			list = append(list, owner)
+		}
+		sort.Strings(list)
+		return fmt.Errorf("таблицы тестирования (quiz_*) в базе %s уже созданы другим пользователем (%s), "+
+			"поэтому пользователь %q не может их обновить.\n"+
+			"Запустите программу с --name %s или передайте таблицы пользователю %s — выполните от имени postgres в Query Tool базы %s:\n"+
+			"DO $$DECLARE t text; BEGIN FOR t IN SELECT tablename FROM pg_tables WHERE schemaname='public' AND tablename LIKE 'quiz%%' "+
+			"LOOP EXECUTE format('ALTER TABLE public.%%I OWNER TO %%I', t, %s); END LOOP; END$$;",
+			c.database, strings.Join(list, ", "), c.user, list[0], c.user, c.database, pq.QuoteLiteral(c.user))
+	}
+	return fmt.Errorf("у пользователя %q нет прав создавать таблицы в базе %s (схема public). "+
+		"Выдайте права от имени postgres в Query Tool базы %s:\n"+
+		"GRANT CREATE, USAGE ON SCHEMA public TO %s;\nОтвет сервера: %s",
+		c.user, c.database, c.database, pq.QuoteIdentifier(c.user), readable(pqErr.Message))
 }

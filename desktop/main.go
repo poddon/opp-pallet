@@ -119,6 +119,24 @@ func (a *app) migrate(ctx context.Context) error {
 	return a.seedAdmins(ctx)
 }
 
+// foreignTables lists application tables owned by another PostgreSQL user.
+func (a *app) foreignTables(ctx context.Context) map[string]string {
+	out := map[string]string{}
+	rows, err := a.db.QueryContext(ctx, `SELECT tablename, tableowner FROM pg_tables
+		WHERE schemaname='public' AND tablename LIKE 'quiz\_%' AND tableowner <> current_user`)
+	if err != nil {
+		return out
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var table, owner string
+		if rows.Scan(&table, &owner) == nil {
+			out[table] = owner
+		}
+	}
+	return out
+}
+
 func run(c config) error {
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
@@ -136,7 +154,7 @@ func run(c config) error {
 		return err
 	}
 	if err := a.migrate(ctx); err != nil {
-		return migrationError(c, err)
+		return migrationError(c, err, a.foreignTables(ctx))
 	}
 	student, err := net.Listen("tcp", net.JoinHostPort(c.studentHost, "8004"))
 	if err != nil {

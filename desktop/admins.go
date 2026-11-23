@@ -130,3 +130,66 @@ func (a *app) changePassword(w http.ResponseWriter, r *http.Request) error {
 	w.WriteHeader(204)
 	return nil
 }
+
+type adminAccount struct {
+	Name      string     `json:"name"`
+	CreatedBy string     `json:"createdBy,omitempty"`
+	Created   *time.Time `json:"created,omitempty"`
+}
+
+func (a *app) listAdmins(w http.ResponseWriter, r *http.Request) error {
+	rows, err := a.db.QueryContext(r.Context(), `SELECT name, coalesce(created_by,''), created_at FROM quiz_admins ORDER BY name`)
+	if err != nil {
+		return err
+	}
+	defer rows.Close()
+	list := []adminAccount{}
+	for rows.Next() {
+		var item adminAccount
+		if err := rows.Scan(&item.Name, &item.CreatedBy, &item.Created); err != nil {
+			return err
+		}
+		list = append(list, item)
+	}
+	if err := rows.Err(); err != nil {
+		return err
+	}
+	writeJSON(w, 200, list)
+	return nil
+}
+
+// createAdmin adds a new administrator account; existing accounts are never overwritten here.
+func (a *app) createAdmin(w http.ResponseWriter, r *http.Request) error {
+	var req struct {
+		Name     string `json:"name"`
+		Password string `json:"password"`
+	}
+	if err := readJSON(w, r, &req); err != nil {
+		return err
+	}
+	name := normalize(req.Name)
+	if !validLength(name, 160) || len(strings.Fields(name)) < 2 {
+		return problem{400, "Укажите ФИО администратора, например: Иванов Иван Иванович"}
+	}
+	if n := utf8.RuneCountInString(req.Password); n < 6 || n > 200 {
+		return problem{400, "Пароль — не короче 6 символов"}
+	}
+	salt := make([]byte, 16)
+	if _, err := rand.Read(salt); err != nil {
+		return err
+	}
+	saltHex := hex.EncodeToString(salt)
+	result, err := a.db.ExecContext(r.Context(), `INSERT INTO quiz_admins(login,name,salt,hash,created_at,created_by)
+		VALUES ($1,$2,$3,$4,clock_timestamp(),$5) ON CONFLICT (login) DO NOTHING`,
+		adminLogin(name), name, saltHex, hashPassword(req.Password, saltHex), currentAdmin(r))
+	if err != nil {
+		return err
+	}
+	if n, err := result.RowsAffected(); err != nil {
+		return err
+	} else if n == 0 {
+		return problem{409, "Администратор с таким ФИО уже есть"}
+	}
+	writeJSON(w, 201, adminAccount{Name: name, CreatedBy: currentAdmin(r)})
+	return nil
+}

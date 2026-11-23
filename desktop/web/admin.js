@@ -275,7 +275,34 @@ async function loadAnswers(id) {
   }
 }
 
-const refresh = {active: loadActive, results: loadResults};
+async function loadAdmins() {
+  const rows = await api(adminPath + "admins");
+  table("adminRows", rows.map(row => [row.name,
+    row.created ? dateFormat.format(new Date(row.created)) : "в прежней версии",
+    row.createdBy || "—"]), 3, "Администраторов нет.");
+}
+
+$("adminForm").addEventListener("submit", async event => {
+  event.preventDefault();
+  const form = event.currentTarget;
+  const data = new FormData(form);
+  $("adminFormMessage").textContent = "";
+  if (data.get("password") !== data.get("repeat")) {
+    $("adminFormMessage").textContent = "Пароли не совпадают.";
+    return;
+  }
+  try {
+    const created = await api(adminPath + "admins", {name: data.get("name"), password: data.get("password")});
+    form.reset();
+    await loadAdmins();
+    alertMessage("Администратор " + created.name + " добавлен.");
+  } catch (error) {
+    if (error.status === 401) reportError(error);
+    else $("adminFormMessage").textContent = error.message;
+  }
+});
+
+const refresh = {active: loadActive, results: loadResults, admins: loadAdmins};
 async function selectTab(next) {
   tab = next;
   for (const button of tabs) {
