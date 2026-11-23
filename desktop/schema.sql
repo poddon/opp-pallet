@@ -98,3 +98,5 @@ ALTER TABLE quiz_admins ADD COLUMN IF NOT EXISTS created_by TEXT;
 ALTER TABLE quiz_admins ADD COLUMN IF NOT EXISTS removed_at TIMESTAMPTZ;
 ALTER TABLE quiz_admins ADD COLUMN IF NOT EXISTS removed_by TEXT;
 ALTER TABLE quiz_live ADD COLUMN IF NOT EXISTS cheat_reason TEXT;
+-- The status «Тест закрыт» is no longer used: such attempts count as passed.
+UPDATE quiz_live SET status='Пройден' WHERE status='Тест закрыт';

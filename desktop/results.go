@@ -48,7 +48,7 @@ const resultCTE = `WITH result AS (
 	to_char(created_at AT TIME ZONE 'Europe/Moscow','HH24:MI:SS'),
 	coalesce(fields->>'student_name', fields->>'name'),
 	upper(regexp_replace(btrim(group_code), '[[:space:]]+', ' ', 'g')),
-	'Архивный тест', 'archive', status, '', round(pct)::int, created_at, true
+	'Архивный тест', 'archive', CASE WHEN status='Тест закрыт' THEN 'Пройден' ELSE status END, '', round(pct)::int, created_at, true
 	FROM quiz_results r CROSS JOIN LATERAL (SELECT to_jsonb(r) AS fields) legacy
 )`
 

@@ -107,14 +107,13 @@
           <label>ФИО <input name="name" type="search" maxlength="160"></label>
           <label>Статус <select name="status">
             <option value="">Все статусы</option><option>Пройден</option>
-            <option>Тест закрыт</option><option>СПИСЫВАНИЕ</option>
+            <option>СПИСЫВАНИЕ</option>
           </select></label>
           <label>Дата с <input name="from" type="date"></label>
           <label>Дата по <input name="to" type="date"></label>
         </div>
         <details id="groupFilter" class="group-filter">
           <summary>Группы <span id="groupCount" class="muted"></span></summary>
-          <p class="muted">Ведомость формируется по выбранным группам и периоду: отдельный лист на каждую группу, у студента берётся последний результат. Раскройте направление и отметьте номера групп. Галочка у направления выбирает все его группы.</p>
           <div id="groupTree" class="group-tree"></div>
         </details>
         <div class="actions">

@@ -21,7 +21,6 @@ const (
 	questionSeconds = 55
 	inProgress = "Проходит"
 	completed = "Пройден"
-	closed = "Тест закрыт"
 	flagged = "СПИСЫВАНИЕ"
 )
 
@@ -154,7 +153,8 @@ func shuffleQuestions(qs []question) {
 const closeDue = `UPDATE quiz_assignments SET closed_at=closes_at
 	WHERE closed_at IS NULL AND closes_at <= clock_timestamp()`
 
-const finishClosed = `UPDATE quiz_live l SET status='Тест закрыт', finished_at=a.closed_at,
+// When a test closes, unfinished attempts count as passed with the answers already given.
+const finishClosed = `UPDATE quiz_live l SET status='Пройден', finished_at=a.closed_at,
 	seconds_left=0, updated_at=clock_timestamp()
 	FROM quiz_assignments a WHERE l.assignment_id=a.id AND l.finished_at IS NULL AND a.closed_at IS NOT NULL`
 
@@ -408,7 +408,7 @@ func (a *app) advance(ctx context.Context, req attemptAction) (attemptView, erro
 		var finishedAt any
 		switch {
 		case ended:
-			s.Status = closed
+			s.Status = completed
 			finishedAt = expires
 			if closedAt.Valid {
 				finishedAt = closedAt.Time

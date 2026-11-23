@@ -260,10 +260,10 @@ func TestPortalsPostgreSQL(t *testing.T) {
 	request(admin,"POST","/api/admin/assignments/"+strconv.FormatInt(id,10)+"/close",map[string]string{},204,nil)
 	req.Operation = "status"
 	request(student,"POST",studentAttempt,req,200,&view)
-	if view.Status != closed || view.Score != 1 {
+	if view.Status != completed || view.Score != 1 {
 		t.Fatalf("result after manual close: %+v", view)
 	}
-	query := "?"+url.Values{"test":{chosen.ID, "archive"}, "status":{closed, completed}, "name":{"Иванов"},
+	query := "?"+url.Values{"test":{chosen.ID, "archive"}, "status":{completed}, "name":{"Иванов"},
 		"group":{group, programs[0].code()}}.Encode()
 	var matches struct{ Rows []resultRow }
 	request(admin,"GET","/api/admin/results"+query,nil,200,&matches)
