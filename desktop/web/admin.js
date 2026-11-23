@@ -7,6 +7,7 @@ let filters = new URLSearchParams();
 let page = 1;
 let resultsRequest = 0;
 let refreshing = false;
+let resultCount = 0;
 const selectedGroups = new Map();
 
 function showDashboard(visible) {
@@ -210,6 +211,7 @@ async function loadResults() {
   params.set("page", page);
   const data = await api(adminPath + "results?" + params);
   if (request !== resultsRequest) return;
+  resultCount = data.rows.length;
   table("resultRows", data.rows.map(row => [row.date, row.time, row.name, row.group,
     row.test, row.status, row.percent + "%", row.archived ? "—" :
       action("Ответы", () => void loadAnswers(row.id))]), 8, "Результатов по этим параметрам нет.");
@@ -219,6 +221,8 @@ async function loadResults() {
   const exportParams = new URLSearchParams(filters);
   exportParams.set("format", "xlsx");
   $("export").href = adminPath + "results?" + exportParams;
+  exportParams.set("format", "statement");
+  $("statement").href = adminPath + "results?" + exportParams;
 }
 
 function answerItem(item) {
@@ -392,4 +396,10 @@ setInterval(async () => {
 
 loadSetup().then(() => selectTab("open")).catch(error => {
   if (error.status !== 401) reportError(error);
+});
+
+$("statement").addEventListener("click", event => {
+  if (resultCount) return;
+  event.preventDefault();
+  $("message").textContent = "Нет результатов для ведомости. Измените фильтры.";
 });

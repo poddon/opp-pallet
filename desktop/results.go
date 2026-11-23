@@ -11,6 +11,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"net/url"
 	"strconv"
 	"strings"
 	"time"
@@ -104,7 +105,8 @@ func (a *app) results(w http.ResponseWriter, r *http.Request) error {
 	query += " ORDER BY event_at DESC, archived, id DESC"
 	const pageSize = 100
 	page := 1
-	export := q.Get("format") == "xlsx"
+	format := q.Get("format")
+	export := format == "xlsx" || format == "statement"
 	if !export {
 		if raw := q.Get("page"); raw != "" {
 			var err error
@@ -133,12 +135,22 @@ func (a *app) results(w http.ResponseWriter, r *http.Request) error {
 		return err
 	}
 	if export {
-		body, err := a.exportResults(r.Context(), items)
+		var body []byte
+		name, display := "OPP-results.xlsx", "Результаты ОПП.xlsx"
+		if format == "statement" {
+			if len(items) == 0 {
+				return problem{404, "Нет результатов для ведомости. Измените фильтры."}
+			}
+			body, err = statement(items)
+			name, display = "Vedomost-OPP.xlsx", "Ведомость ОПП.xlsx"
+		} else {
+			body, err = a.exportResults(r.Context(), items)
+		}
 		if err != nil {
 			return err
 		}
 		w.Header().Set("Content-Type","application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
-		w.Header().Set("Content-Disposition",`attachment; filename="OPP-results.xlsx"`)
+		w.Header().Set("Content-Disposition",`attachment; filename="`+name+`"; filename*=UTF-8''`+url.PathEscape(display))
 		_, err = w.Write(body)
 		return err
 	}

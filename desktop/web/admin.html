@@ -105,13 +105,14 @@
         </div>
         <details id="groupFilter" class="group-filter">
           <summary>Группы <span id="groupCount" class="muted"></span></summary>
-          <p class="muted">Раскройте направление и отметьте номера групп. Галочка у направления выбирает все его группы.</p>
+          <p class="muted">Ведомость формируется по выбранным группам и периоду: отдельный лист на каждую группу, у студента берётся последний результат. Раскройте направление и отметьте номера групп. Галочка у направления выбирает все его группы.</p>
           <div id="groupTree" class="group-tree"></div>
         </details>
         <div class="actions">
           <button>Применить</button>
           <button class="secondary" type="reset">Сбросить</button>
           <a id="export" class="button secondary" href="/api/admin/results?format=xlsx">Скачать Excel</a>
+          <a id="statement" class="button secondary" href="/api/admin/results?format=statement">Сформировать ведомость</a>
         </div>
       </form>
       <div class="table-box"><table>

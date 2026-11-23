@@ -32,6 +32,7 @@ var directions = []string{
 }
 
 var groupNumber = regexp.MustCompile(`^[0-9]{2}-[1-9][0-9]*$`)
+var groupSuffix = regexp.MustCompile(`^(.*\S)\s+([0-9]{2}-[0-9]+)$`)
 
 type programGroup struct {
 	Direction string `json:"direction"`
