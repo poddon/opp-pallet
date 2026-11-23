@@ -19,7 +19,7 @@
       <h1 id="studentTitle">Итоговое тестирование по СК ОПП</h1>
       <img class="brand-robot" src="/robot-blueprint.svg" alt="" width="360" height="453">
       <div class="student-facts">
-        <div><strong>50</strong>вопросов</div>
+        <div><strong id="questionCount">—</strong>вопросов</div>
         <div><strong>55 с</strong>на ответ</div>
         <div><strong>1</strong>попытка</div>
       </div>
@@ -41,7 +41,7 @@
           <details><summary>Согласие на обработку персональных данных</summary><div id="consentText"></div></details>
           <label class="check"><input name="consent" type="checkbox" required> Даю согласие на обработку персональных данных на указанных условиях</label>
         </div>
-        <label class="check student-rules"><input name="rules" type="checkbox" required> Я ознакомлен(а) с правилами тестирования. Переход на другую вкладку или сворачивание браузера завершает попытку.</label>
+        <label class="check student-rules"><input name="rules" type="checkbox" required> Я ознакомлен(а) с правилами тестирования. Переход на другую вкладку, в другое окно или приложение, сворачивание браузера, разделение экрана и плавающие окна, снимок экрана (в том числе жестом тремя пальцами), копирование, вставка, правый клик или долгое нажатие и печать засчитываются как списывание: попытка завершается с результатом 0%.</label>
         <button id="start">Начать тест</button>
       </form>
       <button type="button" id="refreshGroups" class="secondary" hidden>Обновить список</button>
@@ -65,5 +65,20 @@
     <button id="back" class="secondary">К списку тестов</button>
   </section>
 </main>
+<div id="cheat" role="alert" hidden>
+  <div class="cheat-bg"></div>
+  <div class="cheat-stripes"></div>
+  <div class="cheat-beacon"></div>
+  <div class="cheat-flash"></div>
+  <div class="cheat-scan"></div>
+  <div class="cheat-ring"></div>
+  <div class="cheat-stamp">
+    <div class="cheat-badge">НАРУШЕНИЕ РЕГЛАМЕНТА</div>
+    <h2>СПИСАНО</h2>
+    <p>Вы списали. Обратитесь к преподавателю.</p>
+    <p id="cheatReason" class="cheat-reason-line"></p>
+    <div class="cheat-who" id="cheatwho"></div>
+  </div>
+</div>
 </body>
 </html>

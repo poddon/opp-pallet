@@ -17,7 +17,11 @@
       <img src="/logo-alabuga-white.png" alt="Алабуга" width="614" height="127">
       <strong>Портал администратора</strong>
     </div>
-    <button id="logout" type="button" class="secondary">Выйти</button>
+    <div class="admin-user">
+      <span id="adminName"></span>
+      <button id="openPassword" type="button" class="secondary">Сменить пароль</button>
+      <button id="logout" type="button" class="secondary">Выйти</button>
+    </div>
   </div>
 </header>
 <main class="wrap admin-page">
@@ -31,8 +35,11 @@
     <div class="brand-entry">
       <h2>Вход администратора</h2>
       <form id="loginForm" class="stack">
+        <label>ФИО администратора
+          <input name="login" autocomplete="username" maxlength="160" placeholder="Иванов Иван Иванович" required autofocus>
+        </label>
         <label>Пароль
-          <input name="password" type="password" autocomplete="current-password" required autofocus>
+          <input name="password" type="password" autocomplete="current-password" required>
         </label>
         <button type="submit">Войти</button>
       </form>
@@ -42,44 +49,22 @@
     <nav aria-label="Разделы портала">
       <button type="button" class="secondary" data-tab="open">Открыть тест</button>
       <button type="button" class="secondary" data-tab="active">Активные тесты</button>
-      <button type="button" class="secondary" data-tab="live">Сейчас проходят</button>
       <button type="button" class="secondary" data-tab="results">Результаты</button>
+      <button type="button" class="secondary" data-tab="admins">Администраторы</button>
     </nav>
     <section id="open" class="card">
       <h1>Открыть тест для групп</h1>
-      <p id="missingConsent" hidden class="muted">Тест можно назначить сейчас. Чтобы студенты могли начать, сохраните текст согласия.</p>
-      <details id="consentSettings">
-        <summary>Согласие на обработку персональных данных</summary>
-        <form id="consentForm" class="stack">
-          <label>Текст согласия для студентов
-            <textarea id="consentInput" name="text" rows="6" maxlength="65536" required placeholder="Вставьте текст согласия, утверждённый вашей организацией"></textarea>
-          </label>
-          <div class="actions"><button type="submit">Сохранить согласие</button><span id="consentSaved" role="status"></span></div>
-        </form>
-      </details>
       <form id="openForm" class="stack">
+        <p class="muted">Всем выбранным группам назначается общий тест по всем модулям.</p>
         <div class="fields">
           <label>Направление <select id="direction"></select></label>
-          <fieldset class="group-numbers">
-            <legend>Номер группы</legend>
-            <label class="check"><input type="checkbox" name="groupNumber" value="26-1"> 26-1</label>
-            <label class="check"><input type="checkbox" name="groupNumber" value="26-2"> 26-2</label>
-          </fieldset>
-          <label>Другие номера
-            <input id="extraNumbers" placeholder="26-3, 25-1" maxlength="100">
-          </label>
+          <label>Год группы <input id="groupYear" inputmode="numeric" maxlength="2" value="26" placeholder="26"></label>
+          <label>Номер группы <input id="groupNumber" inputmode="numeric" maxlength="2" placeholder="8"></label>
         </div>
         <div class="actions"><button class="secondary" id="addProgramGroups" type="button">Добавить в список</button></div>
-        <details id="existingGroups">
-          <summary>Выбрать группу из базы</summary>
-          <div class="fields">
-            <label>Группа <select id="existingGroup"></select></label>
-            <div class="actions"><button id="addExistingGroup" type="button" class="secondary">Добавить в список</button></div>
-          </div>
-        </details>
         <div>
           <h2>Выбранные группы</h2>
-          <p id="emptyGroups" class="muted">Добавьте одну или несколько групп.</p>
+          <p id="emptyGroups" class="muted">Выберите направление, впишите год и номер группы и нажмите «Добавить в список».</p>
           <ul id="selectedGroups" class="selected-groups" aria-label="Выбранные группы"></ul>
         </div>
         <div class="fields">
@@ -88,50 +73,71 @@
         </div>
         <p id="openTestError" class="error" role="alert"></p>
       </form>
-      <details>
-        <summary>Добавить группу</summary>
-        <form id="groupForm" class="fields">
-          <label>Название группы <input name="code" placeholder="ПРОМРОБО 25-3" maxlength="80" required></label>
-          <div class="actions"><button class="secondary">Добавить</button></div>
-        </form>
-      </details>
     </section>
     <section id="active" class="card" hidden>
       <h1>Активные тесты</h1>
       <p id="openingSummary" class="muted" role="status" hidden></p>
       <div class="table-box"><table>
-        <thead><tr><th>Группа</th><th>Тест</th><th>Закрытие, МСК</th><th>Действие</th></tr></thead>
+        <thead><tr><th>Группа</th><th>Тест</th><th>Открыт, МСК</th><th>Закроется автоматически, МСК</th><th>Осталось</th><th>Действие</th></tr></thead>
         <tbody id="activeRows"></tbody>
       </table></div>
     </section>
-    <section id="live" class="card" hidden>
-      <h1>Сейчас проходят</h1>
-      <p class="muted">Показываются студенты, от которых поступало обновление за последние 25 секунд.</p>
-      <div class="table-box"><table>
-        <thead><tr><th>ФИО</th><th>Группа</th><th>Тест</th><th>Вопрос</th><th>Осталось, с</th></tr></thead>
-        <tbody id="liveRows"></tbody>
-      </table></div>
+    <section id="admins" class="card" hidden>
+      <h1>Администраторы</h1>
+      <form id="adminForm" class="stack">
+        <div class="fields">
+          <label>ФИО нового администратора <input name="name" maxlength="160" placeholder="Иванов Иван Иванович" autocomplete="off" required></label>
+          <label>Пароль, не короче 6 символов <input name="password" type="password" minlength="6" autocomplete="new-password" required></label>
+          <label>Пароль ещё раз <input name="repeat" type="password" minlength="6" autocomplete="new-password" required></label>
+          <div class="actions"><button type="submit">Добавить администратора</button></div>
+        </div>
+        <p id="adminFormMessage" class="error" role="alert"></p>
+      </form>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>ФИО</th><th>Добавлен, МСК</th><th>Кем добавлен</th><th>Действие</th></tr></thead>
+          <tbody id="adminRows"></tbody>
+        </table>
+      </div>
     </section>
     <section id="results" class="card" hidden>
       <h1>Результаты</h1>
       <form id="filters" class="stack">
         <div class="fields">
           <label>ФИО <input name="name" type="search" maxlength="160"></label>
-          <label>Группа <select id="filterGroup" name="group"></select></label>
-          <label>Тест <select id="filterTest" name="test"></select></label>
           <label>Статус <select name="status">
             <option value="">Все статусы</option><option>Пройден</option>
-            <option>Тест закрыт</option><option>СПИСЫВАНИЕ</option>
+            <option>СПИСЫВАНИЕ</option>
           </select></label>
           <label>Дата с <input name="from" type="date"></label>
           <label>Дата по <input name="to" type="date"></label>
         </div>
+        <details id="groupFilter" class="group-filter">
+          <summary>Группы <span id="groupCount" class="muted"></span></summary>
+          <div id="groupTree" class="group-tree"></div>
+        </details>
         <div class="actions">
           <button>Применить</button>
           <button class="secondary" type="reset">Сбросить</button>
           <a id="export" class="button secondary" href="/api/admin/results?format=xlsx">Скачать Excel</a>
+          <a id="statement" class="button secondary" href="/api/admin/results?format=statement">Сформировать ведомость</a>
+          <a id="statsExport" class="button secondary" href="/api/admin/results?format=statsxlsx">Скачать статистику</a>
         </div>
       </form>
+      <details id="statsBox" class="stats-box" open>
+        <summary>Статистика по выбранным фильтрам</summary>
+        <div id="statTiles" class="stat-tiles"></div>
+        <div class="table-box"><table>
+          <thead><tr><th>Группа</th><th>Прохождений</th><th>Студентов</th><th>Средний результат</th><th>Сдали на 70%+</th><th>Доля сдавших</th><th>Списываний</th></tr></thead>
+          <tbody id="statRows"></tbody>
+        </table></div>
+        <div id="moduleStats" class="module-stats"></div>
+        <h2 class="stats-heading">Топ вопросов с ошибками</h2>
+        <div class="table-box"><table>
+          <thead><tr><th>№</th><th>Модуль</th><th>Вопрос</th><th>Неправильно</th><th>Доля ошибок</th><th>Частый неверный ответ</th></tr></thead>
+          <tbody id="questionStats"></tbody>
+        </table></div>
+      </details>
       <div class="table-box"><table>
         <thead><tr><th>Дата, МСК</th><th>Время</th><th>ФИО</th><th>Группа</th><th>Тест</th><th>Статус</th><th>Результат</th><th>Ответы</th></tr></thead>
         <tbody id="resultRows"></tbody>
@@ -144,10 +150,24 @@
     </section>
   </div>
 </main>
+<dialog id="passwordDialog">
+  <h2>Смена пароля</h2>
+  <form id="passwordForm" class="stack">
+    <label>Текущий пароль <input name="current" type="password" autocomplete="current-password" required></label>
+    <label>Новый пароль, не короче 6 символов <input name="next" type="password" autocomplete="new-password" minlength="6" required></label>
+    <label>Новый пароль ещё раз <input name="repeat" type="password" autocomplete="new-password" minlength="6" required></label>
+    <p id="passwordMessage" class="error" role="alert"></p>
+    <div class="actions">
+      <button type="submit">Сохранить пароль</button>
+      <button type="button" class="secondary" id="closePassword">Отмена</button>
+    </div>
+  </form>
+</dialog>
 <dialog id="answerDetails">
   <form method="dialog" class="actions"><button class="secondary">Закрыть</button></form>
   <h2 id="answerHeading"></h2>
-  <ol id="answerList"></ol>
+  <p id="answerStatus" class="error" hidden></p>
+  <div id="answerModules"></div>
 </dialog>
 </body>
 </html>

@@ -21,14 +21,15 @@
 .admin-brand { display: flex; align-items: center; gap: 20px; min-width: 0; }
 .admin-brand img { width: 145px; height: auto; }
 .admin-brand strong { font: 600 clamp(.78rem, 2vw, 1rem)/1.35 var(--display); }
-.admin-header #logout {
+.admin-header #logout, .admin-header #openPassword {
   border-color: #91ade0;
   border-radius: 4px;
   background: #0b3277;
   color: #fff;
   font-weight: 700;
 }
-.admin-header #logout:hover { background: var(--blue-hover); }
+.admin-header #logout:hover, .admin-header #openPassword:hover { background: var(--blue-hover); }
+#adminName { color: #dbe6fa; font-size: .9rem; }
 
 #dashboard nav {
   gap: 8px;

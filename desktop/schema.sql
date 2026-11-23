@@ -84,7 +84,19 @@ CREATE TABLE IF NOT EXISTS quiz_admin_sessions (
     expires_at TIMESTAMPTZ NOT NULL
 );
 
-CREATE TABLE IF NOT EXISTS quiz_consent (
-    singleton BOOLEAN PRIMARY KEY DEFAULT true CHECK (singleton),
-    body TEXT NOT NULL CHECK (octet_length(body) BETWEEN 1 AND 65536)
+
+CREATE TABLE IF NOT EXISTS quiz_admins (
+    login TEXT PRIMARY KEY,
+    name TEXT NOT NULL,
+    salt TEXT NOT NULL,
+    hash TEXT NOT NULL,
+    changed_at TIMESTAMPTZ
 );
+ALTER TABLE quiz_admin_sessions ADD COLUMN IF NOT EXISTS admin_login TEXT;
+ALTER TABLE quiz_admins ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ DEFAULT clock_timestamp();
+ALTER TABLE quiz_admins ADD COLUMN IF NOT EXISTS created_by TEXT;
+ALTER TABLE quiz_admins ADD COLUMN IF NOT EXISTS removed_at TIMESTAMPTZ;
+ALTER TABLE quiz_admins ADD COLUMN IF NOT EXISTS removed_by TEXT;
+ALTER TABLE quiz_live ADD COLUMN IF NOT EXISTS cheat_reason TEXT;
+-- The status «Тест закрыт» is no longer used: such attempts count as passed.
+UPDATE quiz_live SET status='Пройден' WHERE status='Тест закрыт';

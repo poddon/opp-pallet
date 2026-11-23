@@ -8,7 +8,6 @@ import (
 	"flag"
 	"fmt"
 	"io/fs"
-	"log"
 	"net"
 	"net/http"
 	"net/url"
@@ -16,18 +15,17 @@ import (
 	"os/signal"
 	"runtime"
 	"strconv"
-	"strings"
 	"time"
 
 	_ "github.com/lib/pq"
 )
 
-//go:embed web/* schema.sql questions.json
+//go:embed web/* schema.sql questions.json consent.txt
 var files embed.FS
 
 type config struct {
 	host, database, user, password, sslmode string
-	studentHost, adminHost, adminPassword, consentFile string
+	studentHost, adminHost string
 	port int
 	cleanup, apply bool
 }
@@ -35,23 +33,22 @@ type config struct {
 func parseConfig(args []string) (config, error) {
 	var c config
 	if len(args) == 0 || (args[0] != "start" && args[0] != "cleanup") {
-		return c, errors.New("использование: OPP-test.exe start --help или OPP-test.exe cleanup --help")
+		return c, errors.New("использование: OPP-test.exe start --ip localhost --port 5432 --name ЛОГИН --password ПАРОЛЬ\n" +
+			"подробнее: OPP-test.exe start --help или OPP-test.exe cleanup --help")
 	}
 	c.cleanup = args[0] == "cleanup"
 	flags := flag.NewFlagSet(args[0], flag.ContinueOnError)
 	flags.StringVar(&c.host, "ip", "localhost", "адрес PostgreSQL")
 	flags.IntVar(&c.port, "port", 5432, "порт PostgreSQL")
-	flags.StringVar(&c.database, "name", "opp", "имя существующей базы PostgreSQL")
-	flags.StringVar(&c.user, "user", os.Getenv("PGUSER"), "роль PostgreSQL (по умолчанию совпадает с --name)")
-	flags.StringVar(&c.password, "password", "", "пароль PostgreSQL (или PGPASSWORD)")
+	flags.StringVar(&c.user, "name", os.Getenv("PGUSER"), "логин (пользователь) PostgreSQL")
+	flags.StringVar(&c.password, "password", "", "пароль пользователя PostgreSQL (или PGPASSWORD)")
+	flags.StringVar(&c.database, "db", "postgres", "база данных PostgreSQL, в которой создаются таблицы")
 	flags.StringVar(&c.sslmode, "sslmode", "disable", "режим TLS PostgreSQL (disable, require, verify-ca, verify-full)")
 	if c.cleanup {
 		flags.BoolVar(&c.apply, "apply", false, "удалить устаревшие технические записи после просмотра")
 	} else {
 		flags.StringVar(&c.studentHost, "student-bind", "0.0.0.0", "интерфейс портала студента")
-		flags.StringVar(&c.adminHost, "admin-bind", "127.0.0.1", "интерфейс портала администратора")
-		flags.StringVar(&c.adminPassword, "admin-password", "", "пароль администратора (или OPP_ADMIN_PASSWORD), минимум 12 символов")
-		flags.StringVar(&c.consentFile, "consent-file", os.Getenv("OPP_CONSENT_FILE"), "файл с текстом согласия в UTF-8")
+		flags.StringVar(&c.adminHost, "admin-bind", "0.0.0.0", "интерфейс портала администратора (127.0.0.1 — только с этого компьютера)")
 	}
 	if err := flags.Parse(args[1:]); err != nil {
 		return c, err
@@ -62,9 +59,6 @@ func parseConfig(args []string) (config, error) {
 	if c.password == "" {
 		c.password = os.Getenv("PGPASSWORD")
 	}
-	if c.adminPassword == "" && !c.cleanup {
-		c.adminPassword = os.Getenv("OPP_ADMIN_PASSWORD")
-	}
 	return validateConfig(c)
 }
 
@@ -72,14 +66,11 @@ func validateConfig(c config) (config, error) {
 	if c.port < 1 || c.port > 65535 {
 		return c, errors.New("порт PostgreSQL должен быть от 1 до 65535")
 	}
-	if c.database == "" || c.host == "" {
-		return c, errors.New("укажите адрес PostgreSQL и имя существующей базы")
+	if c.host == "" || c.user == "" {
+		return c, errors.New("укажите адрес PostgreSQL (--ip) и логин пользователя (--name)")
 	}
-	if c.user == "" {
-		c.user = c.database
-	}
-	if !c.cleanup && len([]rune(c.adminPassword)) < 12 {
-		return c, errors.New("пароль администратора должен содержать не менее 12 символов")
+	if c.database == "" {
+		c.database = "postgres"
 	}
 	return c, nil
 }
@@ -122,15 +113,37 @@ func (a *app) migrate(ctx context.Context) error {
 	if _, err := tx.ExecContext(ctx, string(schema)); err != nil {
 		return err
 	}
-	return tx.Commit()
+	if err := tx.Commit(); err != nil {
+		return err
+	}
+	return a.seedAdmins(ctx)
+}
+
+// foreignTables lists application tables owned by another PostgreSQL user.
+func (a *app) foreignTables(ctx context.Context) map[string]string {
+	out := map[string]string{}
+	rows, err := a.db.QueryContext(ctx, `SELECT tablename, tableowner FROM pg_tables
+		WHERE schemaname='public' AND tablename LIKE 'quiz\_%' AND tableowner <> current_user`)
+	if err != nil {
+		return out
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var table, owner string
+		if rows.Scan(&table, &owner) == nil {
+			out[table] = owner
+		}
+	}
+	return out
 }
 
 func run(c config) error {
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
+	fmt.Printf("Подключение к PostgreSQL %s:%d, пользователь %s, база %s…\n", c.host, c.port, c.user, c.database)
 	db, err := openDB(ctx, c)
 	if err != nil {
-		return fmt.Errorf("PostgreSQL %s:%d / %s: %w", c.host, c.port, c.database, err)
+		return dbError(c, err)
 	}
 	defer db.Close()
 	a := &app{db: db}
@@ -141,7 +154,7 @@ func run(c config) error {
 		return err
 	}
 	if err := a.migrate(ctx); err != nil {
-		return fmt.Errorf("подготовка таблиц (проверьте права роли PostgreSQL): %w", err)
+		return migrationError(c, err, a.foreignTables(ctx))
 	}
 	student, err := net.Listen("tcp", net.JoinHostPort(c.studentHost, "8004"))
 	if err != nil {
@@ -173,8 +186,16 @@ func run(c config) error {
 	go a.schedule(signalCtx)
 	fmt.Println("Студент       http://localhost:8004")
 	fmt.Println("Администратор http://localhost:8005")
-	if c.consentFile == "" {
-		fmt.Println("Согласие на обработку персональных данных можно настроить в админке.")
+	if ips := lanAddresses(); len(ips) > 0 {
+		fmt.Println("С других устройств в сети:")
+		for _, ip := range ips {
+			if c.studentHost == "0.0.0.0" {
+				fmt.Printf("  студент       http://%s:8004\n", ip)
+			}
+			if c.adminHost == "0.0.0.0" {
+				fmt.Printf("  администратор http://%s:8005\n", ip)
+			}
+		}
 	}
 	select {
 	case err = <-errs:
@@ -193,28 +214,8 @@ func run(c config) error {
 
 func (a *app) configure(c config) error {
 	var err error
-	a.catalog, err = readCatalog()
-	if err != nil {
+	if err = a.loadCatalog(); err != nil {
 		return err
-	}
-	a.passwordHash = digest(c.adminPassword)
-	if c.consentFile == "" {
-		return nil
-	}
-	info, err := os.Stat(c.consentFile)
-	if err != nil {
-		return err
-	}
-	if info.Size() > maxConsentBytes {
-		return errors.New("файл согласия превышает 64 КБ")
-	}
-	body, err := os.ReadFile(c.consentFile)
-	if err != nil {
-		return err
-	}
-	a.fileConsent = strings.TrimSpace(strings.TrimPrefix(string(body), "\uFEFF"))
-	if a.fileConsent == "" {
-		return errors.New("пустой файл согласия")
 	}
 	return nil
 }
@@ -235,11 +236,37 @@ func main() {
 		err = run(c)
 	}
 	if err != nil && !errors.Is(err, flag.ErrHelp) {
-		log.Print(err)
-		if wizard || ownsConsole() {
+		fmt.Fprintln(os.Stderr, "Ошибка:", err)
+		// Keep the window open when started by double click, from a .bat file or from autostart,
+		// so the reason stays readable. Pipes and redirected input do not wait.
+		if wizard || ownsConsole() || interactive() {
 			fmt.Fprintln(os.Stderr, "Нажмите Enter, чтобы закрыть окно.")
 			_, _ = input.reader.ReadString('\n')
 		}
 		os.Exit(1)
 	}
+}
+
+func interactive() bool {
+	info, err := os.Stdin.Stat()
+	return err == nil && info.Mode()&os.ModeCharDevice != 0
+}
+
+// lanAddresses lists the computer's IPv4 addresses in the local network.
+func lanAddresses() []string {
+	var out []string
+	addrs, err := net.InterfaceAddrs()
+	if err != nil {
+		return nil
+	}
+	for _, addr := range addrs {
+		ipnet, ok := addr.(*net.IPNet)
+		if !ok || ipnet.IP.IsLoopback() || ipnet.IP.IsLinkLocalUnicast() {
+			continue
+		}
+		if ip := ipnet.IP.To4(); ip != nil {
+			out = append(out, ip.String())
+		}
+	}
+	return out
 }

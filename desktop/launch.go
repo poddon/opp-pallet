@@ -75,7 +75,7 @@ func (p startupInput) configure(dir string) (config, error) {
 	}
 	fmt.Fprintln(p.out, "Тестирование ОПП. Подключение к существующей PostgreSQL.")
 	fmt.Fprintln(p.out, "Enter оставляет значение в квадратных скобках.")
-	c := config{sslmode: "disable", studentHost: "0.0.0.0", adminHost: "127.0.0.1"}
+	c := config{sslmode: "disable", studentHost: "0.0.0.0", adminHost: "0.0.0.0"}
 	ask := func(dest *string, label, fallback string, secret bool) {
 		if err != nil {
 			return
@@ -94,25 +94,12 @@ func (p startupInput) configure(dir string) (config, error) {
 	if c.port, err = strconv.Atoi(port); err != nil || c.port < 1 || c.port > 65535 {
 		return c, errors.New("порт PostgreSQL должен быть от 1 до 65535")
 	}
-	ask(&c.database, "Имя существующей базы", saved.Database, false)
-	ask(&c.user, "Пользователь PostgreSQL", saved.User, false)
+	ask(&c.user, "Логин (пользователь) PostgreSQL", saved.User, false)
 	ask(&c.password, "Пароль PostgreSQL", saved.Password, true)
-	ask(&c.adminPassword, "Отдельный пароль админки, минимум 12 символов", os.Getenv("OPP_ADMIN_PASSWORD"), true)
+	ask(&c.database, "База данных", saved.Database, false)
 
-	consent := os.Getenv("OPP_CONSENT_FILE")
-	if consent == "" {
-		defaultFile := filepath.Join(dir, "consent.txt")
-		if info, err := os.Stat(defaultFile); err == nil && info.Mode().IsRegular() {
-			consent = defaultFile
-		}
-	}
-	ask(&c.consentFile, "Файл согласия ОПД (Enter, чтобы пропустить, если файла нет)", consent, false)
 	if err != nil {
 		return c, err
-	}
-	c.consentFile = strings.Trim(c.consentFile, `"`)
-	if c.consentFile != "" && !filepath.IsAbs(c.consentFile) {
-		c.consentFile = filepath.Join(dir, c.consentFile)
 	}
 	return validateConfig(c)
 }
@@ -127,7 +114,7 @@ type databaseSettings struct {
 
 func legacyDatabaseSettings(dir string) (databaseSettings, error) {
 	defaults := databaseSettings{
-		Host: "localhost", Port: 5432, Database: "opp",
+		Host: "localhost", Port: 5432, Database: "postgres",
 		User: "postgres",
 	}
 	settings := defaults

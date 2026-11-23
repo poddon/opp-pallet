@@ -17,23 +17,26 @@ import (
 )
 
 const (
+	generalTest = "general"
 	questionSeconds = 55
 	inProgress = "Проходит"
 	completed = "Пройден"
-	closed = "Тест закрыт"
 	flagged = "СПИСЫВАНИЕ"
 )
 
 type app struct {
 	db *sql.DB
 	catalog []test
-	passwordHash, fileConsent string
+	modules []string          // module labels in catalogue order: "Модуль 1", "Модуль 2", …
+	moduleLabel map[string]string // module title -> label
+	moduleOf map[string]string // question text -> module, for attempts saved before modules were stored
 }
 
 type question struct {
 	Text string `json:"q"`
 	Choices []string `json:"a"`
 	Correct int `json:"i"`
+	Module string `json:"m,omitempty"`
 }
 
 type test struct {
@@ -51,8 +54,14 @@ func readCatalog() ([]test, error) {
 	if err := json.Unmarshal(body, &catalog); err != nil {
 		return nil, err
 	}
-	general := test{ID: "general", Title: "Общий тест"}
-	for _, t := range catalog {
+	seen := map[string]bool{}
+	general := test{ID: generalTest, Title: "Общий тест"}
+	for k := range catalog {
+		t := &catalog[k]
+		if seen[t.ID] {
+			return nil, fmt.Errorf("повторяется тест %s", t.ID)
+		}
+		seen[t.ID] = true
 		if t.ID == "" || t.Title == "" || len(t.Questions) == 0 {
 			return nil, errors.New("некорректный тест в банке вопросов")
 		}
@@ -61,9 +70,44 @@ func readCatalog() ([]test, error) {
 				return nil, fmt.Errorf("некорректный вопрос теста %s", t.ID)
 			}
 		}
+		for i := range t.Questions {
+			t.Questions[i].Module = t.Title
+		}
 		general.Questions = append(general.Questions, t.Questions...)
 	}
+	if len(catalog) == 0 {
+		return nil, errors.New("банк вопросов пуст")
+	}
 	return append([]test{general}, catalog...), nil
+}
+
+func (a *app) loadCatalog() error {
+	catalog, err := readCatalog()
+	if err != nil {
+		return err
+	}
+	a.catalog, a.modules, a.moduleOf, a.moduleLabel = catalog, nil, map[string]string{}, map[string]string{}
+	for k, t := range catalog[1:] {
+		label := fmt.Sprintf("Модуль %d", k+1)
+		a.modules = append(a.modules, label)
+		a.moduleLabel[t.Title] = label
+		for _, q := range t.Questions {
+			a.moduleOf[q.Text] = t.Title
+		}
+	}
+	return nil
+}
+
+// moduleFor returns the module label ("Модуль 1") of a stored question.
+func (a *app) moduleFor(q question) string {
+	title := q.Module
+	if title == "" {
+		title = a.moduleOf[q.Text]
+	}
+	if label := a.moduleLabel[title]; label != "" {
+		return label
+	}
+	return "Без модуля"
 }
 
 func digest(s string) string {
@@ -109,7 +153,8 @@ func shuffleQuestions(qs []question) {
 const closeDue = `UPDATE quiz_assignments SET closed_at=closes_at
 	WHERE closed_at IS NULL AND closes_at <= clock_timestamp()`
 
-const finishClosed = `UPDATE quiz_live l SET status='Тест закрыт', finished_at=a.closed_at,
+// When a test closes, unfinished attempts count as passed with the answers already given.
+const finishClosed = `UPDATE quiz_live l SET status='Пройден', finished_at=a.closed_at,
 	seconds_left=0, updated_at=clock_timestamp()
 	FROM quiz_assignments a WHERE l.assignment_id=a.id AND l.finished_at IS NULL AND a.closed_at IS NOT NULL`
 
@@ -128,12 +173,17 @@ func (a *app) expire(ctx context.Context) error {
 	return tx.Commit()
 }
 
+const dropExpiredSessions = `DELETE FROM quiz_admin_sessions WHERE expires_at <= clock_timestamp()`
+
 func (a *app) schedule(ctx context.Context) {
 	ticker := time.NewTicker(3 * time.Second)
 	defer ticker.Stop()
 	for {
 		work, cancel := context.WithTimeout(ctx, 10*time.Second)
 		err := a.expire(work)
+		if err == nil {
+			_, err = a.db.ExecContext(work, dropExpiredSessions)
+		}
 		cancel()
 		if err != nil && ctx.Err() == nil {
 			log.Printf("автозакрытие тестов: %v", err)
@@ -174,10 +224,32 @@ func (a *app) cleanup(ctx context.Context, apply bool) error {
 			return err
 		}
 	}
+	var sessions int64
+	if err := tx.QueryRowContext(ctx, "SELECT to_regclass('quiz_admin_sessions') IS NOT NULL").Scan(&exists); err != nil {
+		return err
+	}
+	if exists {
+		const expired = ` FROM quiz_admin_sessions WHERE expires_at <= clock_timestamp()`
+		if apply {
+			result, err := tx.ExecContext(ctx, "DELETE"+expired)
+			if err != nil {
+				return err
+			}
+			if sessions, err = result.RowsAffected(); err != nil {
+				return err
+			}
+		} else if err := tx.QueryRowContext(ctx, "SELECT count(*)"+expired).Scan(&sessions); err != nil {
+			return err
+		}
+	}
 	if err := tx.Commit(); err != nil {
 		return err
 	}
 	fmt.Printf("Устаревшие записи старого мониторинга — %d\n", count)
+	fmt.Printf("Просроченные сеансы администратора — %d\n", sessions)
+	if !apply {
+		fmt.Println("Для удаления повторите команду с --apply")
+	}
 	return nil
 }
 
@@ -218,6 +290,29 @@ type attemptAction struct {
 	Rules bool `json:"rules"`
 	Position int `json:"position"`
 	Choice *int `json:"choice"`
+	Reason string `json:"reason"`
+}
+
+// cheatReasons are the violations the student page reports; anything else is stored as "other".
+var cheatReasons = map[string]string{
+	"tab":        "Уход со страницы (другая вкладка или свёрнутый браузер)",
+	"window":     "Переключение на другое окно или всплывающее окно поверх теста",
+	"split":      "Разделение экрана или уменьшение окна (второе приложение рядом, плавающее окно)",
+	"screenshot": "Снимок экрана",
+	"gesture":    "Жест тремя пальцами на телефоне (снимок экрана)",
+	"copy":       "Копирование или вырезание текста",
+	"paste":      "Вставка текста",
+	"menu":       "Вызов контекстного меню (правый клик)",
+	"print":      "Печать страницы",
+	"devtools":   "Попытка открыть инструменты разработчика",
+	"other":      "Нарушение правил тестирования",
+}
+
+func cheatReason(code string) string {
+	if text, ok := cheatReasons[code]; ok {
+		return text
+	}
+	return cheatReasons["other"]
 }
 
 func loadAttempt(ctx context.Context, tx *sql.Tx, hash string, assignment int64) (attempt, error) {
@@ -271,11 +366,8 @@ func (a *app) advance(ctx context.Context, req attemptAction) (attemptView, erro
 		if ended {
 			return attemptView{}, problem{409, "Тест для этой группы уже закрыт"}
 		}
-		consent, err := a.consentText(ctx, tx)
-		if err != nil {
-			return attemptView{}, err
-		}
-		if consent == "" || req.Consent == "" || !req.Rules {
+		consent := consentText()
+		if req.Consent == "" || !req.Rules {
 			return attemptView{}, problem{400, "Подтвердите согласие и ознакомление с правилами"}
 		}
 		if digest(consent) != req.Consent {
@@ -316,7 +408,7 @@ func (a *app) advance(ctx context.Context, req attemptAction) (attemptView, erro
 		var finishedAt any
 		switch {
 		case ended:
-			s.Status = closed
+			s.Status = completed
 			finishedAt = expires
 			if closedAt.Valid {
 				finishedAt = closedAt.Time
@@ -324,6 +416,10 @@ func (a *app) advance(ctx context.Context, req attemptAction) (attemptView, erro
 		case req.Operation == "flag":
 			s.Status = flagged
 			finishedAt = now
+			if _, err := tx.ExecContext(ctx, `UPDATE quiz_live SET cheat_reason=$2 WHERE session_id=$1`,
+				hash, cheatReason(req.Reason)); err != nil {
+				return attemptView{}, err
+			}
 		case !now.Before(s.Deadline) || (req.Operation == "answer" && req.Position == s.Position):
 			q := s.Questions[s.Position-1]
 			var choice *int
@@ -350,7 +446,7 @@ func (a *app) advance(ctx context.Context, req attemptAction) (attemptView, erro
 			return attemptView{}, err
 		}
 	}
-	if s.Status != inProgress {
+	if s.Status != inProgress && s.Status != flagged {
 		if err := tx.QueryRowContext(ctx, "SELECT count(*) FROM quiz_answers WHERE session_id=$1 AND correct", hash).Scan(&s.Score); err != nil {
 			return attemptView{}, err
 		}

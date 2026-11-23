@@ -12,6 +12,111 @@ let lastStatus = "";
 let pending = false;
 let flaggedDuringRequest = false;
 let nextPoll = 0;
+let testCounts = new Map();
+
+
+const whoKey = "opp.currentStudent";
+let alarmPending = false;
+let ac;
+function audio() {
+  if (!ac) ac = new (window.AudioContext || window.webkitAudioContext)();
+  if (ac.state === "suspended") ac.resume();
+  return ac;
+}
+
+// Клаксон, сирена и голос из прежней версии теста.
+function siren() {
+  const c = audio();
+  const t0 = c.currentTime, dur = 9, end = t0 + dur;
+  const master = c.createGain();
+  master.gain.setValueAtTime(0.0001, t0);
+  master.gain.exponentialRampToValueAtTime(0.95, t0 + 0.04);
+  master.gain.setValueAtTime(0.95, end - 0.5);
+  master.gain.exponentialRampToValueAtTime(0.0001, end);
+  master.connect(c.destination);
+
+  const horn = c.createOscillator(); horn.type = "square";
+  const horn2 = c.createOscillator(); horn2.type = "square";
+  horn.frequency.setValueAtTime(98, t0); horn2.frequency.setValueAtTime(196, t0);
+  const hg = c.createGain(); hg.gain.setValueAtTime(0.0001, t0);
+  hg.gain.exponentialRampToValueAtTime(0.38, t0 + 0.02);
+  hg.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.55);
+  horn.connect(hg); horn2.connect(hg); hg.connect(master);
+  horn.start(t0); horn2.start(t0); horn.stop(t0 + 0.6); horn2.stop(t0 + 0.6);
+
+  const lo = c.createOscillator(); lo.type = "square";
+  const hi = c.createOscillator(); hi.type = "square";
+  const lg = c.createGain(); const hg2 = c.createGain();
+  lg.gain.value = 0.0001; hg2.gain.value = 0.0001;
+  lo.connect(lg); hi.connect(hg2); lg.connect(master); hg2.connect(master);
+  lo.frequency.value = 392; hi.frequency.value = 523.25;
+  let onHi = true;
+  for (let t = t0 + 0.45; t < end - 0.2; t += 0.32) {
+    if (onHi) {
+      hg2.gain.setValueAtTime(0.0001, t); hg2.gain.linearRampToValueAtTime(0.28, t + 0.02);
+      hg2.gain.setValueAtTime(0.28, t + 0.26); hg2.gain.exponentialRampToValueAtTime(0.0001, t + 0.31);
+      lg.gain.setValueAtTime(0.0001, t);
+    } else {
+      lg.gain.setValueAtTime(0.0001, t); lg.gain.linearRampToValueAtTime(0.3, t + 0.02);
+      lg.gain.setValueAtTime(0.3, t + 0.26); lg.gain.exponentialRampToValueAtTime(0.0001, t + 0.31);
+      hg2.gain.setValueAtTime(0.0001, t);
+    }
+    onHi = !onHi;
+  }
+  lo.start(t0); hi.start(t0); lo.stop(end); hi.stop(end);
+
+  const bell = c.createOscillator(); bell.type = "triangle";
+  const bg = c.createGain(); bg.gain.value = 0.0001;
+  bell.connect(bg); bg.connect(master);
+  bell.frequency.value = 1760;
+  for (let t = t0 + 0.2; t < end - 0.3; t += 0.95) {
+    bg.gain.setValueAtTime(0.0001, t);
+    bg.gain.linearRampToValueAtTime(0.16, t + 0.01);
+    bg.gain.exponentialRampToValueAtTime(0.0001, t + 0.28);
+  }
+  bell.start(t0); bell.stop(end);
+
+  const nbuf = c.createBuffer(1, Math.ceil(c.sampleRate * dur), c.sampleRate);
+  const data = nbuf.getChannelData(0);
+  for (let i = 0; i < data.length; i++) data[i] = Math.random() * 2 - 1;
+  const noise = c.createBufferSource(); noise.buffer = nbuf;
+  const bp = c.createBiquadFilter(); bp.type = "bandpass"; bp.frequency.value = 1400; bp.Q.value = 4;
+  const ng = c.createGain(); ng.gain.value = 0.07;
+  noise.connect(bp); bp.connect(ng); ng.connect(master);
+  noise.start(t0); noise.stop(end);
+}
+function speak() {
+  if (!window.speechSynthesis) return;
+  speechSynthesis.cancel();
+  const say = (delay) => setTimeout(() => {
+    const u = new SpeechSynthesisUtterance("Вы списали. Обратитесь к преподавателю.");
+    u.lang = "ru-RU"; u.volume = 1; u.rate = 0.92;
+    speechSynthesis.speak(u);
+  }, delay);
+  say(400); say(3200);
+}
+
+
+function alarm() {
+  if (document.visibilityState !== "visible") {
+    alarmPending = true;
+    return;
+  }
+  alarmPending = false;
+  try { siren(); } catch {}
+  speak();
+}
+
+function showCheat() {
+  if (!$("cheat").hidden) return;
+  $("cheatwho").textContent = (sessionStorage.getItem(whoKey) || "").toUpperCase();
+  $("cheat").hidden = false;
+  alarm();
+}
+
+function showQuestionCount() {
+  $("questionCount").textContent = testCounts.get(studentTest.value) ?? "—";
+}
 
 async function loadGroups() {
   try {
@@ -36,6 +141,8 @@ async function loadGroups() {
 async function loadTests() {
   const group = studentGroup.value;
   options(studentTest, [], "Выберите тест");
+  testCounts = new Map();
+  showQuestionCount();
   const testField = $("studentTestField");
   testField.hidden = true;
   studentTest.required = false;
@@ -44,11 +151,13 @@ async function loadTests() {
     const tests = await api(studentPath + "tests?" + new URLSearchParams({group}));
     if (studentGroup.value !== group) return;
     options(studentTest, tests.map(t => ({
-      label: t.title + " · до " + dateFormat.format(new Date(t.closes)) + " МСК",
+      label: t.title + " · " + t.questions + " вопр. · до " + dateFormat.format(new Date(t.closes)) + " МСК",
       value: String(t.id)
     })), tests.length ? "Выберите тест" : "Нет открытых тестов");
+    testCounts = new Map(tests.map(t => [String(t.id), t.questions]));
     if (tests.length === 1) {
       studentTest.value = String(tests[0].id);
+      showQuestionCount();
     } else {
       testField.hidden = false;
       studentTest.required = true;
@@ -64,8 +173,12 @@ function showAttempt(data) {
   $("taking").hidden = !live;
   $("finished").hidden = live;
   lastStatus = data.status;
+  document.body.classList.toggle("testing", live);
+  if (live && !viewBase) rememberView();
+  if (!live) viewBase = null;
   if (!live) {
-    $("resultTitle").textContent = data.status === "СПИСЫВАНИЕ" ? "Попытка завершена. Зафиксирован выход со страницы" : data.status;
+    if (data.status === "СПИСЫВАНИЕ") showCheat();
+    $("resultTitle").textContent = data.status === "СПИСЫВАНИЕ" ? "СПИСАНО. Обратитесь к преподавателю" : data.status;
     $("score").textContent = "Верных ответов — " + data.score + " из " + data.total +
       " (" + Math.round(100 * data.score / data.total) + "%)";
     sessionStorage.removeItem(storeKey);
@@ -120,7 +233,7 @@ async function send(operation, fields = {}) {
     $("submitAnswer").disabled = !$("answer").elements.choice?.value;
     if (flaggedDuringRequest && current && lastStatus === "Проходит") {
       flaggedDuringRequest = false;
-      void send("flag");
+      void send("flag", {reason: flagReason});
     }
   }
 }
@@ -133,6 +246,7 @@ function paintClock() {
 
 $("refreshGroups").addEventListener("click", loadGroups);
 studentGroup.addEventListener("change", loadTests);
+studentTest.addEventListener("change", showQuestionCount);
 $("entry").addEventListener("submit", event => {
   event.preventDefault();
   const form = new FormData(event.currentTarget);
@@ -142,6 +256,8 @@ $("entry").addEventListener("submit", event => {
     return;
   }
   const name = form.get("name");
+  try { audio(); } catch {}
+  sessionStorage.setItem(whoKey, name + " · " + form.get("group"));
   if (current?.assignment !== assignment) {
     const bytes = crypto.getRandomValues(new Uint8Array(32));
     const token = Array.from(bytes, byte => byte.toString(16).padStart(2, "0")).join("");
@@ -165,11 +281,118 @@ $("back").addEventListener("click", () => {
   $("registration").hidden = false;
   void loadGroups();
 });
-document.addEventListener("visibilitychange", () => {
-  if (document.visibilityState !== "hidden" || !current || lastStatus !== "Проходит") return;
+// Anti-cheating. Any of these during an attempt ends it as "СПИСЫВАНИЕ"; the reason is stored.
+const reasonText = {
+  tab: "Уход со страницы",
+  window: "Переключение на другое окно",
+  split: "Разделение экрана",
+  gesture: "Жест тремя пальцами (снимок экрана)",
+  screenshot: "Снимок экрана",
+  copy: "Копирование текста",
+  paste: "Вставка текста",
+  menu: "Правый клик",
+  print: "Печать страницы",
+  devtools: "Инструменты разработчика",
+};
+let flagReason = "";
+
+function violation(reason) {
+  if (!current || lastStatus !== "Проходит" || !$("cheat").hidden) return;
+  $("cheatReason").textContent = "Причина: " + (reasonText[reason] || "нарушение правил") + ".";
+  showCheat();
+  flagReason = reason;
   flaggedDuringRequest = pending;
-  const payload = new Blob([JSON.stringify({...current, operation: "flag"})], {type: "application/json"});
-  if (!navigator.sendBeacon(studentPath + "attempt", payload) && !pending) void send("flag");
+  const payload = new Blob([JSON.stringify({...current, operation: "flag", reason})], {type: "application/json"});
+  if (!navigator.sendBeacon(studentPath + "attempt", payload) && !pending) void send("flag", {reason});
+}
+
+document.addEventListener("contextmenu", event => {
+  event.preventDefault();
+  violation("menu");
+});
+for (const [type, reason] of [["copy", "copy"], ["cut", "copy"], ["paste", "paste"]]) {
+  document.addEventListener(type, event => {
+    event.preventDefault();
+    violation(reason);
+  });
+}
+window.addEventListener("beforeprint", () => violation("print"));
+function screenshotKey(event) {
+  const key = event.key || "";
+  return key === "PrintScreen" || event.code === "PrintScreen" ||
+    (event.metaKey && event.shiftKey && /^[sS345ыЫ]$/.test(key));
+}
+document.addEventListener("keydown", event => {
+  const key = (event.key || "").toLowerCase();
+  const ctrl = event.ctrlKey || event.metaKey;
+  if (screenshotKey(event)) {
+    violation("screenshot");
+  } else if (ctrl && (key === "p" || key === "з")) {
+    event.preventDefault();
+    violation("print");
+  } else if (event.key === "F12" || (ctrl && event.shiftKey && ["i", "j", "c", "ш", "о", "с"].includes(key)) ||
+      (ctrl && (key === "u" || key === "г"))) {
+    event.preventDefault();
+    violation("devtools");
+  }
+}, true);
+// Windows reports PrintScreen only on key release.
+document.addEventListener("keyup", event => { if (screenshotKey(event)) violation("screenshot"); }, true);
+document.addEventListener("visibilitychange", () => {
+  if (document.visibilityState === "visible") {
+    if (alarmPending) alarm();
+    return;
+  }
+  violation("tab");
+});
+// Three-finger gestures: phones (Xiaomi, Samsung, Huawei, Realme…) take a screenshot with a
+// three-finger swipe. The system handles it before the browser, so it cannot be blocked from a web page,
+// but the touch reaches the page first and ends the attempt.
+function multiTouch(event) {
+  if (event.touches && event.touches.length >= 3) {
+    if (event.cancelable) event.preventDefault();
+    violation("gesture");
+  }
+}
+document.addEventListener("touchstart", multiTouch, {passive: false, capture: true});
+document.addEventListener("touchmove", multiTouch, {passive: false, capture: true});
+
+// Split screen, a floating window or a browser window made smaller (phone or computer).
+// Rotating the phone and browser zoom are not violations: they reset the reference size.
+let viewBase = null;
+function viewSize() {
+  const v = window.visualViewport;
+  // The screen orientation does not change in split screen, only when the phone is rotated.
+  const orientation = screen.orientation?.type || (screen.width > screen.height ? "landscape" : "portrait");
+  return {w: window.innerWidth, h: window.innerHeight, scale: v ? v.scale : 1, dpr: window.devicePixelRatio, orientation};
+}
+function rememberView() { viewBase = viewSize(); }
+let resizeTimer = 0;
+function checkView() {
+  if (!viewBase || lastStatus !== "Проходит") return;
+  const now = viewSize();
+  if (now.orientation !== viewBase.orientation || now.dpr !== viewBase.dpr || now.scale !== viewBase.scale) {
+    rememberView();
+    return;
+  }
+  // The mobile address bar changes the height by about 10%; split screen halves the window.
+  if (now.w < viewBase.w * 0.8 || now.h < viewBase.h * 0.7) violation("split");
+}
+window.addEventListener("resize", () => {
+  clearTimeout(resizeTimer);
+  resizeTimer = setTimeout(checkView, 400);
+});
+screen.orientation?.addEventListener("change", () => setTimeout(rememberView, 600));
+// Android split screen, picture-in-picture and multi-window report it through the page lifecycle too.
+document.addEventListener("freeze", () => violation("tab"));
+
+// Focus moving to another program, a pop-up window, the notification shade, a chat bubble
+// or a screenshot tool (Win+Shift+S).
+window.addEventListener("blur", () => {
+  setTimeout(() => {
+    if (document.hasFocus()) return;
+    violation(document.visibilityState === "hidden" ? "tab" : "window");
+  }, 150);
 });
 setInterval(() => {
   if (lastStatus !== "Проходит") return;

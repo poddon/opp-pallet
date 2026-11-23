@@ -2,10 +2,9 @@ package main
 
 import (
 	"context"
-	"crypto/subtle"
+	"database/sql"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"io"
 	"io/fs"
 	"log"
@@ -100,11 +99,13 @@ type assignment struct {
 	ID int64 `json:"id"`
 	Group string `json:"group"`
 	Title string `json:"title"`
+	Questions int `json:"questions"`
+	Opened time.Time `json:"opened"`
 	Closes time.Time `json:"closes"`
 }
 
 func (a *app) assignments(ctx context.Context, group string) ([]assignment, error) {
-	rows, err := a.db.QueryContext(ctx, `SELECT id,group_code,title,closes_at FROM quiz_assignments
+	rows, err := a.db.QueryContext(ctx, `SELECT id,group_code,title,jsonb_array_length(questions),opened_at,closes_at FROM quiz_assignments
 		WHERE ($1='' OR group_code=$1) AND closed_at IS NULL AND closes_at > clock_timestamp()
 		ORDER BY closes_at, id`, group)
 	if err != nil {
@@ -114,7 +115,7 @@ func (a *app) assignments(ctx context.Context, group string) ([]assignment, erro
 	out := []assignment{}
 	for rows.Next() {
 		var item assignment
-		if err := rows.Scan(&item.ID,&item.Group,&item.Title,&item.Closes); err != nil {
+		if err := rows.Scan(&item.ID,&item.Group,&item.Title,&item.Questions,&item.Opened,&item.Closes); err != nil {
 			return nil, err
 		}
 		out = append(out,item)
@@ -148,15 +149,8 @@ func (a *app) studentPortal(web fs.FS) http.Handler {
 		if err != nil {
 			return err
 		}
-		consent, err := a.consentText(r.Context(), a.db)
-		if err != nil {
-			return err
-		}
-		version := ""
-		if consent != "" {
-			version = digest(consent)
-		}
-		writeJSON(w, 200, map[string]any{"groups": groups, "consent": consent, "version": version})
+		consent := consentText()
+		writeJSON(w, 200, map[string]any{"groups": groups, "consent": consent, "version": digest(consent)})
 		return nil
 	}))
 	mux.HandleFunc("GET /api/student/tests", route(func(w http.ResponseWriter, r *http.Request) error {
@@ -203,16 +197,17 @@ func (a *app) admin(next endpoint) http.HandlerFunc {
 		if err != nil || !validToken(cookie.Value) {
 			return problem{401,"Войдите в портал администратора"}
 		}
-		var valid bool
-		err = a.db.QueryRowContext(r.Context(),`SELECT EXISTS (
-			SELECT FROM quiz_admin_sessions WHERE token_hash=$1 AND expires_at > clock_timestamp())`,digest(cookie.Value)).Scan(&valid)
+		var name string
+		err = a.db.QueryRowContext(r.Context(),`SELECT a.name FROM quiz_admin_sessions s
+			JOIN quiz_admins a ON a.login=s.admin_login AND a.removed_at IS NULL
+			WHERE s.token_hash=$1 AND s.expires_at > clock_timestamp()`,digest(cookie.Value)).Scan(&name)
+		if errors.Is(err, sql.ErrNoRows) {
+			return problem{401,"Сеанс закончился. Войдите снова."}
+		}
 		if err != nil {
 			return err
 		}
-		if !valid {
-			return problem{401,"Сеанс закончился. Войдите снова."}
-		}
-		return next(w,r)
+		return next(w,r.WithContext(context.WithValue(r.Context(), adminKey{}, name)))
 	})
 }
 
@@ -222,24 +217,34 @@ func setAdminCookie(w http.ResponseWriter, r *http.Request, token string, age in
 }
 
 func (a *app) login(w http.ResponseWriter,r *http.Request) error {
-	var req struct{ Password string `json:"password"` }
+	var req struct {
+		Login    string `json:"login"`
+		Password string `json:"password"`
+	}
 	if err := readJSON(w,r,&req); err != nil {
 		return err
 	}
-	if subtle.ConstantTimeCompare([]byte(digest(req.Password)),[]byte(a.passwordHash)) != 1 {
+	if !validLength(req.Login, 160) || len(req.Password) > 200 {
+		return problem{400,"Укажите ФИО администратора и пароль"}
+	}
+	name, ok, err := a.checkAdmin(r.Context(), req.Login, req.Password)
+	if err != nil {
+		return err
+	}
+	if !ok {
 		time.Sleep(350*time.Millisecond)
-		return problem{401,"Неверный пароль администратора"}
+		return problem{401,"Неверное ФИО администратора или пароль"}
 	}
 	token, err := newToken()
 	if err != nil {
 		return err
 	}
-	if _, err := a.db.ExecContext(r.Context(),`INSERT INTO quiz_admin_sessions(token_hash,expires_at)
-		VALUES ($1,clock_timestamp()+interval '8 hours')`, digest(token)); err != nil {
+	if _, err := a.db.ExecContext(r.Context(),`INSERT INTO quiz_admin_sessions(token_hash,expires_at,admin_login)
+		VALUES ($1,clock_timestamp()+interval '8 hours',$2)`, digest(token), adminLogin(name)); err != nil {
 		return err
 	}
 	setAdminCookie(w,r,token,8*60*60)
-	w.WriteHeader(204)
+	writeJSON(w,200,map[string]string{"name":name})
 	return nil
 }
 
@@ -261,24 +266,23 @@ func (a *app) adminPortal(web fs.FS) http.Handler {
 	mux := portal(web,"admin")
 	mux.HandleFunc("POST "+adminPath+"login",route(a.login))
 	mux.HandleFunc("POST "+adminPath+"logout",a.admin(a.logout))
+	mux.HandleFunc("POST "+adminPath+"password",a.admin(a.changePassword))
+	mux.HandleFunc("GET "+adminPath+"admins",a.admin(a.listAdmins))
+	mux.HandleFunc("POST "+adminPath+"admins",a.admin(a.createAdmin))
+	mux.HandleFunc("POST "+adminPath+"admins/remove",a.admin(a.removeAdmin))
 	mux.HandleFunc("GET "+adminPath+"setup",a.admin(func(w http.ResponseWriter,r *http.Request) error {
 		groups, err := a.groups(r.Context(),false)
 		if err != nil {
 			return err
 		}
-		tests := make([]map[string]string,0,len(a.catalog))
+		tests := make([]map[string]any,0,len(a.catalog))
 		for _, t := range a.catalog {
-			tests = append(tests,map[string]string{"id":t.ID,"title":t.Title})
+			tests = append(tests,map[string]any{"id":t.ID,"title":t.Title,"questions":len(t.Questions)})
 		}
-		consent, err := a.consentText(r.Context(), a.db)
-		if err != nil {
-			return err
-		}
-		writeJSON(w, 200, map[string]any{"groups": groups, "directions": directions, "tests": tests, "consent": consent})
+		writeJSON(w, 200, map[string]any{"groups": groups, "directions": directions, "tests": tests, "modules": a.modules, "admin": currentAdmin(r)})
 		return nil
 	}))
 	mux.HandleFunc("POST "+adminPath+"groups",a.admin(a.addGroup))
-	mux.HandleFunc("POST "+adminPath+"consent", a.admin(a.saveConsent))
 	mux.HandleFunc("GET "+adminPath+"assignments",a.admin(func(w http.ResponseWriter,r *http.Request) error {
 		rows, err := a.assignments(r.Context(),"")
 		if err != nil {
@@ -289,7 +293,6 @@ func (a *app) adminPortal(web fs.FS) http.Handler {
 	}))
 	mux.HandleFunc("POST "+adminPath+"assignments",a.admin(a.openAssignment))
 	mux.HandleFunc("POST "+adminPath+"assignments/{id}/close",a.admin(a.closeAssignment))
-	mux.HandleFunc("GET "+adminPath+"live",a.admin(a.live))
 	mux.HandleFunc("GET "+adminPath+"results",a.admin(a.results))
 	mux.HandleFunc("GET "+adminPath+"answers/{id}",a.admin(a.answers))
 	return protect(mux)
@@ -320,6 +323,7 @@ func (a *app) openAssignment(w http.ResponseWriter, r *http.Request) error {
 	var req struct {
 		Groups   []string       `json:"groups"`
 		Programs []programGroup `json:"programs"`
+		Test     string         `json:"test"`
 		Minutes  int            `json:"minutes"`
 	}
 	if err := readJSON(w, r, &req); err != nil {
@@ -347,9 +351,12 @@ func (a *app) openAssignment(w http.ResponseWriter, r *http.Request) error {
 	slices.Sort(groups)
 	groups = slices.Compact(groups)
 
-	index := slices.IndexFunc(a.catalog, func(t test) bool { return t.ID == "general" })
+	if req.Test == "" {
+		req.Test = generalTest
+	}
+	index := slices.IndexFunc(a.catalog, func(t test) bool { return t.ID == req.Test })
 	if index < 0 {
-		return errors.New("общий тест отсутствует в банке вопросов")
+		return problem{400, "Выберите тест"}
 	}
 	selected := a.catalog[index]
 	questions, err := json.Marshal(selected.Questions)
@@ -439,39 +446,5 @@ func (a *app) closeAssignment(w http.ResponseWriter,r *http.Request) error {
 		return err
 	}
 	w.WriteHeader(204)
-	return nil
-}
-
-func (a *app) live(w http.ResponseWriter,r *http.Request) error {
-	type liveRow struct {
-		Name string `json:"name"`
-		Group string `json:"group"`
-		Title string `json:"title"`
-		Question int `json:"question"`
-		Total int `json:"total"`
-		Seconds int `json:"seconds"`
-	}
-	rows, err := a.db.QueryContext(r.Context(),`SELECT l.name,l.group_code,a.title,l.question,l.total,
-		greatest(0,ceil(extract(epoch from l.deadline-clock_timestamp())))::int
-		FROM quiz_live l JOIN quiz_assignments a ON a.id=l.assignment_id
-		WHERE l.finished_at IS NULL AND l.updated_at > clock_timestamp()-interval '25 seconds'
-		AND a.closed_at IS NULL AND a.closes_at > clock_timestamp()
-		ORDER BY l.updated_at DESC, l.session_id`)
-	if err != nil {
-		return err
-	}
-	defer rows.Close()
-	out := []liveRow{}
-	for rows.Next() {
-		var row liveRow
-		if err := rows.Scan(&row.Name,&row.Group,&row.Title,&row.Question,&row.Total,&row.Seconds); err != nil {
-			return err
-		}
-		out = append(out,row)
-	}
-	if err := rows.Err(); err != nil {
-		return fmt.Errorf("чтение прогресса: %w",err)
-	}
-	writeJSON(w,200,out)
 	return nil
 }
