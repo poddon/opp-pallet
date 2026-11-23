@@ -263,4 +263,33 @@ func TestPortalsPostgreSQL(t *testing.T) {
 		t.Fatalf("cleanup did not delete legacy row: %d %v",count,err)
 	}
 	request(admin,"GET","/api/admin/answers/"+digest(token),nil,200,nil)
+
+	// Leaving the page during an attempt counts as cheating and zeroes the result.
+	cheatGroup := programs[1].code()
+	cheatToken, err := newToken()
+	if err != nil {
+		t.Fatal(err)
+	}
+	cheat := attemptAction{Operation:"start", Token:cheatToken, Assignment:opened.Opened[cheatGroup], Group:cheatGroup,
+		Name:"Петров Пётр", Rules:true, Consent:digest(newConsent)}
+	request(student, "POST", studentAttempt, cheat, 200, &view)
+	if err := db.QueryRow("SELECT question_set FROM quiz_live WHERE session_id=$1", digest(cheatToken)).Scan(&bank); err != nil {
+		t.Fatal(err)
+	}
+	if err := json.Unmarshal(bank, &questions); err != nil {
+		t.Fatal(err)
+	}
+	cheatRight := questions[0].Correct
+	cheat.Operation, cheat.Position, cheat.Choice = "answer", 1, &cheatRight
+	request(student, "POST", studentAttempt, cheat, 200, &view)
+	cheat.Operation = "flag"
+	request(student, "POST", studentAttempt, cheat, 200, &view)
+	if view.Status != flagged || view.Score != 0 {
+		t.Fatalf("cheating attempt: %+v", view)
+	}
+	var cheated struct{ Rows []resultRow }
+	request(admin, "GET", "/api/admin/results?"+url.Values{"group":{cheatGroup}, "status":{flagged}}.Encode(), nil, 200, &cheated)
+	if len(cheated.Rows) != 1 || cheated.Rows[0].Percent != 0 {
+		t.Fatalf("cheating result: %+v", cheated)
+	}
 }

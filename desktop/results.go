@@ -33,8 +33,9 @@ const resultCTE = `WITH result AS (
 	to_char(l.finished_at AT TIME ZONE 'Europe/Moscow','DD.MM.YYYY') AS date,
 	to_char(l.finished_at AT TIME ZONE 'Europe/Moscow','HH24:MI:SS') AS time,
 	l.name, l.group_code, a.title, a.test_id, l.status,
-	round(100.0 * (SELECT count(*) FROM quiz_answers v WHERE v.session_id=l.session_id AND v.correct) /
-		nullif(l.total,0))::int AS pct,
+	CASE WHEN l.status='СПИСЫВАНИЕ' THEN 0 ELSE coalesce(round(100.0 *
+		(SELECT count(*) FROM quiz_answers v WHERE v.session_id=l.session_id AND v.correct) /
+		nullif(l.total,0))::int, 0) END AS pct,
 	l.finished_at AS event_at, false AS archived
 	FROM quiz_live l JOIN quiz_assignments a ON a.id=l.assignment_id WHERE l.finished_at IS NOT NULL
 	UNION ALL

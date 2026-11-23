@@ -14,6 +14,106 @@ let flaggedDuringRequest = false;
 let nextPoll = 0;
 let testCounts = new Map();
 
+
+const whoKey = "opp.currentStudent";
+let alarmPending = false;
+let ac;
+function audio() {
+  if (!ac) ac = new (window.AudioContext || window.webkitAudioContext)();
+  if (ac.state === "suspended") ac.resume();
+  return ac;
+}
+
+// Клаксон, сирена и голос из прежней версии теста.
+function siren() {
+  const c = audio();
+  const t0 = c.currentTime, dur = 9, end = t0 + dur;
+  const master = c.createGain();
+  master.gain.setValueAtTime(0.0001, t0);
+  master.gain.exponentialRampToValueAtTime(0.95, t0 + 0.04);
+  master.gain.setValueAtTime(0.95, end - 0.5);
+  master.gain.exponentialRampToValueAtTime(0.0001, end);
+  master.connect(c.destination);
+
+  const horn = c.createOscillator(); horn.type = "square";
+  const horn2 = c.createOscillator(); horn2.type = "square";
+  horn.frequency.setValueAtTime(98, t0); horn2.frequency.setValueAtTime(196, t0);
+  const hg = c.createGain(); hg.gain.setValueAtTime(0.0001, t0);
+  hg.gain.exponentialRampToValueAtTime(0.38, t0 + 0.02);
+  hg.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.55);
+  horn.connect(hg); horn2.connect(hg); hg.connect(master);
+  horn.start(t0); horn2.start(t0); horn.stop(t0 + 0.6); horn2.stop(t0 + 0.6);
+
+  const lo = c.createOscillator(); lo.type = "square";
+  const hi = c.createOscillator(); hi.type = "square";
+  const lg = c.createGain(); const hg2 = c.createGain();
+  lg.gain.value = 0.0001; hg2.gain.value = 0.0001;
+  lo.connect(lg); hi.connect(hg2); lg.connect(master); hg2.connect(master);
+  lo.frequency.value = 392; hi.frequency.value = 523.25;
+  let onHi = true;
+  for (let t = t0 + 0.45; t < end - 0.2; t += 0.32) {
+    if (onHi) {
+      hg2.gain.setValueAtTime(0.0001, t); hg2.gain.linearRampToValueAtTime(0.28, t + 0.02);
+      hg2.gain.setValueAtTime(0.28, t + 0.26); hg2.gain.exponentialRampToValueAtTime(0.0001, t + 0.31);
+      lg.gain.setValueAtTime(0.0001, t);
+    } else {
+      lg.gain.setValueAtTime(0.0001, t); lg.gain.linearRampToValueAtTime(0.3, t + 0.02);
+      lg.gain.setValueAtTime(0.3, t + 0.26); lg.gain.exponentialRampToValueAtTime(0.0001, t + 0.31);
+      hg2.gain.setValueAtTime(0.0001, t);
+    }
+    onHi = !onHi;
+  }
+  lo.start(t0); hi.start(t0); lo.stop(end); hi.stop(end);
+
+  const bell = c.createOscillator(); bell.type = "triangle";
+  const bg = c.createGain(); bg.gain.value = 0.0001;
+  bell.connect(bg); bg.connect(master);
+  bell.frequency.value = 1760;
+  for (let t = t0 + 0.2; t < end - 0.3; t += 0.95) {
+    bg.gain.setValueAtTime(0.0001, t);
+    bg.gain.linearRampToValueAtTime(0.16, t + 0.01);
+    bg.gain.exponentialRampToValueAtTime(0.0001, t + 0.28);
+  }
+  bell.start(t0); bell.stop(end);
+
+  const nbuf = c.createBuffer(1, Math.ceil(c.sampleRate * dur), c.sampleRate);
+  const data = nbuf.getChannelData(0);
+  for (let i = 0; i < data.length; i++) data[i] = Math.random() * 2 - 1;
+  const noise = c.createBufferSource(); noise.buffer = nbuf;
+  const bp = c.createBiquadFilter(); bp.type = "bandpass"; bp.frequency.value = 1400; bp.Q.value = 4;
+  const ng = c.createGain(); ng.gain.value = 0.07;
+  noise.connect(bp); bp.connect(ng); ng.connect(master);
+  noise.start(t0); noise.stop(end);
+}
+function speak() {
+  if (!window.speechSynthesis) return;
+  speechSynthesis.cancel();
+  const say = (delay) => setTimeout(() => {
+    const u = new SpeechSynthesisUtterance("Вы списали. Обратитесь к преподавателю.");
+    u.lang = "ru-RU"; u.volume = 1; u.rate = 0.92;
+    speechSynthesis.speak(u);
+  }, delay);
+  say(400); say(3200);
+}
+
+
+function alarm() {
+  if (document.visibilityState !== "visible") {
+    alarmPending = true;
+    return;
+  }
+  alarmPending = false;
+  try { siren(); } catch {}
+  speak();
+}
+
+function showCheat() {
+  if (!$("cheat").hidden) return;
+  $("cheatwho").textContent = (sessionStorage.getItem(whoKey) || "").toUpperCase();
+  $("cheat").hidden = false;
+  alarm();
+}
+
 function showQuestionCount() {
   $("questionCount").textContent = testCounts.get(studentTest.value) ?? "—";
 }
@@ -74,7 +174,8 @@ function showAttempt(data) {
   $("finished").hidden = live;
   lastStatus = data.status;
   if (!live) {
-    $("resultTitle").textContent = data.status === "СПИСЫВАНИЕ" ? "Попытка завершена. Зафиксирован выход со страницы" : data.status;
+    if (data.status === "СПИСЫВАНИЕ") showCheat();
+    $("resultTitle").textContent = data.status === "СПИСЫВАНИЕ" ? "СПИСАНО. Обратитесь к преподавателю" : data.status;
     $("score").textContent = "Верных ответов — " + data.score + " из " + data.total +
       " (" + Math.round(100 * data.score / data.total) + "%)";
     sessionStorage.removeItem(storeKey);
@@ -152,6 +253,8 @@ $("entry").addEventListener("submit", event => {
     return;
   }
   const name = form.get("name");
+  try { audio(); } catch {}
+  sessionStorage.setItem(whoKey, name + " · " + form.get("group"));
   if (current?.assignment !== assignment) {
     const bytes = crypto.getRandomValues(new Uint8Array(32));
     const token = Array.from(bytes, byte => byte.toString(16).padStart(2, "0")).join("");
@@ -175,8 +278,15 @@ $("back").addEventListener("click", () => {
   $("registration").hidden = false;
   void loadGroups();
 });
+document.addEventListener("contextmenu", event => event.preventDefault());
+document.addEventListener("copy", event => event.preventDefault());
 document.addEventListener("visibilitychange", () => {
-  if (document.visibilityState !== "hidden" || !current || lastStatus !== "Проходит") return;
+  if (document.visibilityState === "visible") {
+    if (alarmPending) alarm();
+    return;
+  }
+  if (!current || lastStatus !== "Проходит") return;
+  showCheat();
   flaggedDuringRequest = pending;
   const payload = new Blob([JSON.stringify({...current, operation: "flag"})], {type: "application/json"});
   if (!navigator.sendBeacon(studentPath + "attempt", payload) && !pending) void send("flag");

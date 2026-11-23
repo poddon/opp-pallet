@@ -383,7 +383,7 @@ func (a *app) advance(ctx context.Context, req attemptAction) (attemptView, erro
 			return attemptView{}, err
 		}
 	}
-	if s.Status != inProgress {
+	if s.Status != inProgress && s.Status != flagged {
 		if err := tx.QueryRowContext(ctx, "SELECT count(*) FROM quiz_answers WHERE session_id=$1 AND correct", hash).Scan(&s.Score); err != nil {
 			return attemptView{}, err
 		}
