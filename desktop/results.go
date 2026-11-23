@@ -152,7 +152,7 @@ func (a *app) results(w http.ResponseWriter, r *http.Request) error {
 			if err != nil {
 				return err
 			}
-			body, err = workbook([]sheetData{statsSheet(summary)})
+			body, err = workbook(statsSheets(summary))
 			if err != nil {
 				return err
 			}
@@ -488,9 +488,7 @@ func (a *app) exportResults(ctx context.Context, items []resultRow) ([]byte, err
 	if err != nil {
 		return nil, err
 	}
-	return workbook([]sheetData{
-		{"Результаты", summary, summaryWidths},
-		statsSheet(overview),
-		{"Ответы по модулям", detail, []int{11, 9, 32, 36, 14, 30, 10, 70, 45, 45, 14}},
-	})
+	sheets := append([]sheetData{{"Результаты", summary, summaryWidths}}, statsSheets(overview)...)
+	sheets = append(sheets, sheetData{"Ответы по модулям", detail, []int{11, 9, 32, 36, 14, 30, 10, 70, 45, 45, 14}})
+	return workbook(sheets)
 }

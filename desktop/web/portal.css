@@ -99,3 +99,6 @@ body.testing { -webkit-user-select: none; user-select: none; -webkit-touch-callo
 .module-stat { display: grid; grid-template-columns: 90px 1fr 150px; gap: 12px; align-items: center; font-size: 14px; }
 .module-bar { height: 10px; border-radius: 5px; background: #e6ecf5; overflow: hidden; }
 .module-bar div { height: 100%; background: var(--blue); }
+.stats-heading { font-size: 18px; margin: 20px 0 10px; }
+#questionStats td:nth-child(3) { min-width: 260px; }
+#questionStats td:nth-child(2) { white-space: nowrap; }

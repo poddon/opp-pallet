@@ -265,6 +265,9 @@ async function loadStats(request) {
     }
     $("statRows").append(row);
   }
+  table("questionStats", stats.questions.slice(0, 10).map((q, i) => [i + 1, q.module, q.text,
+    q.wrong + " из " + q.total, percent(q.wrongRate),
+    q.commonWrong ? q.commonWrong + " (" + q.commonCount + ")" : "—"]), 6, "Неправильных ответов нет.");
   $("moduleStats").replaceChildren(...stats.modules.map(m => {
     const item = document.createElement("div");
     item.className = "module-stat";

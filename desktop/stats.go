@@ -28,10 +28,23 @@ type moduleStat struct {
 	Average  float64 `json:"average"` // share of correct answers, %
 }
 
+type questionStat struct {
+	Module      string  `json:"module"`
+	Text        string  `json:"text"`
+	Wrong       int     `json:"wrong"`
+	Empty       int     `json:"empty"`
+	Total       int     `json:"total"`
+	WrongRate   float64 `json:"wrongRate"` // wrong answers among all, %
+	CommonWrong string  `json:"commonWrong,omitempty"`
+	CommonCount int     `json:"commonCount,omitempty"`
+	choices     map[string]int
+}
+
 type resultStats struct {
-	Total   statLine     `json:"total"`
-	Groups  []statLine   `json:"groups"`
-	Modules []moduleStat `json:"modules"`
+	Total     statLine       `json:"total"`
+	Groups    []statLine     `json:"groups"`
+	Modules   []moduleStat   `json:"modules"`
+	Questions []questionStat `json:"questions"` // questions with wrong answers, most wrong first
 }
 
 func round1(v float64) float64 { return math.Round(v*10) / 10 }
@@ -61,7 +74,7 @@ func (l *statLine) finish() {
 
 // stats summarises the filtered results: totals, every group and every module.
 func (a *app) stats(ctx context.Context, items []resultRow) (resultStats, error) {
-	out := resultStats{Total: statLine{Group: "Все группы"}, Groups: []statLine{}, Modules: []moduleStat{}}
+	out := resultStats{Total: statLine{Group: "Все группы"}, Groups: []statLine{}, Modules: []moduleStat{}, Questions: []questionStat{}}
 	groups := map[string]*statLine{}
 	ids := []string{}
 	for _, row := range items {
@@ -91,8 +104,22 @@ func (a *app) stats(ctx context.Context, items []resultRow) (resultStats, error)
 	for _, m := range a.modules {
 		byModule[m] = &moduleStat{Module: m}
 	}
+	questions := map[string]*questionStat{}
 	for _, list := range answers {
 		for _, q := range list {
+			qs := questions[q.Text]
+			if qs == nil {
+				qs = &questionStat{Module: q.Module, Text: q.Text, choices: map[string]int{}}
+				questions[q.Text] = qs
+			}
+			qs.Total++
+			switch verdict(q) {
+			case "Неправильно":
+				qs.Wrong++
+				qs.choices[q.Selected]++
+			case "Без ответа":
+				qs.Empty++
+			}
 			m := byModule[q.Module]
 			if m == nil {
 				continue
@@ -103,6 +130,28 @@ func (a *app) stats(ctx context.Context, items []resultRow) (resultStats, error)
 			}
 		}
 	}
+	for _, qs := range questions {
+		if qs.Wrong == 0 {
+			continue
+		}
+		qs.WrongRate = round1(100 * float64(qs.Wrong) / float64(qs.Total))
+		for choice, n := range qs.choices {
+			if n > qs.CommonCount || (n == qs.CommonCount && choice < qs.CommonWrong) {
+				qs.CommonWrong, qs.CommonCount = choice, n
+			}
+		}
+		out.Questions = append(out.Questions, *qs)
+	}
+	sort.Slice(out.Questions, func(i, j int) bool {
+		a, b := out.Questions[i], out.Questions[j]
+		if a.Wrong != b.Wrong {
+			return a.Wrong > b.Wrong
+		}
+		if a.WrongRate != b.WrongRate {
+			return a.WrongRate > b.WrongRate
+		}
+		return a.Text < b.Text
+	})
 	for _, name := range a.modules {
 		m := byModule[name]
 		if m.Total > 0 {
@@ -113,7 +162,7 @@ func (a *app) stats(ctx context.Context, items []resultRow) (resultStats, error)
 	return out, nil
 }
 
-func statsSheet(s resultStats) sheetData {
+func statsSheets(s resultStats) []sheetData {
 	rows := [][]any{{"Группа", "Прохождений", "Студентов", "Средний результат, %", "Сдали на 70% и более", "Доля сдавших, %", "Списываний"}}
 	line := func(l statLine) []any {
 		return []any{l.Group, l.Attempts, l.Students, l.Average, l.Passed, l.PassRate, l.Cheating}
@@ -126,5 +175,12 @@ func statsSheet(s resultStats) sheetData {
 	for _, m := range s.Modules {
 		rows = append(rows, []any{m.Module, m.Correct, m.Total, m.Average})
 	}
-	return sheetData{"Статистика", rows, []int{36, 14, 12, 20, 20, 16, 12}}
+	errors := [][]any{{"Модуль", "Вопрос", "Неправильно", "Без ответа", "Всего ответов", "Доля ошибок, %", "Частый неверный ответ", "Выбрали его"}}
+	for _, q := range s.Questions {
+		errors = append(errors, []any{q.Module, q.Text, q.Wrong, q.Empty, q.Total, q.WrongRate, q.CommonWrong, q.CommonCount})
+	}
+	return []sheetData{
+		{"Статистика", rows, []int{36, 14, 12, 20, 20, 16, 12}},
+		{"Ошибки по вопросам", errors, []int{12, 70, 13, 12, 14, 15, 50, 12}},
+	}
 }
