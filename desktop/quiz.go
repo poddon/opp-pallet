@@ -17,6 +17,7 @@ import (
 )
 
 const (
+	generalTest = "general"
 	questionSeconds = 55
 	inProgress = "Проходит"
 	completed = "Пройден"
@@ -27,6 +28,8 @@ const (
 type app struct {
 	db *sql.DB
 	catalog []test
+	modules []string          // module titles in catalogue order
+	moduleOf map[string]string // question text -> module, for attempts saved before modules were stored
 	passwordHash, fileConsent string
 }
 
@@ -34,6 +37,7 @@ type question struct {
 	Text string `json:"q"`
 	Choices []string `json:"a"`
 	Correct int `json:"i"`
+	Module string `json:"m,omitempty"`
 }
 
 type test struct {
@@ -52,7 +56,9 @@ func readCatalog() ([]test, error) {
 		return nil, err
 	}
 	seen := map[string]bool{}
-	for _, t := range catalog {
+	general := test{ID: generalTest, Title: "Общий тест"}
+	for k := range catalog {
+		t := &catalog[k]
 		if seen[t.ID] {
 			return nil, fmt.Errorf("повторяется тест %s", t.ID)
 		}
@@ -65,11 +71,40 @@ func readCatalog() ([]test, error) {
 				return nil, fmt.Errorf("некорректный вопрос теста %s", t.ID)
 			}
 		}
+		for i := range t.Questions {
+			t.Questions[i].Module = t.Title
+		}
+		general.Questions = append(general.Questions, t.Questions...)
 	}
 	if len(catalog) == 0 {
 		return nil, errors.New("банк вопросов пуст")
 	}
-	return catalog, nil
+	return append([]test{general}, catalog...), nil
+}
+
+func (a *app) loadCatalog() error {
+	catalog, err := readCatalog()
+	if err != nil {
+		return err
+	}
+	a.catalog, a.modules, a.moduleOf = catalog, nil, map[string]string{}
+	for _, t := range catalog[1:] {
+		a.modules = append(a.modules, t.Title)
+		for _, q := range t.Questions {
+			a.moduleOf[q.Text] = t.Title
+		}
+	}
+	return nil
+}
+
+func (a *app) moduleFor(q question) string {
+	if q.Module != "" {
+		return q.Module
+	}
+	if m := a.moduleOf[q.Text]; m != "" {
+		return m
+	}
+	return "Без модуля"
 }
 
 func digest(s string) string {

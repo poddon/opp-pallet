@@ -28,69 +28,82 @@ function showConsent(text, saved = false) {
   $("missingConsent").hidden = Boolean(text);
 }
 
-const statuses = ["Пройден", "Тест закрыт", "СПИСЫВАНИЕ"];
-let knownGroups = [];
-
-function checklist(container, items, name, checked = new Set()) {
-  const keep = new Set(Array.from(container.querySelectorAll("input:checked"), box => box.value));
-  container.replaceChildren(...items.map(entry => {
-    const item = typeof entry === "string" ? {label: entry, value: entry} : entry;
-    const label = document.createElement("label");
-    label.className = "check";
-    const box = document.createElement("input");
-    box.type = "checkbox";
-    box.name = name;
-    box.value = item.value;
-    box.checked = checked.has(item.value) || keep.has(item.value);
-    label.append(box, document.createTextNode(" " + item.label));
-    return label;
-  }));
+// Splits "ПРОМЫШЛЕННАЯ РОБОТОТЕХНИКА 26-1" into the direction and the group number.
+function splitGroup(code) {
+  const match = /^(.*\S)\s+(\d{2}-\d+)$/.exec(code);
+  return match ? {direction: match[1], number: match[2]} : {direction: "Другие группы", number: code};
 }
 
-function countChecked(container, counter) {
-  const count = container.querySelectorAll("input:checked").length;
-  $(counter).textContent = count ? "(" + count + ")" : "(все)";
-}
-
-function renderGroupChecklist() {
-  const checked = new Set(Array.from(selectedGroups.keys()));
-  checklist($("groupChecklist"), knownGroups, "openGroup", checked);
-  for (const box of $("groupChecklist").querySelectorAll("input")) box.checked = checked.has(box.value);
-  $("noGroups").hidden = knownGroups.length > 0;
-  filterGroupChecklist();
-}
-
-function filterGroupChecklist() {
-  const needle = $("groupSearch").value.trim().toLowerCase();
-  for (const label of $("groupChecklist").children) {
-    label.hidden = Boolean(needle) && !label.textContent.toLowerCase().includes(needle);
+function renderGroupTree(groups) {
+  const keep = new Set(Array.from($("groupTree").querySelectorAll("input[name=group]:checked"), box => box.value));
+  const tree = new Map();
+  for (const code of groups) {
+    const {direction, number} = splitGroup(code);
+    if (!tree.has(direction)) tree.set(direction, []);
+    tree.get(direction).push({code, number});
   }
+  const directions = Array.from(tree.keys()).sort((a, b) =>
+    (a === "Другие группы") - (b === "Другие группы") || a.localeCompare(b, "ru"));
+  $("groupTree").replaceChildren(...directions.map(direction => {
+    const items = tree.get(direction).sort((a, b) => a.number.localeCompare(b.number, "ru", {numeric: true}));
+    const block = document.createElement("details");
+    block.className = "group-branch";
+    const summary = document.createElement("summary");
+    const title = document.createElement("span");
+    title.textContent = direction;
+    const count = document.createElement("span");
+    count.className = "muted branch-count";
+    summary.append(title, " ", count);
+    const all = document.createElement("label");
+    all.className = "check branch-all";
+    const allBox = document.createElement("input");
+    allBox.type = "checkbox";
+    all.append(allBox, " Все группы направления");
+    const numbers = document.createElement("div");
+    numbers.className = "branch-numbers";
+    for (const item of items) {
+      const label = document.createElement("label");
+      label.className = "check";
+      const box = document.createElement("input");
+      box.type = "checkbox";
+      box.name = "group";
+      box.value = item.code;
+      box.checked = keep.has(item.code);
+      label.append(box, " " + item.number);
+      label.title = item.code;
+      numbers.append(label);
+    }
+    allBox.addEventListener("change", () => {
+      for (const box of numbers.querySelectorAll("input")) box.checked = allBox.checked;
+      updateGroupCounts();
+    });
+    block.append(summary, all, numbers);
+    if (items.some(item => keep.has(item.code))) block.open = true;
+    return block;
+  }));
+  updateGroupCounts();
+}
+
+function updateGroupCounts() {
+  let total = 0;
+  for (const block of $("groupTree").children) {
+    const boxes = Array.from(block.querySelectorAll("input[name=group]"));
+    const checked = boxes.filter(box => box.checked).length;
+    total += checked;
+    block.querySelector(".branch-count").textContent = checked ? "(" + checked + " из " + boxes.length + ")" : "(" + boxes.length + ")";
+    const all = block.querySelector(".branch-all input");
+    all.checked = checked === boxes.length;
+    all.indeterminate = checked > 0 && checked < boxes.length;
+  }
+  $("groupCount").textContent = total ? "(выбрано " + total + ")" : "(все)";
 }
 
 async function loadSetup() {
   const setup = await api(adminPath + "setup");
-  const tests = setup.tests.map(item => ({label: item.title + " · " + item.questions + " вопр.", value: item.id}));
-  options($("openTest"), tests, "Выберите тест");
   options($("direction"), setup.directions, "Выберите направление");
-  knownGroups = setup.groups;
-  for (const [code, entry] of selectedGroups) {
-    if (entry && knownGroups.includes(code)) selectedGroups.set(code, null);
-  }
-  renderGroupChecklist();
-  renderSelectedGroups();
-  checklist($("filterGroup"), setup.groups, "group");
-  checklist($("filterTest"), [...setup.tests.map(item => ({label: item.title, value: item.id})),
-    {label: "Архивные тесты", value: "archive"}], "test");
-  checklist($("filterStatus"), statuses, "status");
-  updateFilterCounts();
+  renderGroupTree(setup.groups);
   showConsent(setup.consent);
   showDashboard(true);
-}
-
-function updateFilterCounts() {
-  countChecked($("filterGroup"), "groupCount");
-  countChecked($("filterTest"), "testCount");
-  countChecked($("filterStatus"), "statusCount");
 }
 
 function table(id, rows, columns, empty) {
@@ -133,7 +146,6 @@ function renderSelectedGroups() {
     const remove = action("Убрать", () => {
       selectedGroups.delete(code);
       renderSelectedGroups();
-      renderGroupChecklist();
     });
     remove.setAttribute("aria-label", "Убрать " + label.textContent);
     row.append(label, remove);
@@ -156,12 +168,11 @@ function addProgramGroups() {
   }
   for (const number of numbers) {
     const code = (direction + " " + number).toUpperCase();
-    selectedGroups.set(code, knownGroups.includes(code) ? null : {direction, number});
+    selectedGroups.set(code, {direction, number});
   }
   for (const box of checkboxes) box.checked = false;
   $("extraNumbers").value = "";
   renderSelectedGroups();
-  renderGroupChecklist();
 }
 
 $("addProgramGroups").addEventListener("click", () => {
@@ -172,26 +183,6 @@ $("addProgramGroups").addEventListener("click", () => {
     reportError(error);
   }
 });
-$("groupChecklist").addEventListener("change", event => {
-  const box = event.target;
-  if (box.checked) selectedGroups.set(box.value, null);
-  else selectedGroups.delete(box.value);
-  renderSelectedGroups();
-});
-$("groupSearch").addEventListener("input", filterGroupChecklist);
-$("groupSearch").addEventListener("keydown", event => { if (event.key === "Enter") event.preventDefault(); });
-function markVisibleGroups(checked) {
-  for (const label of $("groupChecklist").children) {
-    if (label.hidden) continue;
-    const box = label.querySelector("input");
-    box.checked = checked;
-    if (checked) selectedGroups.set(box.value, null);
-    else selectedGroups.delete(box.value);
-  }
-  renderSelectedGroups();
-}
-$("checkAllGroups").addEventListener("click", () => markVisibleGroups(true));
-$("uncheckAllGroups").addEventListener("click", () => markVisibleGroups(false));
 
 async function loadActive() {
   const rows = await api(adminPath + "assignments");
@@ -213,12 +204,6 @@ async function loadActive() {
   }), 6, "Активных тестов нет.");
 }
 
-async function loadLive() {
-  const rows = await api(adminPath + "live");
-  table("liveRows", rows.map(row => [row.name, row.group, row.title,
-    row.question + " из " + row.total, row.seconds]), 5, "Сейчас никто не проходит тест.");
-}
-
 async function loadResults() {
   const request = ++resultsRequest;
   const params = new URLSearchParams(filters);
@@ -236,36 +221,53 @@ async function loadResults() {
   $("export").href = adminPath + "results?" + exportParams;
 }
 
+function answerItem(item) {
+  const li = document.createElement("li");
+  li.value = item.number;
+  const question = document.createElement("strong");
+  question.textContent = item.text;
+  const status = document.createElement("span");
+  status.className = "answer-status";
+  if (!item.selected) {
+    status.textContent = "Без ответа";
+  } else if (item.correct) {
+    status.textContent = "Правильно";
+    status.classList.add("answer-correct");
+  } else {
+    status.textContent = "Неправильно";
+    status.classList.add("answer-incorrect");
+  }
+  li.append(status, question);
+  if (item.selected) {
+    const selected = document.createElement("p");
+    selected.textContent = "Ответ студента — " + item.selected;
+    li.append(selected);
+  }
+  const expected = document.createElement("p");
+  expected.className = "muted";
+  expected.textContent = "Правильный ответ — " + item.expected;
+  li.append(expected);
+  return li;
+}
+
 async function loadAnswers(id) {
   try {
     const data = await api(adminPath + "answers/" + id);
     $("answerHeading").textContent = data.name + " · " + data.group + " · " + data.title;
-    $("answerList").replaceChildren(...data.answers.map(item => {
-      const li = document.createElement("li");
-      const question = document.createElement("strong");
-      question.textContent = item.text;
-      const status = document.createElement("span");
-      status.className = "answer-status";
-      if (!item.selected) {
-        status.textContent = "Без ответа";
-      } else if (item.correct) {
-        status.textContent = "Правильно";
-        status.classList.add("answer-correct");
-      } else {
-        status.textContent = "Неправильно";
-        status.classList.add("answer-incorrect");
-      }
-      li.append(status, question);
-      if (item.selected) {
-        const selected = document.createElement("p");
-        selected.textContent = "Ответ студента — " + item.selected;
-        li.append(selected);
-      }
-      const expected = document.createElement("p");
-      expected.className = "muted";
-      expected.textContent = "Правильный ответ — " + item.expected;
-      li.append(expected);
-      return li;
+    $("answerStatus").textContent = "Статус: " + data.status + ". Номер вопроса — его порядок в попытке студента.";
+    $("answerModules").replaceChildren(...data.modules.map(module => {
+      const section = document.createElement("section");
+      section.className = "answer-module";
+      const heading = document.createElement("h3");
+      heading.textContent = module.module;
+      const summary = document.createElement("p");
+      summary.className = "module-score";
+      summary.textContent = "Правильно " + module.correct + " · неправильно " + module.wrong +
+        " · без ответа " + module.empty + " · всего " + module.total;
+      const list = document.createElement("ol");
+      list.append(...data.answers.filter(item => item.module === module.module).map(answerItem));
+      section.append(heading, summary, list);
+      return section;
     }));
     if (!$("answerDetails").open) $("answerDetails").showModal();
   } catch (error) {
@@ -273,7 +275,7 @@ async function loadAnswers(id) {
   }
 }
 
-const refresh = {active: loadActive, live: loadLive, results: loadResults};
+const refresh = {active: loadActive, results: loadResults};
 async function selectTab(next) {
   tab = next;
   for (const button of tabs) {
@@ -315,12 +317,6 @@ submit("loginForm", async (data, form) => {
   await loadSetup();
   await selectTab("open");
 });
-submit("groupForm", async (data, form) => {
-  const item = await api(adminPath + "groups", {code: data.get("code")});
-  form.reset();
-  selectedGroups.set(item.code, null);
-  await loadSetup();
-});
 $("consentInput").addEventListener("input", () => { $("consentSaved").textContent = ""; });
 submit("consentForm", async data => {
   $("consentSaved").textContent = "";
@@ -331,7 +327,6 @@ submit("consentForm", async data => {
 
 submit("openForm", async data => {
   if (data.getAll("groupNumber").length || $("extraNumbers").value.trim()) addProgramGroups();
-  if (!data.get("test")) throw new Error("Выберите тест.");
   if (!selectedGroups.size) throw new Error("Выберите хотя бы одну группу.");
   const groups = [];
   const programs = [];
@@ -340,7 +335,7 @@ submit("openForm", async data => {
     else groups.push(code);
   }
   const result = await api(adminPath + "assignments", {
-    groups, programs, test: data.get("test"), minutes: Number(data.get("minutes"))
+    groups, programs, minutes: Number(data.get("minutes"))
   });
   selectedGroups.clear();
   renderSelectedGroups();
@@ -378,13 +373,13 @@ $("filters").addEventListener("submit", event => {
   event.preventDefault();
   setFilters();
 });
-$("filters").addEventListener("reset", () => setTimeout(() => { updateFilterCounts(); setFilters(); }, 0));
-$("filters").addEventListener("change", updateFilterCounts);
+$("filters").addEventListener("reset", () => setTimeout(() => { updateGroupCounts(); setFilters(); }, 0));
+$("groupTree").addEventListener("change", event => { if (event.target.name === "group") updateGroupCounts(); });
 $("prev").addEventListener("click", () => { page--; void selectTab("results"); });
 $("next").addEventListener("click", () => { page++; void selectTab("results"); });
 
 setInterval(async () => {
-  if ($("dashboard").hidden || refreshing || (tab !== "active" && tab !== "live")) return;
+  if ($("dashboard").hidden || refreshing || tab !== "active") return;
   refreshing = true;
   try {
     await refresh[tab]();

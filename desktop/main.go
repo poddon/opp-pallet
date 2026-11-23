@@ -209,8 +209,7 @@ func run(c config) error {
 
 func (a *app) configure(c config) error {
 	var err error
-	a.catalog, err = readCatalog()
-	if err != nil {
+	if err = a.loadCatalog(); err != nil {
 		return err
 	}
 	a.passwordHash = digest(c.adminPassword)

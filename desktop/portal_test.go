@@ -1,7 +1,9 @@
 package main
 
 import (
+	"archive/zip"
 	"bytes"
+	"io"
 	"context"
 	"encoding/json"
 	"io/fs"
@@ -29,12 +31,15 @@ func TestPortalsPostgreSQL(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(a.catalog) != 4 {
-		t.Fatal("expected four thematic tests")
+	if err := a.loadCatalog(); err != nil {
+		t.Fatal(err)
 	}
-	for _, item := range a.catalog {
-		if item.ID == "general" {
-			t.Fatal("general test must not be offered")
+	if len(a.catalog) != 5 || a.catalog[0].ID != generalTest || len(a.catalog[0].Questions) != 50 || len(a.modules) != 4 {
+		t.Fatal("expected a general test with all 50 questions from four modules")
+	}
+	for _, q := range a.catalog[0].Questions {
+		if q.Module == "" {
+			t.Fatal("general test question without module")
 		}
 	}
 	chosen := a.catalog[0]
@@ -104,9 +109,8 @@ func TestPortalsPostgreSQL(t *testing.T) {
 		{Direction: "Промышленная робототехника", Number: "26-2"},
 		{Direction: "Промышленная автоматика", Number: "26-1"},
 	}
-	request(admin, "POST", "/api/admin/assignments", map[string]any{"groups": []string{group}, "test": "general", "minutes": 2}, 400, nil)
-	request(admin, "POST", "/api/admin/assignments", map[string]any{"groups": []string{group}, "minutes": 2}, 400, nil)
-	batch := map[string]any{"groups": []string{group, group}, "programs": programs, "test": chosen.ID, "minutes": 2}
+	request(admin, "POST", "/api/admin/assignments", map[string]any{"groups": []string{group}, "test": "missing", "minutes": 2}, 400, nil)
+	batch := map[string]any{"groups": []string{group, group}, "programs": programs, "minutes": 2}
 	request(admin, "POST", consentEndpoint, map[string]string{"text": "   "}, 400, nil)
 	var opened bulkAssignmentResult
 	request(admin, "POST", endpoint, batch, 201, &opened)
@@ -127,7 +131,7 @@ func TestPortalsPostgreSQL(t *testing.T) {
 	}
 	request(admin, "POST", endpoint, map[string]any{"programs": []programGroup{
 		{Direction: programs[0].Direction, Number: "26-0"},
-	}, "test": chosen.ID, "minutes": 2}, 400, nil)
+	}, "minutes": 2}, 400, nil)
 
 	id := opened.Opened[group]
 	token, err := newToken()
@@ -162,11 +166,7 @@ func TestPortalsPostgreSQL(t *testing.T) {
 	if recordedConsent != newConsent {
 		t.Fatal("attempt did not store the accepted consent version")
 	}
-	var live []map[string]any
-	request(admin,"GET","/api/admin/live",nil,200,&live)
-	if len(live) == 0 || live[0]["group"] != group {
-		t.Fatal("missing progress")
-	}
+	request(admin,"GET","/api/admin/live",nil,404,nil)
 	var bank []byte
 	if err := db.QueryRow("SELECT question_set FROM quiz_live WHERE session_id=$1", digest(token)).Scan(&bank); err != nil {
 		t.Fatal(err)
@@ -205,24 +205,59 @@ func TestPortalsPostgreSQL(t *testing.T) {
 	}
 	var details struct {
 		Answers []struct {
+			Number   int
+			Module   string
 			Selected string
 			Expected string
 			Correct  bool
 		}
+		Modules []moduleScore
 	}
 	request(admin,"GET","/api/admin/answers/"+digest(token),nil,200,&details)
-	if len(details.Answers) != view.Total {
-		t.Fatalf("stored answer count: %d", len(details.Answers))
+	if len(details.Answers) != view.Total || len(details.Modules) != len(a.modules) {
+		t.Fatalf("stored answer count: %d, modules %+v", len(details.Answers), details.Modules)
 	}
-	right, wrong, empty := details.Answers[0], details.Answers[1], details.Answers[2]
+	byNumber := map[int]int{}
+	for k, item := range details.Answers {
+		byNumber[item.Number] = k
+		if item.Module == "" || item.Module != a.moduleFor(questions[item.Number-1]) {
+			t.Fatalf("answer %d has module %q", item.Number, item.Module)
+		}
+	}
+	correctTotal, wrongTotal := 0, 0
+	for _, m := range details.Modules {
+		correctTotal += m.Correct
+		wrongTotal += m.Wrong
+	}
+	if correctTotal != 1 || wrongTotal != 1 {
+		t.Fatalf("module scores: %+v", details.Modules)
+	}
+	right, wrong, empty := details.Answers[byNumber[1]], details.Answers[byNumber[2]], details.Answers[byNumber[3]]
 	if !right.Correct || right.Selected == "" || right.Selected != right.Expected ||
 		wrong.Correct || wrong.Selected == "" || wrong.Selected == wrong.Expected ||
 		empty.Correct || empty.Selected != "" || empty.Expected == "" {
 		t.Fatalf("stored answers: correct=%+v, incorrect=%+v, unanswered=%+v", right, wrong, empty)
 	}
 	export := request(admin,"GET","/api/admin/results"+query+"&format=xlsx",nil,200,nil)
-	if !bytes.HasPrefix(export.Body.Bytes(),[]byte("PK")) {
-		t.Fatal("xlsx is not a ZIP")
+	book, err := zip.NewReader(bytes.NewReader(export.Body.Bytes()), int64(export.Body.Len()))
+	if err != nil {
+		t.Fatal("xlsx is not a ZIP:", err)
+	}
+	var answerSheet []byte
+	for _, f := range book.File {
+		if f.Name == "xl/worksheets/sheet2.xml" {
+			r, err := f.Open()
+			if err != nil {
+				t.Fatal(err)
+			}
+			answerSheet, _ = io.ReadAll(r)
+			r.Close()
+		}
+	}
+	for _, want := range []string{a.modules[0], "Правильно", "Неправильно", "Без ответа"} {
+		if !bytes.Contains(answerSheet, []byte(want)) {
+			t.Fatalf("answer sheet lacks %q", want)
+		}
 	}
 	var stillOpen []assignment
 	request(student, "GET", "/api/student/tests?"+url.Values{"group": {programs[0].code()}}.Encode(), nil, 200, &stillOpen)
@@ -230,7 +265,7 @@ func TestPortalsPostgreSQL(t *testing.T) {
 		t.Fatal("closing one group must leave the other group open")
 	}
 	var reopened bulkAssignmentResult
-	request(admin, "POST", endpoint, map[string]any{"groups": []string{group}, "test": chosen.ID, "minutes": 2}, 201, &reopened)
+	request(admin, "POST", endpoint, map[string]any{"groups": []string{group}, "minutes": 2}, 201, &reopened)
 	id = reopened.Opened[group]
 	if id == 0 {
 		t.Fatal("group did not reopen")

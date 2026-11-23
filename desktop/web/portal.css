@@ -70,12 +70,16 @@ dialog h2 { margin-top: 12px; }
 .group-numbers label { white-space: nowrap; }
 .selected-groups { display: grid; gap: 6px; list-style: none; margin: 0; padding: 0; }
 .selected-groups li { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
-#newGroups .stack { margin-top: 10px; }
-.group-list { border: 1px solid var(--border); border-radius: 8px; display: grid; gap: 10px; margin: 0; min-width: 0; }
-.checklist { display: grid; gap: 4px 16px; grid-template-columns: repeat(auto-fill, minmax(min(100%, 260px), 1fr)); max-height: 280px; overflow: auto; }
-.checklist .check { align-items: center; }
-details.multi { align-self: end; padding-block: 9px; }
-details.multi .checklist { margin-top: 8px; max-height: 220px; }
+.group-filter > p { margin: 8px 0; }
+.group-tree { display: grid; gap: 6px; grid-template-columns: repeat(auto-fill, minmax(min(100%, 340px), 1fr)); align-items: start; }
+.group-branch { padding: 8px 12px; }
+.group-branch summary { font-weight: 600; }
+.branch-all { margin-top: 8px; font-size: 14px; }
+.branch-numbers { display: flex; flex-wrap: wrap; gap: 4px 18px; margin-top: 6px; }
+.branch-numbers .check { align-items: center; white-space: nowrap; }
+.answer-module { border-top: 2px solid var(--border); padding-top: 12px; margin-top: 14px; }
+.answer-module h3 { margin: 0 0 4px; font-size: 18px; }
+.module-score { color: var(--muted); font-size: 14px; }
 
 #consentSettings { margin-bottom: 16px; }
 #consentForm { margin-top: 10px; }

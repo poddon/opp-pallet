@@ -42,7 +42,6 @@
     <nav aria-label="Разделы портала">
       <button type="button" class="secondary" data-tab="open">Открыть тест</button>
       <button type="button" class="secondary" data-tab="active">Активные тесты</button>
-      <button type="button" class="secondary" data-tab="live">Сейчас проходят</button>
       <button type="button" class="secondary" data-tab="results">Результаты</button>
     </nav>
     <section id="open" class="card">
@@ -58,39 +57,22 @@
         </form>
       </details>
       <form id="openForm" class="stack">
-        <label>Тест <select id="openTest" name="test" required></select></label>
-        <fieldset class="group-list">
-          <legend>Группы</legend>
-          <div class="fields">
-            <label>Поиск группы <input id="groupSearch" type="search" placeholder="Например, 26-1" maxlength="80"></label>
-            <div class="actions">
-              <button id="checkAllGroups" type="button" class="secondary">Отметить найденные</button>
-              <button id="uncheckAllGroups" type="button" class="secondary">Снять отметки</button>
-            </div>
-          </div>
-          <p id="noGroups" class="muted" hidden>Групп пока нет. Добавьте новую группу ниже.</p>
-          <div id="groupChecklist" class="checklist"></div>
-        </fieldset>
-        <details id="newGroups">
-          <summary>Новая группа направления Алабуга Политех</summary>
-          <div class="stack">
-            <div class="fields">
-              <label>Направление <select id="direction"></select></label>
-              <fieldset class="group-numbers">
-                <legend>Номер группы</legend>
-                <label class="check"><input type="checkbox" name="groupNumber" value="26-1"> 26-1</label>
-                <label class="check"><input type="checkbox" name="groupNumber" value="26-2"> 26-2</label>
-              </fieldset>
-              <label>Другие номера
-                <input id="extraNumbers" placeholder="26-3, 25-1" maxlength="100">
-              </label>
-            </div>
-            <div class="actions"><button class="secondary" id="addProgramGroups" type="button">Добавить в список</button></div>
-          </div>
-        </details>
+        <p class="muted">Всем выбранным группам назначается общий тест по всем модулям.</p>
+        <div class="fields">
+          <label>Направление <select id="direction"></select></label>
+          <fieldset class="group-numbers">
+            <legend>Номер группы</legend>
+            <label class="check"><input type="checkbox" name="groupNumber" value="26-1"> 26-1</label>
+            <label class="check"><input type="checkbox" name="groupNumber" value="26-2"> 26-2</label>
+          </fieldset>
+          <label>Другой номер вручную
+            <input id="extraNumbers" placeholder="26-3, 25-1" maxlength="100">
+          </label>
+        </div>
+        <div class="actions"><button class="secondary" id="addProgramGroups" type="button">Добавить в список</button></div>
         <div>
           <h2>Выбранные группы</h2>
-          <p id="emptyGroups" class="muted">Отметьте одну или несколько групп.</p>
+          <p id="emptyGroups" class="muted">Выберите направление, отметьте или впишите номер группы и нажмите «Добавить в список».</p>
           <ul id="selectedGroups" class="selected-groups" aria-label="Выбранные группы"></ul>
         </div>
         <div class="fields">
@@ -99,13 +81,6 @@
         </div>
         <p id="openTestError" class="error" role="alert"></p>
       </form>
-      <details>
-        <summary>Добавить группу с произвольным названием</summary>
-        <form id="groupForm" class="fields">
-          <label>Название группы <input name="code" placeholder="ПРОМРОБО 25-3" maxlength="80" required></label>
-          <div class="actions"><button class="secondary">Добавить</button></div>
-        </form>
-      </details>
     </section>
     <section id="active" class="card" hidden>
       <h1>Активные тесты</h1>
@@ -116,25 +91,23 @@
         <tbody id="activeRows"></tbody>
       </table></div>
     </section>
-    <section id="live" class="card" hidden>
-      <h1>Сейчас проходят</h1>
-      <p class="muted">Показываются студенты, от которых поступало обновление за последние 25 секунд.</p>
-      <div class="table-box"><table>
-        <thead><tr><th>ФИО</th><th>Группа</th><th>Тест</th><th>Вопрос</th><th>Осталось, с</th></tr></thead>
-        <tbody id="liveRows"></tbody>
-      </table></div>
-    </section>
     <section id="results" class="card" hidden>
       <h1>Результаты</h1>
       <form id="filters" class="stack">
         <div class="fields">
           <label>ФИО <input name="name" type="search" maxlength="160"></label>
-          <details class="multi"><summary>Группы <span id="groupCount" class="muted"></span></summary><div id="filterGroup" class="checklist"></div></details>
-          <details class="multi"><summary>Тесты <span id="testCount" class="muted"></span></summary><div id="filterTest" class="checklist"></div></details>
-          <details class="multi"><summary>Статусы <span id="statusCount" class="muted"></span></summary><div id="filterStatus" class="checklist"></div></details>
+          <label>Статус <select name="status">
+            <option value="">Все статусы</option><option>Пройден</option>
+            <option>Тест закрыт</option><option>СПИСЫВАНИЕ</option>
+          </select></label>
           <label>Дата с <input name="from" type="date"></label>
           <label>Дата по <input name="to" type="date"></label>
         </div>
+        <details id="groupFilter" class="group-filter">
+          <summary>Группы <span id="groupCount" class="muted"></span></summary>
+          <p class="muted">Раскройте направление и отметьте номера групп. Галочка у направления выбирает все его группы.</p>
+          <div id="groupTree" class="group-tree"></div>
+        </details>
         <div class="actions">
           <button>Применить</button>
           <button class="secondary" type="reset">Сбросить</button>
@@ -156,7 +129,8 @@
 <dialog id="answerDetails">
   <form method="dialog" class="actions"><button class="secondary">Закрыть</button></form>
   <h2 id="answerHeading"></h2>
-  <ol id="answerList"></ol>
+  <p id="answerStatus" class="muted"></p>
+  <div id="answerModules"></div>
 </dialog>
 </body>
 </html>

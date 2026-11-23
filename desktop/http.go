@@ -5,7 +5,6 @@ import (
 	"crypto/subtle"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"io"
 	"io/fs"
 	"log"
@@ -276,7 +275,7 @@ func (a *app) adminPortal(web fs.FS) http.Handler {
 		if err != nil {
 			return err
 		}
-		writeJSON(w, 200, map[string]any{"groups": groups, "directions": directions, "tests": tests, "consent": consent})
+		writeJSON(w, 200, map[string]any{"groups": groups, "directions": directions, "tests": tests, "modules": a.modules, "consent": consent})
 		return nil
 	}))
 	mux.HandleFunc("POST "+adminPath+"groups",a.admin(a.addGroup))
@@ -291,7 +290,6 @@ func (a *app) adminPortal(web fs.FS) http.Handler {
 	}))
 	mux.HandleFunc("POST "+adminPath+"assignments",a.admin(a.openAssignment))
 	mux.HandleFunc("POST "+adminPath+"assignments/{id}/close",a.admin(a.closeAssignment))
-	mux.HandleFunc("GET "+adminPath+"live",a.admin(a.live))
 	mux.HandleFunc("GET "+adminPath+"results",a.admin(a.results))
 	mux.HandleFunc("GET "+adminPath+"answers/{id}",a.admin(a.answers))
 	return protect(mux)
@@ -350,6 +348,9 @@ func (a *app) openAssignment(w http.ResponseWriter, r *http.Request) error {
 	slices.Sort(groups)
 	groups = slices.Compact(groups)
 
+	if req.Test == "" {
+		req.Test = generalTest
+	}
 	index := slices.IndexFunc(a.catalog, func(t test) bool { return t.ID == req.Test })
 	if index < 0 {
 		return problem{400, "Выберите тест"}
@@ -442,39 +443,5 @@ func (a *app) closeAssignment(w http.ResponseWriter,r *http.Request) error {
 		return err
 	}
 	w.WriteHeader(204)
-	return nil
-}
-
-func (a *app) live(w http.ResponseWriter,r *http.Request) error {
-	type liveRow struct {
-		Name string `json:"name"`
-		Group string `json:"group"`
-		Title string `json:"title"`
-		Question int `json:"question"`
-		Total int `json:"total"`
-		Seconds int `json:"seconds"`
-	}
-	rows, err := a.db.QueryContext(r.Context(),`SELECT l.name,l.group_code,a.title,l.question,l.total,
-		greatest(0,ceil(extract(epoch from l.deadline-clock_timestamp())))::int
-		FROM quiz_live l JOIN quiz_assignments a ON a.id=l.assignment_id
-		WHERE l.finished_at IS NULL AND l.updated_at > clock_timestamp()-interval '25 seconds'
-		AND a.closed_at IS NULL AND a.closes_at > clock_timestamp()
-		ORDER BY l.updated_at DESC, l.session_id`)
-	if err != nil {
-		return err
-	}
-	defer rows.Close()
-	out := []liveRow{}
-	for rows.Next() {
-		var row liveRow
-		if err := rows.Scan(&row.Name,&row.Group,&row.Title,&row.Question,&row.Total,&row.Seconds); err != nil {
-			return err
-		}
-		out = append(out,row)
-	}
-	if err := rows.Err(); err != nil {
-		return fmt.Errorf("чтение прогресса: %w",err)
-	}
-	writeJSON(w,200,out)
 	return nil
 }
