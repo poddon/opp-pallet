@@ -36,8 +36,8 @@ type config struct {
 func parseConfig(args []string) (config, error) {
 	var c config
 	if len(args) == 0 || (args[0] != "start" && args[0] != "cleanup") {
-		return c, errors.New("использование: MaxBotWebApp.exe start --ip localhost --port 5432 --name maxbot --password ПАРОЛЬ\n" +
-			"подробнее: MaxBotWebApp.exe start --help или MaxBotWebApp.exe cleanup --help")
+		return c, errors.New("использование: OPP-test.exe start --ip localhost --port 5432 --name ИМЯ_БАЗЫ --password ПАРОЛЬ\n" +
+			"подробнее: OPP-test.exe start --help или OPP-test.exe cleanup --help")
 	}
 	c.cleanup = args[0] == "cleanup"
 	flags := flag.NewFlagSet(args[0], flag.ContinueOnError)

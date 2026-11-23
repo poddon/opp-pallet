@@ -1,6 +1,6 @@
 # Тестирование ОПП
 
-`MaxBotWebApp.exe` запускает два отдельных портала и хранит задания, прохождения и ответы в PostgreSQL (Supabase не используется).
+`OPP-test.exe` запускает два отдельных портала и хранит задания, прохождения и ответы в PostgreSQL (Supabase не используется).
 
 | Портал | Адрес на сервере | Доступ по умолчанию |
 | --- | --- | --- |
@@ -11,12 +11,12 @@
 
 ## Запуск в Windows
 
-Скачайте [MaxBotWebApp.exe](https://github.com/poddon/opp-pallet/releases/download/site-latest/MaxBotWebApp.exe). Подготовьте существующую базу PostgreSQL. При запуске приложение подключается к ней и само создаёт недостающие таблицы (`quiz_*`). Роль PostgreSQL должна иметь права на создание таблиц в своей схеме и изменение существующих таблиц приложения.
+Скачайте [OPP-test.exe](https://github.com/poddon/opp-pallet/releases/download/site-latest/OPP-test.exe). Подготовьте существующую базу PostgreSQL. При запуске приложение подключается к ней и само создаёт недостающие таблицы (`quiz_*`). Роль PostgreSQL должна иметь права на создание таблиц в своей схеме и изменение существующих таблиц приложения.
 
-Запуск с внешними параметрами:
+Запуск с внешними параметрами (подставьте свои значения):
 
 ```powershell
-C:\Users\Aang_\Desktop\scripts\MaxBotWebApp.exe start --ip localhost --port 5432 --name maxbot --password maxbotmaxbot
+.\OPP-test.exe start --ip localhost --port 5432 --name ИМЯ_БАЗЫ --password ПАРОЛЬ_POSTGRESQL
 ```
 
 | Параметр | Назначение | По умолчанию |
@@ -48,8 +48,8 @@ C:\Users\Aang_\Desktop\scripts\MaxBotWebApp.exe start --ip localhost --port 5432
 ## Очистка базы
 
 ```powershell
-.\MaxBotWebApp.exe cleanup --ip localhost --port 5432 --name maxbot --password maxbotmaxbot
-.\MaxBotWebApp.exe cleanup --ip localhost --port 5432 --name maxbot --password maxbotmaxbot --apply
+.\OPP-test.exe cleanup --ip localhost --port 5432 --name ИМЯ_БАЗЫ --password ПАРОЛЬ_POSTGRESQL
+.\OPP-test.exe cleanup --ip localhost --port 5432 --name ИМЯ_БАЗЫ --password ПАРОЛЬ_POSTGRESQL --apply
 ```
 
 Первая команда только подсчитывает устаревшие записи: строки старого мониторинга `quiz_live` старше 24 часов без привязки к назначениям и просроченные сеансы администратора. Вторая удаляет их. Завершённые тесты, ответы и архивные результаты сохраняются. Просроченные сеансы администратора также удаляются автоматически во время работы.
@@ -59,7 +59,7 @@ C:\Users\Aang_\Desktop\scripts\MaxBotWebApp.exe start --ip localhost --port 5432
 ```powershell
 cd desktop
 go test ./...
-go build -trimpath -o MaxBotWebApp.exe .
+go build -trimpath -o OPP-test.exe .
 ```
 
 Тест с PostgreSQL запускается при `OPP_TEST_POSTGRES=1`. GitHub Actions тестирует сервер с PostgreSQL, собирает EXE для Windows x64 и проверяет запуск командой из примера. После успешной сборки из `main` файл публикуется в релизе `site-latest`.

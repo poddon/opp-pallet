@@ -42,11 +42,11 @@ jobs:
           CGO_ENABLED: '0'
           GOOS: windows
           GOARCH: amd64
-        run: go build -trimpath -ldflags="-s -w" -o MaxBotWebApp.exe .
+        run: go build -trimpath -ldflags="-s -w" -o OPP-test.exe .
       - uses: actions/upload-artifact@v4
         with:
-          name: MaxBotWebApp-windows-x64
-          path: desktop/MaxBotWebApp.exe
+          name: OPP-test-windows-x64
+          path: desktop/OPP-test.exe
           if-no-files-found: error
   windows-startup:
     needs: build
@@ -54,25 +54,25 @@ jobs:
     steps:
       - uses: actions/download-artifact@v4
         with:
-          name: MaxBotWebApp-windows-x64
+          name: OPP-test-windows-x64
       - name: Check EXE startup and error handling
         shell: pwsh
         run: |
           $env:PGPASSWORD = 'pg-ci-secret'
           $env:OPP_ADMIN_PASSWORD = 'admin-ci-secret'
-          $help = & .\MaxBotWebApp.exe start --help 2>&1 | Out-String
+          $help = & .\OPP-test.exe start --help 2>&1 | Out-String
           if ($LASTEXITCODE -ne 0 -or $help -notmatch 'sslmode' -or $help -match 'ci-secret') {
             throw "Unexpected CLI help: $help"
           }
           $wizard = @('127.0.0.1', '1', 'opp', 'postgres', 'pg-ci-secret', 'admin-ci-secret', 'consent.txt') |
-            & .\MaxBotWebApp.exe 2>&1 | Out-String
+            & .\OPP-test.exe 2>&1 | Out-String
           if ($LASTEXITCODE -ne 1 -or $wizard -notmatch '127\.0\.0\.1:1 / opp' -or $wizard -match 'ci-secret') {
             throw "Unexpected startup output: $wizard"
           }
           Remove-Item Env:OPP_ADMIN_PASSWORD
           Remove-Item Env:PGPASSWORD
-          $example = & .\MaxBotWebApp.exe start --ip 127.0.0.1 --port 1 --name maxbot --password maxbotmaxbot 2>&1 | Out-String
-          if ($LASTEXITCODE -ne 1 -or $example -notmatch '127\.0\.0\.1:1 / maxbot' -or $example -match 'maxbotmaxbot') {
+          $example = & .\OPP-test.exe start --ip 127.0.0.1 --port 1 --name opp --password pg-example-secret 2>&1 | Out-String
+          if ($LASTEXITCODE -ne 1 -or $example -notmatch '127\.0\.0\.1:1 / opp' -or $example -match 'pg-example-secret') {
             throw "Unexpected result for the documented start command: $example"
           }
           Write-Host "Windows startup and expected PostgreSQL error verified"
@@ -86,9 +86,9 @@ jobs:
     steps:
       - uses: actions/download-artifact@v4
         with:
-          name: MaxBotWebApp-windows-x64
+          name: OPP-test-windows-x64
       - uses: softprops/action-gh-release@v2
         with:
           tag_name: site-latest
-          files: MaxBotWebApp.exe
+          files: OPP-test.exe
           fail_on_unmatched_files: true
