@@ -199,7 +199,7 @@ func (a *app) admin(next endpoint) http.HandlerFunc {
 		}
 		var name string
 		err = a.db.QueryRowContext(r.Context(),`SELECT a.name FROM quiz_admin_sessions s
-			JOIN quiz_admins a ON a.login=s.admin_login
+			JOIN quiz_admins a ON a.login=s.admin_login AND a.removed_at IS NULL
 			WHERE s.token_hash=$1 AND s.expires_at > clock_timestamp()`,digest(cookie.Value)).Scan(&name)
 		if errors.Is(err, sql.ErrNoRows) {
 			return problem{401,"Сеанс закончился. Войдите снова."}
@@ -269,6 +269,7 @@ func (a *app) adminPortal(web fs.FS) http.Handler {
 	mux.HandleFunc("POST "+adminPath+"password",a.admin(a.changePassword))
 	mux.HandleFunc("GET "+adminPath+"admins",a.admin(a.listAdmins))
 	mux.HandleFunc("POST "+adminPath+"admins",a.admin(a.createAdmin))
+	mux.HandleFunc("POST "+adminPath+"admins/remove",a.admin(a.removeAdmin))
 	mux.HandleFunc("GET "+adminPath+"setup",a.admin(func(w http.ResponseWriter,r *http.Request) error {
 		groups, err := a.groups(r.Context(),false)
 		if err != nil {

@@ -142,8 +142,37 @@ func TestPortalsPostgreSQL(t *testing.T) {
 	}
 	adminCookie = nil
 	request(admin,"POST","/api/admin/login",map[string]any{"login":"Петров Пётр Петрович","password":"other-pass"},401,nil)
-	request(admin,"POST","/api/admin/login",map[string]any{"login":"Петров Пётр Петрович","password":"secret-pass"},200,nil)
+	petrov := request(admin,"POST","/api/admin/login",map[string]any{"login":"Петров Пётр Петрович","password":"secret-pass"},200,nil).Result().Cookies()[0]
+	adminCookie = petrov
+	request(admin,"POST","/api/admin/admins/remove",map[string]string{"name":"Петров Пётр Петрович"},400,nil) // himself
 	adminCookie = saved
+	request(admin,"POST","/api/admin/admins/remove",map[string]string{"name":"Нет Такого Человека"},404,nil)
+	request(admin,"POST","/api/admin/admins/remove",map[string]string{"name":"петров пётр петрович"},204,nil)
+	adminCookie = petrov
+	request(admin,"GET","/api/admin/setup",nil,401,nil) // his open session ends at once
+	request(admin,"POST","/api/admin/login",map[string]any{"login":"Петров Пётр Петрович","password":"secret-pass"},401,nil)
+	adminCookie = saved
+	request(admin,"POST","/api/admin/admins/remove",map[string]string{"name":"Цурихин Дмитрий Сергеевич"},204,nil)
+	if err := a.migrate(ctx); err != nil { // restart: built-in accounts stay removed
+		t.Fatal(err)
+	}
+	request(admin,"GET","/api/admin/admins",nil,200,&admins)
+	if len(admins) != 4 || slices.ContainsFunc(admins, func(x adminAccount) bool { return strings.HasPrefix(x.Name, "Цурихин") }) {
+		t.Fatalf("after removal: %+v", admins)
+	}
+	request(admin,"POST","/api/admin/admins",map[string]string{"name":"Петров Пётр Петрович","password":"new-secret"},201,nil)
+	adminCookie = nil
+	request(admin,"POST","/api/admin/login",map[string]any{"login":"Петров Пётр Петрович","password":"secret-pass"},401,nil)
+	request(admin,"POST","/api/admin/login",map[string]any{"login":"Петров Пётр Петрович","password":"new-secret"},200,nil)
+	adminCookie = saved
+	// The last administrator cannot be removed.
+	for _, name := range []string{"Лукьянчиков Егор Игоревич", "Пышненко Кирилл Валерьевич", "Ибатуллин Богдан Альбертович", "Петров Пётр Петрович"} {
+		request(admin,"POST","/api/admin/admins/remove",map[string]string{"name":name},204,nil)
+	}
+	if _, err := db.Exec("UPDATE quiz_admins SET removed_at=clock_timestamp() WHERE login <> $1", adminLogin("Тестовый Администратор Ёлкин")); err != nil {
+		t.Fatal(err)
+	}
+	request(admin,"POST","/api/admin/admins/remove",map[string]string{"name":"Тестовый Администратор Ёлкин"},400,nil)
 	group := "CI "+strconv.FormatInt(time.Now().UnixNano(),10)
 	request(admin,"POST","/api/admin/groups",map[string]any{"code":group},200,nil)
 	const endpoint = "/api/admin/assignments"

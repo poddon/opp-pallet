@@ -84,7 +84,7 @@ func (a *app) setAdminPassword(ctx context.Context, name, password string) error
 
 func (a *app) checkAdmin(ctx context.Context, name, password string) (string, bool, error) {
 	var display, salt, hash string
-	err := a.db.QueryRowContext(ctx, `SELECT name,salt,hash FROM quiz_admins WHERE login=$1`,
+	err := a.db.QueryRowContext(ctx, `SELECT name,salt,hash FROM quiz_admins WHERE login=$1 AND removed_at IS NULL`,
 		adminLogin(name)).Scan(&display, &salt, &hash)
 	if errors.Is(err, sql.ErrNoRows) {
 		hashPassword(password, "00") // same work for unknown logins
@@ -138,7 +138,7 @@ type adminAccount struct {
 }
 
 func (a *app) listAdmins(w http.ResponseWriter, r *http.Request) error {
-	rows, err := a.db.QueryContext(r.Context(), `SELECT name, coalesce(created_by,''), created_at FROM quiz_admins ORDER BY name`)
+	rows, err := a.db.QueryContext(r.Context(), `SELECT name, coalesce(created_by,''), created_at FROM quiz_admins WHERE removed_at IS NULL ORDER BY name`)
 	if err != nil {
 		return err
 	}
@@ -179,8 +179,12 @@ func (a *app) createAdmin(w http.ResponseWriter, r *http.Request) error {
 		return err
 	}
 	saltHex := hex.EncodeToString(salt)
+	// An account whose rights were removed earlier is restored with the new password.
 	result, err := a.db.ExecContext(r.Context(), `INSERT INTO quiz_admins(login,name,salt,hash,created_at,created_by)
-		VALUES ($1,$2,$3,$4,clock_timestamp(),$5) ON CONFLICT (login) DO NOTHING`,
+		VALUES ($1,$2,$3,$4,clock_timestamp(),$5) ON CONFLICT (login) DO UPDATE
+		SET name=EXCLUDED.name, salt=EXCLUDED.salt, hash=EXCLUDED.hash, created_at=EXCLUDED.created_at,
+			created_by=EXCLUDED.created_by, changed_at=NULL, removed_at=NULL, removed_by=NULL
+		WHERE quiz_admins.removed_at IS NOT NULL`,
 		adminLogin(name), name, saltHex, hashPassword(req.Password, saltHex), currentAdmin(r))
 	if err != nil {
 		return err
@@ -191,5 +195,55 @@ func (a *app) createAdmin(w http.ResponseWriter, r *http.Request) error {
 		return problem{409, "Администратор с таким ФИО уже есть"}
 	}
 	writeJSON(w, 201, adminAccount{Name: name, CreatedBy: currentAdmin(r)})
+	return nil
+}
+
+// removeAdmin takes administrator rights away. The row is kept (marked as removed), so the
+// built-in accounts are not recreated on the next start. Nobody can remove themselves or the last administrator.
+func (a *app) removeAdmin(w http.ResponseWriter, r *http.Request) error {
+	var req struct {
+		Name string `json:"name"`
+	}
+	if err := readJSON(w, r, &req); err != nil {
+		return err
+	}
+	login := adminLogin(req.Name)
+	me := currentAdmin(r)
+	if login == adminLogin(me) {
+		return problem{400, "Нельзя снять права с себя"}
+	}
+	ctx := r.Context()
+	tx, err := a.db.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+	if _, err := tx.ExecContext(ctx, "SELECT pg_advisory_xact_lock(80058005)"); err != nil {
+		return err
+	}
+	var active int
+	if err := tx.QueryRowContext(ctx, "SELECT count(*) FROM quiz_admins WHERE removed_at IS NULL").Scan(&active); err != nil {
+		return err
+	}
+	if active <= 1 {
+		return problem{400, "Нельзя снять права с последнего администратора"}
+	}
+	result, err := tx.ExecContext(ctx, `UPDATE quiz_admins SET removed_at=clock_timestamp(), removed_by=$2
+		WHERE login=$1 AND removed_at IS NULL`, login, me)
+	if err != nil {
+		return err
+	}
+	if n, err := result.RowsAffected(); err != nil {
+		return err
+	} else if n == 0 {
+		return problem{404, "Администратор не найден"}
+	}
+	if _, err := tx.ExecContext(ctx, "DELETE FROM quiz_admin_sessions WHERE admin_login=$1", login); err != nil {
+		return err
+	}
+	if err := tx.Commit(); err != nil {
+		return err
+	}
+	w.WriteHeader(204)
 	return nil
 }

@@ -277,9 +277,22 @@ async function loadAnswers(id) {
 
 async function loadAdmins() {
   const rows = await api(adminPath + "admins");
+  const me = $("adminName").textContent;
   table("adminRows", rows.map(row => [row.name,
     row.created ? dateFormat.format(new Date(row.created)) : "в прежней версии",
-    row.createdBy || "—"]), 3, "Администраторов нет.");
+    row.createdBy || "—",
+    row.name === me ? "это вы" : action("Снять права", () => removeAdmin(row.name))]), 4, "Администраторов нет.");
+}
+
+async function removeAdmin(name) {
+  if (!confirm("Снять права администратора с " + name + "? Он сразу потеряет доступ к админке.")) return;
+  try {
+    await api(adminPath + "admins/remove", {name});
+    await loadAdmins();
+    alertMessage("Права администратора сняты: " + name + ".");
+  } catch (error) {
+    reportError(error);
+  }
 }
 
 $("adminForm").addEventListener("submit", async event => {
