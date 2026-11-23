@@ -3,15 +3,22 @@ package main
 import (
 	"archive/zip"
 	"bytes"
+	"slices"
 	"strings"
 	"testing"
 )
 
 func TestStatement(t *testing.T) {
-	for _, d := range directions {
-		if directionShort[d] == "" {
-			t.Fatalf("no short name for %q", d)
+	for _, short := range legacyDirections {
+		if !slices.Contains(directions, short) {
+			t.Fatalf("unknown direction %q", short)
 		}
+	}
+	if got := (programGroup{Direction: "1C", Number: "26-8"}).code(); got != "1C-26-8" {
+		t.Fatal(got)
+	}
+	if got := shortGroup("Электромонтаж-26-2"); got != "Электромонтаж-26-2" {
+		t.Fatal(got)
 	}
 	if got := shortGroup("ЭЛЕКТРОМОНТАЖ И ЭКСПЛУАТАЦИЯ НИЗКОВОЛЬТНОГО ОБОРУДОВАНИЯ 26-2"); got != "Электромонтаж-26-2" {
 		t.Fatal(got)
@@ -20,9 +27,9 @@ func TestStatement(t *testing.T) {
 		t.Fatal(got)
 	}
 	rows := []resultRow{
-		{Date: "10.11.2026", Name: "Яковлев Ян", Group: "БИЗНЕС-ИНФОРМАТИКА НА ПЛАТФОРМЕ 1С 26-8", Percent: 80},
-		{Date: "09.11.2026", Name: "Ажимова  Виктория", Group: "БИЗНЕС-ИНФОРМАТИКА НА ПЛАТФОРМЕ 1С 26-8", Percent: 42},
-		{Date: "08.11.2026", Name: "Яковлев Ян", Group: "БИЗНЕС-ИНФОРМАТИКА НА ПЛАТФОРМЕ 1С 26-8", Percent: 10},
+		{Date: "10.11.2026", Name: "Яковлев Ян", Group: "1C-26-8", Percent: 80},
+		{Date: "09.11.2026", Name: "Ажимова  Виктория", Group: "1C-26-8", Percent: 42},
+		{Date: "08.11.2026", Name: "Яковлев Ян", Group: "1C-26-8", Percent: 10},
 		{Date: "06.11.2026", Name: "Ёлкин Олег", Group: "ПРОГРАММИРОВАНИЕ СТАНКОВ С ЧПУ 26-9", Percent: 0},
 	}
 	body, err := statement(rows)

@@ -105,9 +105,9 @@ func TestPortalsPostgreSQL(t *testing.T) {
 	request(admin,"POST","/api/admin/groups",map[string]any{"code":group},200,nil)
 	const endpoint = "/api/admin/assignments"
 	programs := []programGroup{
-		{Direction: "Промышленная робототехника", Number: "26-1"},
-		{Direction: "Промышленная робототехника", Number: "26-2"},
-		{Direction: "Промышленная автоматика", Number: "26-1"},
+		{Direction: "ЧПУ", Number: "26-9"},
+		{Direction: "ЧПУ", Number: "26-10"},
+		{Direction: "1C", Number: "26-8"},
 	}
 	request(admin, "POST", "/api/admin/assignments", map[string]any{"groups": []string{group}, "test": "missing", "minutes": 2}, 400, nil)
 	batch := map[string]any{"groups": []string{group, group}, "programs": programs, "minutes": 2}

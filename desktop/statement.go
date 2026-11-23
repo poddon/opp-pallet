@@ -10,38 +10,33 @@ import (
 	"time"
 )
 
-// Short group prefixes used in the paper statements (sheet names and "№ группы").
-var directionShort = map[string]string{
-	"Аэронавигация и программирование БПЛА":                             "БПЛА",
+// Groups created by earlier versions carry the full direction name
+// ("ЭЛЕКТРОМОНТАЖ И ЭКСПЛУАТАЦИЯ НИЗКОВОЛЬТНОГО ОБОРУДОВАНИЯ 26-2"). They are shown under
+// the name used in the statements; other names are kept as they are.
+var legacyDirections = map[string]string{
 	"Бизнес-информатика на платформе 1С":                                "1C",
-	"Биотехнологии":                                                     "Биотех",
-	"Лабораторный химический анализ":                                    "ЛХА",
-	"Лечебное дело и медицинская техника":                               "Медтех",
-	"Международная педагогика":                                          "Педагогика",
-	"Микроэлектроника":                                                  "Микроэлектроника",
-	"Программирование станков с ЧПУ":                                    "ЧПУ",
-	"Промышленная автоматика":                                           "Автоматика",
-	"Промышленная безопасность":                                         "ПромБез",
-	"Промышленная робототехника":                                        "Робототехника",
-	"Промышленное оборудование. Запорно-регулирующая арматура и насосы": "ЗРА",
-	"Промышленное оборудование. КИПиА":                                  "КИПиА",
-	"Промышленное оборудование. Сварочные технологии":                   "Сварка",
-	"Экономика и управление проектом":                                   "Экономика",
 	"Электромонтаж и эксплуатация низковольтного оборудования":          "Электромонтаж",
-	"Юриспруденция и управление рисками":                                "Юриспруденция",
-	"BIM-проектирование":                                                "BIM",
-	"FPV (оператор БПЛА)":                                               "FPV",
+	"Аэронавигация и программирование БПЛА":                             "БПЛА",
+	"Промышленное оборудование. Запорно-регулирующая арматура и насосы": "ЗРА",
 	"WEB-программирование":                                              "WEB",
-	"WEB-программирование. Информационная безопасность":                 "WEB-ИБ",
+	"Программирование станков с ЧПУ":                                    "ЧПУ",
+	"Промышленная безопасность":                                         "ПромБез",
 }
 
-// shortGroup turns "ЭЛЕКТРОМОНТАЖ И ЭКСПЛУАТАЦИЯ НИЗКОВОЛЬТНОГО ОБОРУДОВАНИЯ 26-2" into "Электромонтаж-26-2".
+// shortGroup returns the group name used in the statement, e.g. "Электромонтаж-26-2".
 func shortGroup(code string) string {
-	if m := groupSuffix.FindStringSubmatch(code); m != nil {
-		for long, short := range directionShort {
-			if strings.EqualFold(normalize(m[1]), long) {
-				return short + "-" + m[2]
-			}
+	m := groupSuffix.FindStringSubmatch(code)
+	if m == nil {
+		return code
+	}
+	for _, d := range directions {
+		if strings.EqualFold(m[1], d) {
+			return d + "-" + m[2]
+		}
+	}
+	for long, short := range legacyDirections {
+		if strings.EqualFold(normalize(m[1]), long) {
+			return short + "-" + m[2]
 		}
 	}
 	return code

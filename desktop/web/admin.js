@@ -29,9 +29,9 @@ function showConsent(text, saved = false) {
   $("missingConsent").hidden = Boolean(text);
 }
 
-// Splits "ПРОМЫШЛЕННАЯ РОБОТОТЕХНИКА 26-1" into the direction and the group number.
+// Splits "Электромонтаж-26-2" into the direction and the group number.
 function splitGroup(code) {
-  const match = /^(.*\S)\s+(\d{2}-\d+)$/.exec(code);
+  const match = /^(.*\S)[\s-]+(\d{2}-\d+)$/.exec(code);
   return match ? {direction: match[1], number: match[2]} : {direction: "Другие группы", number: code};
 }
 
@@ -143,7 +143,7 @@ function renderSelectedGroups() {
   const items = Array.from(selectedGroups, ([code, entry]) => {
     const row = document.createElement("li");
     const label = document.createElement("span");
-    label.textContent = entry ? entry.direction + " " + entry.number : code;
+    label.textContent = code;
     const remove = action("Убрать", () => {
       selectedGroups.delete(code);
       renderSelectedGroups();
@@ -164,11 +164,11 @@ function addProgramGroups() {
     throw new Error("Выберите направление и укажите номер группы в формате 26-1.");
   }
   for (const number of numbers) {
-    const label = direction + " " + number;
+    const label = direction + "-" + number;
     if (label.length > 80) throw new Error("Название группы слишком длинное.");
   }
   for (const number of numbers) {
-    const code = (direction + " " + number).toUpperCase();
+    const code = direction + "-" + number;
     selectedGroups.set(code, {direction, number});
   }
   for (const box of checkboxes) box.checked = false;
