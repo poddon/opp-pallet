@@ -46,7 +46,9 @@ jobs:
       - uses: actions/upload-artifact@v4
         with:
           name: OPP-test-windows-x64
-          path: desktop/OPP-test.exe
+          path: |
+            desktop/OPP-test.exe
+            desktop/start.bat
           if-no-files-found: error
   windows-startup:
     needs: build
@@ -75,6 +77,16 @@ jobs:
           if ($LASTEXITCODE -ne 1 -or $example -notmatch '127\.0\.0\.1:1 / opp' -or $example -match 'pg-example-secret') {
             throw "Unexpected result for the documented start command: $example"
           }
+          (Get-Content start.bat -Encoding UTF8) `
+            -replace '^set "DB_IP=.*"$', 'set "DB_IP=127.0.0.1"' `
+            -replace '^set "DB_PORT=.*"$', 'set "DB_PORT=1"' `
+            -replace '^set "DB_NAME=.*"$', 'set "DB_NAME=opp"' `
+            -replace '^set "DB_PASSWORD=.*"$', 'set "DB_PASSWORD=bat-ci-secret"' |
+            Set-Content ci-start.bat -Encoding UTF8
+          $bat = cmd /c "ci-start.bat < nul" 2>&1 | Out-String
+          if ($LASTEXITCODE -ne 1 -or $bat -notmatch '127\.0\.0\.1:1 / opp' -or $bat -match 'bat-ci-secret') {
+            throw "Unexpected start.bat result: $bat"
+          }
           Write-Host "Windows startup and expected PostgreSQL error verified"
           exit 0
   release:
@@ -90,5 +102,7 @@ jobs:
       - uses: softprops/action-gh-release@v2
         with:
           tag_name: site-latest
-          files: OPP-test.exe
+          files: |
+            OPP-test.exe
+            start.bat
           fail_on_unmatched_files: true
