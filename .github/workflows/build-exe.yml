@@ -76,10 +76,10 @@ jobs:
             throw "Unexpected result for the documented start command: $example"
           }
           (Get-Content start.bat -Encoding UTF8) `
-            -replace '^set "DB_IP=.*"$', 'set "DB_IP=127.0.0.1"' `
-            -replace '^set "DB_PORT=.*"$', 'set "DB_PORT=1"' `
-            -replace '^set "DB_NAME=.*"$', 'set "DB_NAME=opp"' `
-            -replace '^set "DB_PASSWORD=.*"$', 'set "DB_PASSWORD=bat-ci-secret"' |
+            -replace '--ip localhost', '--ip 127.0.0.1' `
+            -replace '--port 5432', '--port 1' `
+            -replace '--name maxbot', '--name opp' `
+            -replace '--password maxbotmaxbot', '--password bat-ci-secret' |
             Set-Content ci-start.bat -Encoding UTF8
           $bat = cmd /c "ci-start.bat < nul" 2>&1 | Out-String
           if ($LASTEXITCODE -ne 1 -or $bat -notmatch '127\.0\.0\.1:1 / opp' -or $bat -match 'bat-ci-secret') {
