@@ -438,11 +438,49 @@ loadSetup().then(() => selectTab("open")).catch(error => {
   if (error.status !== 401) reportError(error);
 });
 
-$("statement").addEventListener("click", event => {
-  if (resultCount) return;
+// Excel and the statement use the filters as they are ticked right now, not the last applied ones.
+function formFilters() {
+  const params = new URLSearchParams();
+  for (const [key, value] of new FormData($("filters"))) {
+    if (value) params.append(key, value);
+  }
+  return params;
+}
+
+async function download(event, format) {
   event.preventDefault();
-  $("message").textContent = "Нет результатов для ведомости. Измените фильтры.";
-});
+  const params = formFilters();
+  if (format === "statement" && !params.getAll("group").length) {
+    $("groupFilter").open = true;
+    $("message").textContent = "Отметьте группы, для которых нужна ведомость.";
+    return;
+  }
+  filters = new URLSearchParams(params);
+  page = 1;
+  void selectTab("results");
+  params.set("format", format);
+  try {
+    const response = await fetch(adminPath + "results?" + params, {credentials: "same-origin"});
+    if (!response.ok) {
+      const body = await response.json().catch(() => ({}));
+      const error = new Error(body.error || "Не удалось сформировать файл");
+      error.status = response.status;
+      throw error;
+    }
+    const blob = await response.blob();
+    const link = document.createElement("a");
+    link.href = URL.createObjectURL(blob);
+    link.download = format === "statement" ? "Ведомость ОПП.xlsx" : "Результаты ОПП.xlsx";
+    document.body.append(link);
+    link.click();
+    link.remove();
+    setTimeout(() => URL.revokeObjectURL(link.href), 10000);
+  } catch (error) {
+    reportError(error);
+  }
+}
+$("statement").addEventListener("click", event => void download(event, "statement"));
+$("export").addEventListener("click", event => void download(event, "xlsx"));
 
 $("openPassword").addEventListener("click", () => {
   $("passwordForm").reset();
