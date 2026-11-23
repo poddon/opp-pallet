@@ -286,6 +286,7 @@ const reasonText = {
   tab: "Уход со страницы",
   window: "Переключение на другое окно",
   split: "Разделение экрана",
+  gesture: "Жест тремя пальцами (снимок экрана)",
   screenshot: "Снимок экрана",
   copy: "Копирование текста",
   paste: "Вставка текста",
@@ -344,6 +345,18 @@ document.addEventListener("visibilitychange", () => {
   }
   violation("tab");
 });
+// Three-finger gestures: phones (Xiaomi, Samsung, Huawei, Realme…) take a screenshot with a
+// three-finger swipe. The system handles it before the browser, so it cannot be blocked from a web page,
+// but the touch reaches the page first and ends the attempt.
+function multiTouch(event) {
+  if (event.touches && event.touches.length >= 3) {
+    if (event.cancelable) event.preventDefault();
+    violation("gesture");
+  }
+}
+document.addEventListener("touchstart", multiTouch, {passive: false, capture: true});
+document.addEventListener("touchmove", multiTouch, {passive: false, capture: true});
+
 // Split screen, a floating window or a browser window made smaller (phone or computer).
 // Rotating the phone and browser zoom are not violations: they reset the reference size.
 let viewBase = null;
