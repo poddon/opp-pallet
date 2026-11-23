@@ -14,16 +14,16 @@ import (
 // PostgreSQL on Windows sends connection errors in Windows-1251, which the console
 // shows as "����"; such messages are converted to UTF-8 first.
 func dbError(c config, err error) error {
-	where := fmt.Sprintf("PostgreSQL %s:%d / %s", c.host, c.port, c.database)
+	where := fmt.Sprintf("база %s на %s:%d", c.database, c.host, c.port)
 	var pqErr *pq.Error
 	if errors.As(err, &pqErr) {
 		switch pqErr.Code {
 		case "3D000":
-			return fmt.Errorf("%s: база данных %q не существует.\n"+
+			return fmt.Errorf("%s: такой базы данных нет на сервере.\n"+
 				"Укажите в --name имя существующей базы или создайте её в pgAdmin: Databases → Create → Database…, "+
 				"имя %s, владелец (Owner) — роль %s.\n"+
 				"Или выполните в Query Tool базы postgres: CREATE DATABASE %s OWNER %s;",
-				where, c.database, c.database, c.user, pq.QuoteIdentifier(c.database), pq.QuoteIdentifier(c.user))
+				where, c.database, c.user, pq.QuoteIdentifier(c.database), pq.QuoteIdentifier(c.user))
 		case "28P01":
 			return fmt.Errorf("%s: неверный пароль роли %q. Проверьте --password", where, c.user)
 		case "28000":

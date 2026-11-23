@@ -8,7 +8,6 @@ import (
 	"flag"
 	"fmt"
 	"io/fs"
-	"log"
 	"net"
 	"net/http"
 	"net/url"
@@ -123,6 +122,7 @@ func (a *app) migrate(ctx context.Context) error {
 func run(c config) error {
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
+	fmt.Printf("Подключение к базе %s на %s:%d (роль %s)…\n", c.database, c.host, c.port, c.user)
 	db, err := openDB(ctx, c)
 	if err != nil {
 		return dbError(c, err)
@@ -207,7 +207,7 @@ func main() {
 		err = run(c)
 	}
 	if err != nil && !errors.Is(err, flag.ErrHelp) {
-		log.Print(err)
+		fmt.Fprintln(os.Stderr, "Ошибка:", err)
 		if wizard || ownsConsole() {
 			fmt.Fprintln(os.Stderr, "Нажмите Enter, чтобы закрыть окно.")
 			_, _ = input.reader.ReadString('\n')

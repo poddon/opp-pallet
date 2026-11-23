@@ -67,12 +67,12 @@ jobs:
           }
           $wizard = @('127.0.0.1', '1', 'opp', 'postgres', 'pg-ci-secret') |
             & .\OPP-test.exe 2>&1 | Out-String
-          if ($LASTEXITCODE -ne 1 -or $wizard -notmatch '127\.0\.0\.1:1 / opp' -or $wizard -match 'ci-secret') {
+          if ($LASTEXITCODE -ne 1 -or $wizard -notmatch 'база opp на 127\.0\.0\.1:1' -or $wizard -match 'ci-secret') {
             throw "Unexpected startup output: $wizard"
           }
           Remove-Item Env:PGPASSWORD
           $example = & .\OPP-test.exe start --ip 127.0.0.1 --port 1 --name opp --password pg-example-secret 2>&1 | Out-String
-          if ($LASTEXITCODE -ne 1 -or $example -notmatch '127\.0\.0\.1:1 / opp' -or $example -match 'pg-example-secret') {
+          if ($LASTEXITCODE -ne 1 -or $example -notmatch 'база opp на 127\.0\.0\.1:1' -or $example -match 'pg-example-secret') {
             throw "Unexpected result for the documented start command: $example"
           }
           (Get-Content start.bat -Encoding UTF8) `
@@ -83,7 +83,7 @@ jobs:
             Set-Content ci-start.bat -Encoding UTF8
           $bat = cmd /c "ci-start.bat < nul" 2>&1 | Out-String
           # A plain start.bat echoes its own command line, so only the exit code and the error are checked here.
-          if ($LASTEXITCODE -ne 1 -or $bat -notmatch '127\.0\.0\.1:1 / opp') {
+          if ($LASTEXITCODE -ne 1 -or $bat -notmatch 'база opp на 127\.0\.0\.1:1') {
             throw "Unexpected start.bat result: $bat"
           }
           Write-Host "Windows startup and expected PostgreSQL error verified"
