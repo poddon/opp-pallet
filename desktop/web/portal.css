@@ -84,3 +84,4 @@ dialog h2 { margin-top: 12px; }
 .answer-module h3 { margin: 0 0 4px; font-size: 18px; }
 .module-score { color: var(--muted); font-size: 14px; }
 
+#admins .table-wrap { margin-top: 28px; }
