@@ -11,4 +11,6 @@ rem замените "%~dp0OPP-test.exe" на полный путь: "C:\Users\.
 
 "%~dp0OPP-test.exe" start --ip localhost --port 5432 --name maxbot --password maxbotmaxbot
 
-if errorlevel 1 pause
+if not errorlevel 1 exit /b 0
+pause
+exit /b 1
