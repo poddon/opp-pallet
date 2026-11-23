@@ -19,9 +19,6 @@ rem Роль PostgreSQL (пусто = совпадает с именем баз�
 set "DB_USER="
 rem Пароль PostgreSQL
 set "DB_PASSWORD=maxbotmaxbot"
-rem Отдельный пароль админки, не меньше 12 символов
-rem (пусто = вход в админку по паролю PostgreSQL)
-set "ADMIN_PASSWORD="
 
 rem ------------------------------------------------------------
 cd /d "%~dp0"
@@ -30,7 +27,6 @@ if not exist "OPP-test.exe" goto noexe
 rem Пароли передаются через переменные окружения, чтобы спецсимволы
 rem не ломали командную строку и пароль не был виден в списке процессов.
 set "PGPASSWORD=%DB_PASSWORD%"
-set "OPP_ADMIN_PASSWORD=%ADMIN_PASSWORD%"
 set "USER_ARG="
 if defined DB_USER set "USER_ARG=--user "%DB_USER%""
 

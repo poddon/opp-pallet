@@ -37,8 +37,8 @@ var directions = []direction{
 	{"WEB-программирование. Информационная безопасность", "WEB-программирование. Информационная безопасность"},
 }
 
-// Group number: two-digit year and a group from 1 to 20, e.g. "26-8".
-var groupNumber = regexp.MustCompile(`^[0-9]{2}-([1-9]|1[0-9]|20)$`)
+// Group number: two-digit year and the group number, e.g. "26-8".
+var groupNumber = regexp.MustCompile(`^[0-9]{2}-[1-9][0-9]?$`)
 var groupSuffix = regexp.MustCompile(`^(.*\S)[\s-]+([0-9]{2}-[0-9]+)$`)
 
 type programGroup struct {

@@ -15,6 +15,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/lib/pq"
 )
 
 func TestPortalsPostgreSQL(t *testing.T) {
@@ -27,7 +29,7 @@ func TestPortalsPostgreSQL(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer db.Close()
-	a := &app{db:db, passwordHash:digest("admin-test-password")}
+	a := &app{db:db}
 	a.catalog, err = readCatalog()
 	if err != nil {
 		t.Fatal(err)
@@ -49,6 +51,15 @@ func TestPortalsPostgreSQL(t *testing.T) {
 	}
 	if err := a.migrate(ctx); err != nil {
 		t.Fatal("repeat migration:",err)
+	}
+	var seeded int
+	if err := db.QueryRow("SELECT count(*) FROM quiz_admins WHERE login=ANY($1)", pq.Array([]string{
+		"лукьянчиков егор игоревич", "пышненко кирилл валерьевич", "цурихин дмитрий сергеевич", "ибатуллин богдан альбертович",
+	})).Scan(&seeded); err != nil || seeded != 4 {
+		t.Fatalf("default administrators: %d %v", seeded, err)
+	}
+	if err := a.setAdminPassword(ctx, "Тестовый Администратор Ёлкин", "admin-test-password"); err != nil {
+		t.Fatal(err)
 	}
 	web, err := fs.Sub(files,"web")
 	if err != nil {
@@ -99,8 +110,23 @@ func TestPortalsPostgreSQL(t *testing.T) {
 	const consentEndpoint = "/api/admin/consent"
 	request(student, "POST", consentEndpoint, map[string]string{"text": "Без доступа"}, 404, nil)
 	request(student,"GET","/api/admin/results",nil,404,nil)
-	login := request(admin,"POST","/api/admin/login",map[string]any{"password":"admin-test-password"},204,nil)
+	request(admin,"POST","/api/admin/login",map[string]any{"password":"admin-test-password"},400,nil)
+	request(admin,"POST","/api/admin/login",map[string]any{"login":"Тестовый Администратор Ёлкин","password":"wrong-password"},401,nil)
+	login := request(admin,"POST","/api/admin/login",map[string]any{"login":"  тестовый администратор елкин ","password":"admin-test-password"},200,nil)
 	adminCookie = login.Result().Cookies()[0]
+	var setup map[string]any
+	request(admin,"GET","/api/admin/setup",nil,200,&setup)
+	if setup["admin"] != "Тестовый Администратор Ёлкин" {
+		t.Fatalf("admin name: %v", setup["admin"])
+	}
+	request(admin,"POST","/api/admin/password",map[string]string{"current":"wrong","next":"new-admin-password"},403,nil)
+	request(admin,"POST","/api/admin/password",map[string]string{"current":"admin-test-password","next":"123"},400,nil)
+	request(admin,"POST","/api/admin/password",map[string]string{"current":"admin-test-password","next":"new-admin-password"},204,nil)
+	saved := adminCookie
+	adminCookie = nil
+	request(admin,"POST","/api/admin/login",map[string]any{"login":"Тестовый Администратор Ёлкин","password":"admin-test-password"},401,nil)
+	request(admin,"POST","/api/admin/login",map[string]any{"login":"Тестовый Администратор Ёлкин","password":"new-admin-password"},200,nil)
+	adminCookie = saved
 	group := "CI "+strconv.FormatInt(time.Now().UnixNano(),10)
 	request(admin,"POST","/api/admin/groups",map[string]any{"code":group},200,nil)
 	const endpoint = "/api/admin/assignments"

@@ -31,7 +31,6 @@ type app struct {
 	modules []string          // module labels in catalogue order: "Модуль 1", "Модуль 2", …
 	moduleLabel map[string]string // module title -> label
 	moduleOf map[string]string // question text -> module, for attempts saved before modules were stored
-	passwordHash string
 }
 
 type question struct {

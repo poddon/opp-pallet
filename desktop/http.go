@@ -2,7 +2,7 @@ package main
 
 import (
 	"context"
-	"crypto/subtle"
+	"database/sql"
 	"encoding/json"
 	"errors"
 	"io"
@@ -197,16 +197,17 @@ func (a *app) admin(next endpoint) http.HandlerFunc {
 		if err != nil || !validToken(cookie.Value) {
 			return problem{401,"Войдите в портал администратора"}
 		}
-		var valid bool
-		err = a.db.QueryRowContext(r.Context(),`SELECT EXISTS (
-			SELECT FROM quiz_admin_sessions WHERE token_hash=$1 AND expires_at > clock_timestamp())`,digest(cookie.Value)).Scan(&valid)
+		var name string
+		err = a.db.QueryRowContext(r.Context(),`SELECT a.name FROM quiz_admin_sessions s
+			JOIN quiz_admins a ON a.login=s.admin_login
+			WHERE s.token_hash=$1 AND s.expires_at > clock_timestamp()`,digest(cookie.Value)).Scan(&name)
+		if errors.Is(err, sql.ErrNoRows) {
+			return problem{401,"Сеанс закончился. Войдите снова."}
+		}
 		if err != nil {
 			return err
 		}
-		if !valid {
-			return problem{401,"Сеанс закончился. Войдите снова."}
-		}
-		return next(w,r)
+		return next(w,r.WithContext(context.WithValue(r.Context(), adminKey{}, name)))
 	})
 }
 
@@ -216,24 +217,34 @@ func setAdminCookie(w http.ResponseWriter, r *http.Request, token string, age in
 }
 
 func (a *app) login(w http.ResponseWriter,r *http.Request) error {
-	var req struct{ Password string `json:"password"` }
+	var req struct {
+		Login    string `json:"login"`
+		Password string `json:"password"`
+	}
 	if err := readJSON(w,r,&req); err != nil {
 		return err
 	}
-	if subtle.ConstantTimeCompare([]byte(digest(req.Password)),[]byte(a.passwordHash)) != 1 {
+	if !validLength(req.Login, 160) || len(req.Password) > 200 {
+		return problem{400,"Укажите ФИО администратора и пароль"}
+	}
+	name, ok, err := a.checkAdmin(r.Context(), req.Login, req.Password)
+	if err != nil {
+		return err
+	}
+	if !ok {
 		time.Sleep(350*time.Millisecond)
-		return problem{401,"Неверный пароль администратора"}
+		return problem{401,"Неверное ФИО администратора или пароль"}
 	}
 	token, err := newToken()
 	if err != nil {
 		return err
 	}
-	if _, err := a.db.ExecContext(r.Context(),`INSERT INTO quiz_admin_sessions(token_hash,expires_at)
-		VALUES ($1,clock_timestamp()+interval '8 hours')`, digest(token)); err != nil {
+	if _, err := a.db.ExecContext(r.Context(),`INSERT INTO quiz_admin_sessions(token_hash,expires_at,admin_login)
+		VALUES ($1,clock_timestamp()+interval '8 hours',$2)`, digest(token), adminLogin(name)); err != nil {
 		return err
 	}
 	setAdminCookie(w,r,token,8*60*60)
-	w.WriteHeader(204)
+	writeJSON(w,200,map[string]string{"name":name})
 	return nil
 }
 
@@ -255,6 +266,7 @@ func (a *app) adminPortal(web fs.FS) http.Handler {
 	mux := portal(web,"admin")
 	mux.HandleFunc("POST "+adminPath+"login",route(a.login))
 	mux.HandleFunc("POST "+adminPath+"logout",a.admin(a.logout))
+	mux.HandleFunc("POST "+adminPath+"password",a.admin(a.changePassword))
 	mux.HandleFunc("GET "+adminPath+"setup",a.admin(func(w http.ResponseWriter,r *http.Request) error {
 		groups, err := a.groups(r.Context(),false)
 		if err != nil {
@@ -264,7 +276,7 @@ func (a *app) adminPortal(web fs.FS) http.Handler {
 		for _, t := range a.catalog {
 			tests = append(tests,map[string]any{"id":t.ID,"title":t.Title,"questions":len(t.Questions)})
 		}
-		writeJSON(w, 200, map[string]any{"groups": groups, "directions": directions, "tests": tests, "modules": a.modules})
+		writeJSON(w, 200, map[string]any{"groups": groups, "directions": directions, "tests": tests, "modules": a.modules, "admin": currentAdmin(r)})
 		return nil
 	}))
 	mux.HandleFunc("POST "+adminPath+"groups",a.admin(a.addGroup))

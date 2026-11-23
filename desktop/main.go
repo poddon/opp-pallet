@@ -26,10 +26,9 @@ var files embed.FS
 
 type config struct {
 	host, database, user, password, sslmode string
-	studentHost, adminHost, adminPassword string
+	studentHost, adminHost string
 	port int
 	cleanup, apply bool
-	adminUsesDBPassword bool
 }
 
 func parseConfig(args []string) (config, error) {
@@ -51,7 +50,6 @@ func parseConfig(args []string) (config, error) {
 	} else {
 		flags.StringVar(&c.studentHost, "student-bind", "0.0.0.0", "интерфейс портала студента")
 		flags.StringVar(&c.adminHost, "admin-bind", "127.0.0.1", "интерфейс портала администратора")
-		flags.StringVar(&c.adminPassword, "admin-password", "", "отдельный пароль администратора (или OPP_ADMIN_PASSWORD), минимум 12 символов; по умолчанию вход по паролю PostgreSQL")
 	}
 	if err := flags.Parse(args[1:]); err != nil {
 		return c, err
@@ -61,9 +59,6 @@ func parseConfig(args []string) (config, error) {
 	}
 	if c.password == "" {
 		c.password = os.Getenv("PGPASSWORD")
-	}
-	if c.adminPassword == "" && !c.cleanup {
-		c.adminPassword = os.Getenv("OPP_ADMIN_PASSWORD")
 	}
 	return validateConfig(c)
 }
@@ -77,20 +72,6 @@ func validateConfig(c config) (config, error) {
 	}
 	if c.user == "" {
 		c.user = c.database
-	}
-	if c.cleanup {
-		return c, nil
-	}
-	// Without a separate admin password the portal accepts the PostgreSQL password,
-	// so the documented one-line start command works as is.
-	c.adminUsesDBPassword = c.adminPassword == ""
-	if c.adminUsesDBPassword {
-		if c.password == "" {
-			return c, errors.New("укажите пароль PostgreSQL (--password или PGPASSWORD) или отдельный пароль администратора (--admin-password)")
-		}
-		c.adminPassword = c.password
-	} else if len([]rune(c.adminPassword)) < 12 {
-		return c, errors.New("отдельный пароль администратора должен содержать не менее 12 символов")
 	}
 	return c, nil
 }
@@ -133,7 +114,10 @@ func (a *app) migrate(ctx context.Context) error {
 	if _, err := tx.ExecContext(ctx, string(schema)); err != nil {
 		return err
 	}
-	return tx.Commit()
+	if err := tx.Commit(); err != nil {
+		return err
+	}
+	return a.seedAdmins(ctx)
 }
 
 func run(c config) error {
@@ -184,9 +168,6 @@ func run(c config) error {
 	go a.schedule(signalCtx)
 	fmt.Println("Студент       http://localhost:8004")
 	fmt.Println("Администратор http://localhost:8005")
-	if c.adminUsesDBPassword {
-		fmt.Println("Вход в портал администратора — по паролю PostgreSQL.")
-	}
 	select {
 	case err = <-errs:
 	case <-signalCtx.Done():
@@ -207,7 +188,6 @@ func (a *app) configure(c config) error {
 	if err = a.loadCatalog(); err != nil {
 		return err
 	}
-	a.passwordHash = digest(c.adminPassword)
 	return nil
 }
 

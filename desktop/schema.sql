@@ -84,3 +84,12 @@ CREATE TABLE IF NOT EXISTS quiz_admin_sessions (
     expires_at TIMESTAMPTZ NOT NULL
 );
 
+
+CREATE TABLE IF NOT EXISTS quiz_admins (
+    login TEXT PRIMARY KEY,
+    name TEXT NOT NULL,
+    salt TEXT NOT NULL,
+    hash TEXT NOT NULL,
+    changed_at TIMESTAMPTZ
+);
+ALTER TABLE quiz_admin_sessions ADD COLUMN IF NOT EXISTS admin_login TEXT;

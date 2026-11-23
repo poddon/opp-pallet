@@ -61,17 +61,15 @@ jobs:
         shell: pwsh
         run: |
           $env:PGPASSWORD = 'pg-ci-secret'
-          $env:OPP_ADMIN_PASSWORD = 'admin-ci-secret'
           $help = & .\OPP-test.exe start --help 2>&1 | Out-String
           if ($LASTEXITCODE -ne 0 -or $help -notmatch 'sslmode' -or $help -match 'ci-secret') {
             throw "Unexpected CLI help: $help"
           }
-          $wizard = @('127.0.0.1', '1', 'opp', 'postgres', 'pg-ci-secret', 'admin-ci-secret') |
+          $wizard = @('127.0.0.1', '1', 'opp', 'postgres', 'pg-ci-secret') |
             & .\OPP-test.exe 2>&1 | Out-String
           if ($LASTEXITCODE -ne 1 -or $wizard -notmatch '127\.0\.0\.1:1 / opp' -or $wizard -match 'ci-secret') {
             throw "Unexpected startup output: $wizard"
           }
-          Remove-Item Env:OPP_ADMIN_PASSWORD
           Remove-Item Env:PGPASSWORD
           $example = & .\OPP-test.exe start --ip 127.0.0.1 --port 1 --name opp --password pg-example-secret 2>&1 | Out-String
           if ($LASTEXITCODE -ne 1 -or $example -notmatch '127\.0\.0\.1:1 / opp' -or $example -match 'pg-example-secret') {

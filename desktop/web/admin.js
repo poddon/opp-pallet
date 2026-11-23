@@ -11,15 +11,6 @@ let resultCount = 0;
 const selectedGroups = new Map();
 let directionCodes = new Map();
 
-$("groupNumbers").replaceChildren(...Array.from({length: 20}, (_, i) => {
-  const label = document.createElement("label");
-  label.className = "check";
-  const box = document.createElement("input");
-  box.type = "checkbox";
-  box.value = String(i + 1);
-  label.append(box, " " + (i + 1));
-  return label;
-}));
 
 function showDashboard(visible) {
   $("dashboard").hidden = !visible;
@@ -111,6 +102,7 @@ async function loadSetup() {
     label: item.code === item.name ? item.name : item.name + " (" + item.code + ")", value: item.name
   })), "Выберите направление");
   renderGroupTree(setup.groups);
+  $("adminName").textContent = setup.admin;
   showDashboard(true);
 }
 
@@ -165,18 +157,20 @@ function renderSelectedGroups() {
 function addProgramGroups() {
   const direction = $("direction").value;
   const year = $("groupYear").value.trim();
-  const boxes = Array.from($("groupNumbers").querySelectorAll("input:checked"));
+  const number = $("groupNumber").value.trim();
   if (!direction) throw new Error("Выберите направление.");
   if (!/^\d{2}$/.test(year)) throw new Error("Год группы — две цифры, например 26.");
-  if (!boxes.length) throw new Error("Отметьте номер группы.");
-  for (const box of boxes) {
-    const number = year + "-" + box.value;
-    const code = (directionCodes.get(direction) || direction) + "-" + number;
-    selectedGroups.set(code, {direction, number});
-    box.checked = false;
-  }
+  if (!/^[1-9]\d?$/.test(number)) throw new Error("Впишите номер группы, например 8.");
+  const code = (directionCodes.get(direction) || direction) + "-" + year + "-" + number;
+  selectedGroups.set(code, {direction, number: year + "-" + number});
+  $("groupNumber").value = "";
   renderSelectedGroups();
 }
+$("groupNumber").addEventListener("keydown", event => {
+  if (event.key !== "Enter") return;
+  event.preventDefault();
+  $("addProgramGroups").click();
+});
 
 $("addProgramGroups").addEventListener("click", () => {
   try {
@@ -318,14 +312,14 @@ function submit(id, submitForm) {
 }
 
 submit("loginForm", async (data, form) => {
-  await api(adminPath + "login", {password: data.get("password")});
+  await api(adminPath + "login", {login: data.get("login"), password: data.get("password")});
   form.reset();
   await loadSetup();
   await selectTab("open");
 });
 
 submit("openForm", async data => {
-  if ($("groupNumbers").querySelector("input:checked")) addProgramGroups();
+  if ($("groupNumber").value.trim()) addProgramGroups();
   if (!selectedGroups.size) throw new Error("Выберите хотя бы одну группу.");
   const groups = [];
   const programs = [];
@@ -352,7 +346,7 @@ $("logout").addEventListener("click", async () => {
   try {
     await api(adminPath + "logout", {});
     showDashboard(false);
-    $("loginForm").elements.password.focus();
+    $("loginForm").elements.login.focus();
   } catch (error) {
     reportError(error);
   }
@@ -398,3 +392,37 @@ $("statement").addEventListener("click", event => {
   event.preventDefault();
   $("message").textContent = "Нет результатов для ведомости. Измените фильтры.";
 });
+
+$("openPassword").addEventListener("click", () => {
+  $("passwordForm").reset();
+  $("passwordMessage").textContent = "";
+  $("passwordDialog").showModal();
+});
+$("closePassword").addEventListener("click", () => $("passwordDialog").close());
+$("passwordForm").addEventListener("submit", async event => {
+  event.preventDefault();
+  const data = new FormData(event.currentTarget);
+  if (data.get("next") !== data.get("repeat")) {
+    $("passwordMessage").textContent = "Новые пароли не совпадают.";
+    return;
+  }
+  try {
+    await api(adminPath + "password", {current: data.get("current"), next: data.get("next")});
+    $("passwordDialog").close();
+    $("message").textContent = "";
+    alertMessage("Пароль сохранён. Дальше входите только с ним.");
+  } catch (error) {
+    if (error.status === 401) {
+      $("passwordDialog").close();
+      reportError(error);
+    } else {
+      $("passwordMessage").textContent = error.message;
+    }
+  }
+});
+function alertMessage(text) {
+  const note = $("message");
+  note.textContent = text;
+  note.classList.remove("error");
+  setTimeout(() => { if (note.textContent === text) note.textContent = ""; note.classList.add("error"); }, 5000);
+}

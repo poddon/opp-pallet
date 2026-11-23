@@ -14,8 +14,8 @@ func TestStatement(t *testing.T) {
 	if got := (programGroup{Direction: "Промышленная робототехника", Number: "26-20"}).code(); got != "Промышленная робототехника-26-20" {
 		t.Fatal(got)
 	}
-	if got := (programGroup{Direction: "Промышленная робототехника", Number: "26-21"}).code(); got != "" {
-		t.Fatal("group numbers above 20 must be rejected:", got)
+	if got := (programGroup{Direction: "Промышленная робототехника", Number: "26-0"}).code(); got != "" {
+		t.Fatal("group number 0 must be rejected:", got)
 	}
 	if got := (programGroup{Direction: "1C", Number: "26-8"}).code(); got != "1C-26-8" {
 		t.Fatal(got)
