@@ -13,13 +13,13 @@
 
 Скачайте [OPP-test.exe](https://github.com/poddon/opp-pallet/releases/download/site-latest/OPP-test.exe). Подготовьте существующую базу PostgreSQL. При запуске приложение подключается к ней и само создаёт недостающие таблицы (`quiz_*`). Роль PostgreSQL должна иметь права на создание таблиц в своей схеме и изменение существующих таблиц приложения.
 
-Проще всего запускать через [start.bat](https://github.com/poddon/opp-pallet/releases/download/site-latest/start.bat). В нём одна строка запуска с параметрами — впишите свои значения и запустите файл двойным щелчком:
+Проще всего запускать через [start.bat](https://github.com/poddon/opp-pallet/releases/download/site-latest/start.bat) — это одна строка запуска с параметрами, впишите свои значения:
 
 ```bat
 "%~dp0OPP-test.exe" start --ip localhost --port 5432 --name maxbot --password maxbotmaxbot
 ```
 
-`%~dp0` — папка, где лежит сам `.bat`. Если `.bat` лежит в другом месте, например в автозагрузке Windows, укажите полный путь к exe: `"C:\Users\...\scripts\OPP-test.exe" start …`. При ошибке окно не закроется и покажет причину.
+`%~dp0` — папка, где лежит сам `.bat`. Если `.bat` лежит в другом месте, например в автозагрузке Windows, укажите полный путь к exe: `C:\Users\...\scripts\OPP-test.exe start …`.
 
 Тот же запуск из командной строки:
 
