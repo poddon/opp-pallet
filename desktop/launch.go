@@ -99,20 +99,8 @@ func (p startupInput) configure(dir string) (config, error) {
 	ask(&c.password, "Пароль PostgreSQL", saved.Password, true)
 	ask(&c.adminPassword, "Отдельный пароль админки, минимум 12 символов (Enter — входить по паролю PostgreSQL)", os.Getenv("OPP_ADMIN_PASSWORD"), true)
 
-	consent := os.Getenv("OPP_CONSENT_FILE")
-	if consent == "" {
-		defaultFile := filepath.Join(dir, "consent.txt")
-		if info, err := os.Stat(defaultFile); err == nil && info.Mode().IsRegular() {
-			consent = defaultFile
-		}
-	}
-	ask(&c.consentFile, "Файл согласия ОПД (Enter, чтобы пропустить, если файла нет)", consent, false)
 	if err != nil {
 		return c, err
-	}
-	c.consentFile = strings.Trim(c.consentFile, `"`)
-	if c.consentFile != "" && !filepath.IsAbs(c.consentFile) {
-		c.consentFile = filepath.Join(dir, c.consentFile)
 	}
 	return validateConfig(c)
 }

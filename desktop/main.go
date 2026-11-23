@@ -16,18 +16,17 @@ import (
 	"os/signal"
 	"runtime"
 	"strconv"
-	"strings"
 	"time"
 
 	_ "github.com/lib/pq"
 )
 
-//go:embed web/* schema.sql questions.json
+//go:embed web/* schema.sql questions.json consent.txt
 var files embed.FS
 
 type config struct {
 	host, database, user, password, sslmode string
-	studentHost, adminHost, adminPassword, consentFile string
+	studentHost, adminHost, adminPassword string
 	port int
 	cleanup, apply bool
 	adminUsesDBPassword bool
@@ -53,7 +52,6 @@ func parseConfig(args []string) (config, error) {
 		flags.StringVar(&c.studentHost, "student-bind", "0.0.0.0", "интерфейс портала студента")
 		flags.StringVar(&c.adminHost, "admin-bind", "127.0.0.1", "интерфейс портала администратора")
 		flags.StringVar(&c.adminPassword, "admin-password", "", "отдельный пароль администратора (или OPP_ADMIN_PASSWORD), минимум 12 символов; по умолчанию вход по паролю PostgreSQL")
-		flags.StringVar(&c.consentFile, "consent-file", os.Getenv("OPP_CONSENT_FILE"), "файл с текстом согласия в UTF-8")
 	}
 	if err := flags.Parse(args[1:]); err != nil {
 		return c, err
@@ -189,9 +187,6 @@ func run(c config) error {
 	if c.adminUsesDBPassword {
 		fmt.Println("Вход в портал администратора — по паролю PostgreSQL.")
 	}
-	if c.consentFile == "" {
-		fmt.Println("Согласие на обработку персональных данных можно настроить в админке.")
-	}
 	select {
 	case err = <-errs:
 	case <-signalCtx.Done():
@@ -213,24 +208,6 @@ func (a *app) configure(c config) error {
 		return err
 	}
 	a.passwordHash = digest(c.adminPassword)
-	if c.consentFile == "" {
-		return nil
-	}
-	info, err := os.Stat(c.consentFile)
-	if err != nil {
-		return err
-	}
-	if info.Size() > maxConsentBytes {
-		return errors.New("файл согласия превышает 64 КБ")
-	}
-	body, err := os.ReadFile(c.consentFile)
-	if err != nil {
-		return err
-	}
-	a.fileConsent = strings.TrimSpace(strings.TrimPrefix(string(body), "\uFEFF"))
-	if a.fileConsent == "" {
-		return errors.New("пустой файл согласия")
-	}
 	return nil
 }
 

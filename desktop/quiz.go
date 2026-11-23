@@ -30,7 +30,7 @@ type app struct {
 	catalog []test
 	modules []string          // module titles in catalogue order
 	moduleOf map[string]string // question text -> module, for attempts saved before modules were stored
-	passwordHash, fileConsent string
+	passwordHash string
 }
 
 type question struct {
@@ -339,11 +339,8 @@ func (a *app) advance(ctx context.Context, req attemptAction) (attemptView, erro
 		if ended {
 			return attemptView{}, problem{409, "Тест для этой группы уже закрыт"}
 		}
-		consent, err := a.consentText(ctx, tx)
-		if err != nil {
-			return attemptView{}, err
-		}
-		if consent == "" || req.Consent == "" || !req.Rules {
+		consent := consentText()
+		if req.Consent == "" || !req.Rules {
 			return attemptView{}, problem{400, "Подтвердите согласие и ознакомление с правилами"}
 		}
 		if digest(consent) != req.Consent {

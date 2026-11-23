@@ -149,15 +149,8 @@ func (a *app) studentPortal(web fs.FS) http.Handler {
 		if err != nil {
 			return err
 		}
-		consent, err := a.consentText(r.Context(), a.db)
-		if err != nil {
-			return err
-		}
-		version := ""
-		if consent != "" {
-			version = digest(consent)
-		}
-		writeJSON(w, 200, map[string]any{"groups": groups, "consent": consent, "version": version})
+		consent := consentText()
+		writeJSON(w, 200, map[string]any{"groups": groups, "consent": consent, "version": digest(consent)})
 		return nil
 	}))
 	mux.HandleFunc("GET /api/student/tests", route(func(w http.ResponseWriter, r *http.Request) error {
@@ -271,15 +264,10 @@ func (a *app) adminPortal(web fs.FS) http.Handler {
 		for _, t := range a.catalog {
 			tests = append(tests,map[string]any{"id":t.ID,"title":t.Title,"questions":len(t.Questions)})
 		}
-		consent, err := a.consentText(r.Context(), a.db)
-		if err != nil {
-			return err
-		}
-		writeJSON(w, 200, map[string]any{"groups": groups, "directions": directions, "tests": tests, "modules": a.modules, "consent": consent})
+		writeJSON(w, 200, map[string]any{"groups": groups, "directions": directions, "tests": tests, "modules": a.modules})
 		return nil
 	}))
 	mux.HandleFunc("POST "+adminPath+"groups",a.admin(a.addGroup))
-	mux.HandleFunc("POST "+adminPath+"consent", a.admin(a.saveConsent))
 	mux.HandleFunc("GET "+adminPath+"assignments",a.admin(func(w http.ResponseWriter,r *http.Request) error {
 		rows, err := a.assignments(r.Context(),"")
 		if err != nil {

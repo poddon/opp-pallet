@@ -22,12 +22,6 @@ function reportError(error) {
   if (error.status === 401) showDashboard(false);
 }
 
-function showConsent(text, saved = false) {
-  const field = $("consentInput");
-  if (saved || field.value === field.defaultValue) field.value = text;
-  field.defaultValue = text;
-  $("missingConsent").hidden = Boolean(text);
-}
 
 // Splits "Электромонтаж-26-2" into the direction and the group number.
 function splitGroup(code) {
@@ -103,7 +97,6 @@ async function loadSetup() {
   const setup = await api(adminPath + "setup");
   options($("direction"), setup.directions, "Выберите направление");
   renderGroupTree(setup.groups);
-  showConsent(setup.consent);
   showDashboard(true);
 }
 
@@ -320,13 +313,6 @@ submit("loginForm", async (data, form) => {
   form.reset();
   await loadSetup();
   await selectTab("open");
-});
-$("consentInput").addEventListener("input", () => { $("consentSaved").textContent = ""; });
-submit("consentForm", async data => {
-  $("consentSaved").textContent = "";
-  const result = await api(adminPath + "consent", {text: data.get("text")});
-  showConsent(result.consent, true);
-  $("consentSaved").textContent = "Согласие сохранено.";
 });
 
 submit("openForm", async data => {

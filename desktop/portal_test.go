@@ -12,6 +12,7 @@ import (
 	"net/url"
 	"os"
 	"strconv"
+	"strings"
 	"testing"
 	"time"
 )
@@ -96,7 +97,6 @@ func TestPortalsPostgreSQL(t *testing.T) {
 	request(admin,"GET","/student.js",nil,404,nil)
 	request(admin,"GET","/api/admin/results",nil,401,nil)
 	const consentEndpoint = "/api/admin/consent"
-	request(admin, "POST", consentEndpoint, map[string]string{"text": "Без доступа"}, 401, nil)
 	request(student, "POST", consentEndpoint, map[string]string{"text": "Без доступа"}, 404, nil)
 	request(student,"GET","/api/admin/results",nil,404,nil)
 	login := request(admin,"POST","/api/admin/login",map[string]any{"password":"admin-test-password"},204,nil)
@@ -111,7 +111,7 @@ func TestPortalsPostgreSQL(t *testing.T) {
 	}
 	request(admin, "POST", "/api/admin/assignments", map[string]any{"groups": []string{group}, "test": "missing", "minutes": 2}, 400, nil)
 	batch := map[string]any{"groups": []string{group, group}, "programs": programs, "minutes": 2}
-	request(admin, "POST", consentEndpoint, map[string]string{"text": "   "}, 400, nil)
+	request(admin, "POST", consentEndpoint, map[string]string{"text": "Изменение из админки"}, 404, nil)
 	var opened bulkAssignmentResult
 	request(admin, "POST", endpoint, batch, 201, &opened)
 	if len(opened.Opened) != 4 || len(opened.AlreadyOpen) != 0 || opened.Opened[group] == 0 {
@@ -142,16 +142,16 @@ func TestPortalsPostgreSQL(t *testing.T) {
 	const studentAttempt = "/api/student/attempt"
 	var view attemptView
 	request(student,"POST",studentAttempt,req,400,nil)
-	const oldConsent = "Первая версия согласия для проверки"
-	request(admin, "POST", consentEndpoint, map[string]string{"text": oldConsent}, 200, nil)
-	const newConsent = "Вторая версия согласия для проверки"
-	request(admin, "POST", consentEndpoint, map[string]string{"text": newConsent}, 200, nil)
+	newConsent := consentText()
+	if !strings.Contains(newConsent, "152-ФЗ") || !strings.Contains(newConsent, "Алабуга") {
+		t.Fatal("built-in consent text is missing")
+	}
 	var studentConfig map[string]any
 	request(student, "GET", "/api/student/groups", nil, 200, &studentConfig)
 	if studentConfig["consent"] != newConsent || studentConfig["version"] != digest(newConsent) {
 		t.Fatalf("student consent setting: %+v", studentConfig)
 	}
-	req.Consent = digest(oldConsent)
+	req.Consent = digest("Устаревший текст согласия")
 	request(student, "POST", studentAttempt, req, 412, nil)
 	req.Consent = digest(newConsent)
 	request(student,"POST",studentAttempt,req,200,&view)

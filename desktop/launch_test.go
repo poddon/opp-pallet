@@ -8,7 +8,7 @@ import (
 	"testing"
 )
 
-func TestStartupUsesLegacyDatabaseAndConsent(t *testing.T) {
+func TestStartupUsesLegacyDatabase(t *testing.T) {
 	t.Setenv("PGUSER", "")
 	t.Setenv("PGPASSWORD", "")
 	t.Setenv("OPP_ADMIN_PASSWORD", "administrator-secret")
@@ -18,19 +18,15 @@ func TestStartupUsesLegacyDatabaseAndConsent(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(dir, "pg-config.json"), []byte(legacy), 0600); err != nil {
 		t.Fatal(err)
 	}
-	consent := filepath.Join(dir, "consent.txt")
-	if err := os.WriteFile(consent, []byte("Текст согласия"), 0600); err != nil {
-		t.Fatal(err)
-	}
 	var output bytes.Buffer
-	input := newStartupInput(strings.NewReader(strings.Repeat("\n", 7)), &output)
+	input := newStartupInput(strings.NewReader(strings.Repeat("\n", 6)), &output)
 	c, err := input.configure(dir)
 	if err != nil {
 		t.Fatal(err)
 	}
 	if c.host != "db.example" || c.port != 5433 || c.database != "opp_tests" ||
 		c.user != "operator" || c.password != "postgres-secret" ||
-		c.adminPassword != "administrator-secret" || c.consentFile != consent {
+		c.adminPassword != "administrator-secret" {
 		t.Fatal("startup configuration did not retain the provided defaults")
 	}
 	if strings.Contains(output.String(), c.password) || strings.Contains(output.String(), c.adminPassword) {
@@ -52,7 +48,7 @@ func TestStartupWithNoLegacyFile(t *testing.T) {
 	}
 	if c.host != "localhost" || c.port != 5432 || c.database != "opp_tests" ||
 		c.user != "postgres" || c.password != "db password" ||
-		c.adminPassword != "admin password" || c.consentFile != "" {
+		c.adminPassword != "admin password" {
 		t.Fatal("startup configuration did not match the supplied parameters")
 	}
 }

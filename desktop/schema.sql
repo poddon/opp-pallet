@@ -84,7 +84,3 @@ CREATE TABLE IF NOT EXISTS quiz_admin_sessions (
     expires_at TIMESTAMPTZ NOT NULL
 );
 
-CREATE TABLE IF NOT EXISTS quiz_consent (
-    singleton BOOLEAN PRIMARY KEY DEFAULT true CHECK (singleton),
-    body TEXT NOT NULL CHECK (octet_length(body) BETWEEN 1 AND 65536)
-);

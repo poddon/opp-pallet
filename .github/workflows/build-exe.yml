@@ -64,7 +64,7 @@ jobs:
           if ($LASTEXITCODE -ne 0 -or $help -notmatch 'sslmode' -or $help -match 'ci-secret') {
             throw "Unexpected CLI help: $help"
           }
-          $wizard = @('127.0.0.1', '1', 'opp', 'postgres', 'pg-ci-secret', 'admin-ci-secret', 'consent.txt') |
+          $wizard = @('127.0.0.1', '1', 'opp', 'postgres', 'pg-ci-secret', 'admin-ci-secret') |
             & .\OPP-test.exe 2>&1 | Out-String
           if ($LASTEXITCODE -ne 1 -or $wizard -notmatch '127\.0\.0\.1:1 / opp' -or $wizard -match 'ci-secret') {
             throw "Unexpected startup output: $wizard"
