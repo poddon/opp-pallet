@@ -41,7 +41,7 @@
           <details><summary>Согласие на обработку персональных данных</summary><div id="consentText"></div></details>
           <label class="check"><input name="consent" type="checkbox" required> Даю согласие на обработку персональных данных на указанных условиях</label>
         </div>
-        <label class="check student-rules"><input name="rules" type="checkbox" required> Я ознакомлен(а) с правилами тестирования. Переход на другую вкладку или сворачивание браузера засчитывается как списывание: попытка завершается с результатом 0%.</label>
+        <label class="check student-rules"><input name="rules" type="checkbox" required> Я ознакомлен(а) с правилами тестирования. Переход на другую вкладку или в другое окно, сворачивание браузера, снимок экрана, копирование, вставка, правый клик и печать засчитываются как списывание: попытка завершается с результатом 0%.</label>
         <button id="start">Начать тест</button>
       </form>
       <button type="button" id="refreshGroups" class="secondary" hidden>Обновить список</button>
@@ -76,6 +76,7 @@
     <div class="cheat-badge">НАРУШЕНИЕ РЕГЛАМЕНТА</div>
     <h2>СПИСАНО</h2>
     <p>Вы списали. Обратитесь к преподавателю.</p>
+    <p id="cheatReason" class="cheat-reason-line"></p>
     <div class="cheat-who" id="cheatwho"></div>
   </div>
 </div>

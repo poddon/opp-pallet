@@ -290,6 +290,27 @@ type attemptAction struct {
 	Rules bool `json:"rules"`
 	Position int `json:"position"`
 	Choice *int `json:"choice"`
+	Reason string `json:"reason"`
+}
+
+// cheatReasons are the violations the student page reports; anything else is stored as "other".
+var cheatReasons = map[string]string{
+	"tab":        "Уход со страницы (другая вкладка или свёрнутый браузер)",
+	"window":     "Переключение на другое окно или всплывающее окно поверх теста",
+	"screenshot": "Снимок экрана",
+	"copy":       "Копирование или вырезание текста",
+	"paste":      "Вставка текста",
+	"menu":       "Вызов контекстного меню (правый клик)",
+	"print":      "Печать страницы",
+	"devtools":   "Попытка открыть инструменты разработчика",
+	"other":      "Нарушение правил тестирования",
+}
+
+func cheatReason(code string) string {
+	if text, ok := cheatReasons[code]; ok {
+		return text
+	}
+	return cheatReasons["other"]
 }
 
 func loadAttempt(ctx context.Context, tx *sql.Tx, hash string, assignment int64) (attempt, error) {
@@ -393,6 +414,10 @@ func (a *app) advance(ctx context.Context, req attemptAction) (attemptView, erro
 		case req.Operation == "flag":
 			s.Status = flagged
 			finishedAt = now
+			if _, err := tx.ExecContext(ctx, `UPDATE quiz_live SET cheat_reason=$2 WHERE session_id=$1`,
+				hash, cheatReason(req.Reason)); err != nil {
+				return attemptView{}, err
+			}
 		case !now.Before(s.Deadline) || (req.Operation == "answer" && req.Position == s.Position):
 			q := s.Questions[s.Position-1]
 			var choice *int

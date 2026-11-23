@@ -68,3 +68,4 @@ th, td { padding: 8px; text-align: left; border-bottom: 1px solid var(--line); }
 @keyframes cheatBlink { 50%{opacity:.25} }
 @media (prefers-reduced-motion: reduce) {
   .cheat-flash, .cheat-stripes, .cheat-beacon, .cheat-scan, .cheat-ring, .cheat-stamp, .cheat-stamp h2, .cheat-badge { animation: none !important; }
+#cheat .cheat-stamp .cheat-reason-line { font-weight: 700; color: #ffd400; }

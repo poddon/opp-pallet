@@ -76,7 +76,6 @@
     </section>
     <section id="active" class="card" hidden>
       <h1>Активные тесты</h1>
-      <p class="muted">Тест закрывается автоматически по окончании времени доступа. Кнопка «Закрыть тест» закрывает его раньше только для выбранной группы.</p>
       <p id="openingSummary" class="muted" role="status" hidden></p>
       <div class="table-box"><table>
         <thead><tr><th>Группа</th><th>Тест</th><th>Открыт, МСК</th><th>Закроется автоматически, МСК</th><th>Осталось</th><th>Действие</th></tr></thead>
@@ -85,7 +84,6 @@
     </section>
     <section id="admins" class="card" hidden>
       <h1>Администраторы</h1>
-      <p class="muted">Новый администратор входит по ФИО и паролю, после входа может сменить пароль кнопкой «Сменить пароль».</p>
       <form id="adminForm" class="stack">
         <div class="fields">
           <label>ФИО нового администратора <input name="name" maxlength="160" placeholder="Иванов Иван Иванович" autocomplete="off" required></label>
@@ -154,7 +152,7 @@
 <dialog id="answerDetails">
   <form method="dialog" class="actions"><button class="secondary">Закрыть</button></form>
   <h2 id="answerHeading"></h2>
-  <p id="answerStatus" class="muted"></p>
+  <p id="answerStatus" class="error" hidden></p>
   <div id="answerModules"></div>
 </dialog>
 </body>

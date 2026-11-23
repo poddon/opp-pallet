@@ -230,7 +230,7 @@ async function send(operation, fields = {}) {
     $("submitAnswer").disabled = !$("answer").elements.choice?.value;
     if (flaggedDuringRequest && current && lastStatus === "Проходит") {
       flaggedDuringRequest = false;
-      void send("flag");
+      void send("flag", {reason: flagReason});
     }
   }
 }
@@ -278,18 +278,71 @@ $("back").addEventListener("click", () => {
   $("registration").hidden = false;
   void loadGroups();
 });
-document.addEventListener("contextmenu", event => event.preventDefault());
-document.addEventListener("copy", event => event.preventDefault());
+// Anti-cheating. Any of these during an attempt ends it as "СПИСЫВАНИЕ"; the reason is stored.
+const reasonText = {
+  tab: "Уход со страницы",
+  window: "Переключение на другое окно",
+  screenshot: "Снимок экрана",
+  copy: "Копирование текста",
+  paste: "Вставка текста",
+  menu: "Правый клик",
+  print: "Печать страницы",
+  devtools: "Инструменты разработчика",
+};
+let flagReason = "";
+
+function violation(reason) {
+  if (!current || lastStatus !== "Проходит" || !$("cheat").hidden) return;
+  $("cheatReason").textContent = "Причина: " + (reasonText[reason] || "нарушение правил") + ".";
+  showCheat();
+  flagReason = reason;
+  flaggedDuringRequest = pending;
+  const payload = new Blob([JSON.stringify({...current, operation: "flag", reason})], {type: "application/json"});
+  if (!navigator.sendBeacon(studentPath + "attempt", payload) && !pending) void send("flag", {reason});
+}
+
+document.addEventListener("contextmenu", event => {
+  event.preventDefault();
+  violation("menu");
+});
+for (const [type, reason] of [["copy", "copy"], ["cut", "copy"], ["paste", "paste"]]) {
+  document.addEventListener(type, event => {
+    event.preventDefault();
+    violation(reason);
+  });
+}
+window.addEventListener("beforeprint", () => violation("print"));
+function screenshotKey(event) {
+  const key = event.key || "";
+  return key === "PrintScreen" || event.code === "PrintScreen" ||
+    (event.metaKey && event.shiftKey && /^[sS345ыЫ]$/.test(key));
+}
+document.addEventListener("keydown", event => {
+  const key = (event.key || "").toLowerCase();
+  const ctrl = event.ctrlKey || event.metaKey;
+  if (screenshotKey(event)) {
+    violation("screenshot");
+  } else if (ctrl && (key === "p" || key === "з")) {
+    event.preventDefault();
+    violation("print");
+  } else if (event.key === "F12" || (ctrl && event.shiftKey && ["i", "j", "c", "ш", "о", "с"].includes(key)) ||
+      (ctrl && (key === "u" || key === "г"))) {
+    event.preventDefault();
+    violation("devtools");
+  }
+}, true);
+// Windows reports PrintScreen only on key release.
+document.addEventListener("keyup", event => { if (screenshotKey(event)) violation("screenshot"); }, true);
 document.addEventListener("visibilitychange", () => {
   if (document.visibilityState === "visible") {
     if (alarmPending) alarm();
     return;
   }
-  if (!current || lastStatus !== "Проходит") return;
-  showCheat();
-  flaggedDuringRequest = pending;
-  const payload = new Blob([JSON.stringify({...current, operation: "flag"})], {type: "application/json"});
-  if (!navigator.sendBeacon(studentPath + "attempt", payload) && !pending) void send("flag");
+  violation("tab");
+});
+// Focus moving to another program, a pop-up window or a screenshot tool (Win+Shift+S).
+window.addEventListener("blur", () => {
+  setTimeout(() => violation(document.visibilityState === "hidden" ? "tab" : "window"), 150);
 });
 setInterval(() => {
   if (lastStatus !== "Проходит") return;

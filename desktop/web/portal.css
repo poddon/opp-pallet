@@ -85,3 +85,4 @@ dialog h2 { margin-top: 12px; }
 .module-score { color: var(--muted); font-size: 14px; }
 
 #admins .table-wrap { margin-top: 28px; }
+.cheat-reason { color: var(--muted); font-size: 12px; line-height: 1.3; }

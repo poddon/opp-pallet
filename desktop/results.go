@@ -27,6 +27,7 @@ type resultRow struct {
 	Group string `json:"group"`
 	Test string `json:"test"`
 	Status string `json:"status"`
+	Reason string `json:"reason,omitempty"`
 	Percent int `json:"percent"`
 	Archived bool `json:"archived"`
 }
@@ -36,6 +37,7 @@ const resultCTE = `WITH result AS (
 	to_char(l.finished_at AT TIME ZONE 'Europe/Moscow','DD.MM.YYYY') AS date,
 	to_char(l.finished_at AT TIME ZONE 'Europe/Moscow','HH24:MI:SS') AS time,
 	l.name, l.group_code, a.title, a.test_id, l.status,
+	CASE WHEN l.status='СПИСЫВАНИЕ' THEN coalesce(l.cheat_reason, 'Уход со страницы (другая вкладка или свёрнутый браузер)') ELSE '' END AS reason,
 	CASE WHEN l.status='СПИСЫВАНИЕ' THEN 0 ELSE coalesce(round(100.0 *
 		(SELECT count(*) FROM quiz_answers v WHERE v.session_id=l.session_id AND v.correct) /
 		nullif(l.total,0))::int, 0) END AS pct,
@@ -46,7 +48,7 @@ const resultCTE = `WITH result AS (
 	to_char(created_at AT TIME ZONE 'Europe/Moscow','HH24:MI:SS'),
 	coalesce(fields->>'student_name', fields->>'name'),
 	upper(regexp_replace(btrim(group_code), '[[:space:]]+', ' ', 'g')),
-	'Архивный тест', 'archive', status, round(pct)::int, created_at, true
+	'Архивный тест', 'archive', status, '', round(pct)::int, created_at, true
 	FROM quiz_results r CROSS JOIN LATERAL (SELECT to_jsonb(r) AS fields) legacy
 )`
 
@@ -79,7 +81,7 @@ func (a *app) results(w http.ResponseWriter, r *http.Request) error {
 		return err
 	}
 	args := []any{strings.TrimSpace(q.Get("name")), pq.Array(groups), pq.Array(tests), pq.Array(statuses)}
-	query := resultCTE+` SELECT id,date,time,name,group_code,title,status,pct,archived FROM result
+	query := resultCTE+` SELECT id,date,time,name,group_code,title,status,reason,pct,archived FROM result
 		WHERE ($1='' OR strpos(lower(name), lower($1)) > 0)
 		AND (cardinality($2::text[])=0 OR group_code=ANY($2::text[]))
 		AND (cardinality($3::text[])=0 OR test_id=ANY($3::text[]))
@@ -126,7 +128,7 @@ func (a *app) results(w http.ResponseWriter, r *http.Request) error {
 	items := []resultRow{}
 	for rows.Next() {
 		var item resultRow
-		if err := rows.Scan(&item.ID,&item.Date,&item.Time,&item.Name,&item.Group,&item.Test,&item.Status,&item.Percent,&item.Archived); err != nil {
+		if err := rows.Scan(&item.ID,&item.Date,&item.Time,&item.Name,&item.Group,&item.Test,&item.Status,&item.Reason,&item.Percent,&item.Archived); err != nil {
 			return err
 		}
 		items = append(items,item)
@@ -297,9 +299,10 @@ func (a *app) answers(w http.ResponseWriter,r *http.Request) error {
 	}
 	ctx := r.Context()
 	var name, group, title, status string
-	err := a.db.QueryRowContext(ctx,`SELECT l.name,l.group_code,a.title,l.status FROM quiz_live l
+	var reason sql.NullString
+	err := a.db.QueryRowContext(ctx,`SELECT l.name,l.group_code,a.title,l.status,l.cheat_reason FROM quiz_live l
 		JOIN quiz_assignments a ON a.id=l.assignment_id WHERE l.session_id=$1 AND l.finished_at IS NOT NULL`,id).
-		Scan(&name,&group,&title,&status)
+		Scan(&name,&group,&title,&status,&reason)
 	if errors.Is(err,sql.ErrNoRows) {
 		return problem{404,"Попытка не найдена"}
 	}
@@ -314,7 +317,14 @@ func (a *app) answers(w http.ResponseWriter,r *http.Request) error {
 	if list == nil {
 		list = []questionAnswer{}
 	}
-	writeJSON(w,200,map[string]any{"name":name,"group":group,"title":title,"status":status,
+	why := ""
+	if status == flagged {
+		why = reason.String
+		if why == "" {
+			why = cheatReasons["tab"]
+		}
+	}
+	writeJSON(w,200,map[string]any{"name":name,"group":group,"title":title,"status":status,"reason":why,
 		"answers":list,"modules":scores(list)})
 	return nil
 }
@@ -423,14 +433,14 @@ func (a *app) exportResults(ctx context.Context, items []resultRow) ([]byte, err
 	if err != nil {
 		return nil, err
 	}
-	head := []any{"Дата", "Время", "ФИО", "Группа", "Тест", "Статус", "Результат, %"}
+	head := []any{"Дата", "Время", "ФИО", "Группа", "Тест", "Статус", "Причина списывания", "Результат, %"}
 	for _, m := range a.modules {
 		head = append(head, m+": правильно", m+": неправильно", m+": без ответа")
 	}
 	summary := [][]any{head}
 	detail := [][]any{{"Дата", "Время", "ФИО", "Группа", "Статус", "Модуль", "№ вопроса в попытке", "Вопрос", "Ответ студента", "Правильный ответ", "Итог"}}
 	for _, row := range items {
-		line := []any{row.Date, row.Time, row.Name, row.Group, row.Test, row.Status, row.Percent}
+		line := []any{row.Date, row.Time, row.Name, row.Group, row.Test, row.Status, row.Reason, row.Percent}
 		list := answers[row.ID]
 		byModule := map[string]moduleScore{}
 		for _, m := range scores(list) {
@@ -450,7 +460,7 @@ func (a *app) exportResults(ctx context.Context, items []resultRow) ([]byte, err
 				q.Module, q.Number, q.Text, q.Selected, q.Expected, verdict(q)})
 		}
 	}
-	summaryWidths := []int{11, 9, 32, 36, 14, 14, 12}
+	summaryWidths := []int{11, 9, 32, 36, 14, 14, 40, 12}
 	for range a.modules {
 		summaryWidths = append(summaryWidths, 16, 16, 16)
 	}

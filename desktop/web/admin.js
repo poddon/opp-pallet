@@ -209,7 +209,7 @@ async function loadResults() {
   if (request !== resultsRequest) return;
   resultCount = data.rows.length;
   table("resultRows", data.rows.map(row => [row.date, row.time, row.name, row.group,
-    row.test, row.status, row.percent + "%", row.archived ? "—" :
+    row.test, statusCell(row), row.percent + "%", row.archived ? "—" :
       action("Ответы", () => void loadAnswers(row.id))]), 8, "Результатов по этим параметрам нет.");
   $("prev").disabled = data.page <= 1;
   $("next").disabled = !data.more;
@@ -254,7 +254,8 @@ async function loadAnswers(id) {
   try {
     const data = await api(adminPath + "answers/" + id);
     $("answerHeading").textContent = data.name + " · " + data.group + " · " + data.title;
-    $("answerStatus").textContent = "Статус: " + data.status + ". Номер вопроса — его порядок в попытке студента.";
+    $("answerStatus").hidden = !data.reason;
+    $("answerStatus").textContent = data.reason ? "Списывание: " + data.reason + "." : "";
     $("answerModules").replaceChildren(...data.modules.map(module => {
       const section = document.createElement("section");
       section.className = "answer-module";
@@ -273,6 +274,16 @@ async function loadAnswers(id) {
   } catch (error) {
     reportError(error);
   }
+}
+
+function statusCell(row) {
+  if (!row.reason) return row.status;
+  const cell = document.createElement("span");
+  const reason = document.createElement("small");
+  reason.className = "cheat-reason";
+  reason.textContent = row.reason;
+  cell.append(row.status, document.createElement("br"), reason);
+  return cell;
 }
 
 async function loadAdmins() {

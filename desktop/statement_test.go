@@ -7,6 +7,12 @@ import (
 	"testing"
 )
 
+func TestCheatReason(t *testing.T) {
+	if cheatReason("window") != cheatReasons["window"] || cheatReason("<script>") != cheatReasons["other"] {
+		t.Fatal("cheat reasons")
+	}
+}
+
 func TestStatement(t *testing.T) {
 	if got := (programGroup{Direction: "Бизнес-информатика на платформе 1С", Number: "26-8"}).code(); got != "1C-26-8" {
 		t.Fatal(got)

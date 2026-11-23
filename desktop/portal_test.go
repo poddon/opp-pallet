@@ -389,14 +389,14 @@ func TestPortalsPostgreSQL(t *testing.T) {
 	cheatRight := questions[0].Correct
 	cheat.Operation, cheat.Position, cheat.Choice = "answer", 1, &cheatRight
 	request(student, "POST", studentAttempt, cheat, 200, &view)
-	cheat.Operation = "flag"
+	cheat.Operation, cheat.Reason = "flag", "screenshot"
 	request(student, "POST", studentAttempt, cheat, 200, &view)
 	if view.Status != flagged || view.Score != 0 {
 		t.Fatalf("cheating attempt: %+v", view)
 	}
 	var cheated struct{ Rows []resultRow }
 	request(admin, "GET", "/api/admin/results?"+url.Values{"group":{cheatGroup}, "status":{flagged}}.Encode(), nil, 200, &cheated)
-	if len(cheated.Rows) != 1 || cheated.Rows[0].Percent != 0 {
+	if len(cheated.Rows) != 1 || cheated.Rows[0].Percent != 0 || cheated.Rows[0].Reason != "Снимок экрана" {
 		t.Fatalf("cheating result: %+v", cheated)
 	}
 }
