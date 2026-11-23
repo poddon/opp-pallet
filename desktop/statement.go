@@ -10,34 +10,16 @@ import (
 	"time"
 )
 
-// Groups created by earlier versions carry the full direction name
-// ("ЭЛЕКТРОМОНТАЖ И ЭКСПЛУАТАЦИЯ НИЗКОВОЛЬТНОГО ОБОРУДОВАНИЯ 26-2"). They are shown under
-// the name used in the statements; other names are kept as they are.
-var legacyDirections = map[string]string{
-	"Бизнес-информатика на платформе 1С":                                "1C",
-	"Электромонтаж и эксплуатация низковольтного оборудования":          "Электромонтаж",
-	"Аэронавигация и программирование БПЛА":                             "БПЛА",
-	"Промышленное оборудование. Запорно-регулирующая арматура и насосы": "ЗРА",
-	"WEB-программирование":                                              "WEB",
-	"Программирование станков с ЧПУ":                                    "ЧПУ",
-	"Промышленная безопасность":                                         "ПромБез",
-}
-
 // shortGroup returns the group name used in the statement, e.g. "Электромонтаж-26-2".
+// Groups created by earlier versions ("ЭЛЕКТРОМОНТАЖ И ЭКСПЛУАТАЦИЯ НИЗКОВОЛЬТНОГО ОБОРУДОВАНИЯ 26-2")
+// get the same name; unknown names are kept as they are.
 func shortGroup(code string) string {
 	m := groupSuffix.FindStringSubmatch(code)
 	if m == nil {
 		return code
 	}
-	for _, d := range directions {
-		if strings.EqualFold(m[1], d) {
-			return d + "-" + m[2]
-		}
-	}
-	for long, short := range legacyDirections {
-		if strings.EqualFold(normalize(m[1]), long) {
-			return short + "-" + m[2]
-		}
+	if d, ok := findDirection(m[1]); ok {
+		return d.Code + "-" + m[2]
 	}
 	return code
 }

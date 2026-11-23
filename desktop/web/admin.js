@@ -9,6 +9,17 @@ let resultsRequest = 0;
 let refreshing = false;
 let resultCount = 0;
 const selectedGroups = new Map();
+let directionCodes = new Map();
+
+$("groupNumbers").replaceChildren(...Array.from({length: 20}, (_, i) => {
+  const label = document.createElement("label");
+  label.className = "check";
+  const box = document.createElement("input");
+  box.type = "checkbox";
+  box.value = String(i + 1);
+  label.append(box, " " + (i + 1));
+  return label;
+}));
 
 function showDashboard(visible) {
   $("dashboard").hidden = !visible;
@@ -95,7 +106,10 @@ function updateGroupCounts() {
 
 async function loadSetup() {
   const setup = await api(adminPath + "setup");
-  options($("direction"), setup.directions, "Выберите направление");
+  directionCodes = new Map(setup.directions.map(item => [item.name, item.code]));
+  options($("direction"), setup.directions.map(item => ({
+    label: item.code === item.name ? item.name : item.name + " (" + item.code + ")", value: item.name
+  })), "Выберите направление");
   renderGroupTree(setup.groups);
   showDashboard(true);
 }
@@ -150,22 +164,17 @@ function renderSelectedGroups() {
 
 function addProgramGroups() {
   const direction = $("direction").value;
-  const checkboxes = Array.from($("openForm").querySelectorAll("[name=groupNumber]"));
-  const other = $("extraNumbers").value.trim().split(/[,\s]+/).filter(Boolean);
-  const numbers = [...checkboxes.filter(box => box.checked).map(box => box.value), ...other];
-  if (!direction || !numbers.length || numbers.some(number => !/^\d{2}-[1-9]\d*$/.test(number))) {
-    throw new Error("Выберите направление и укажите номер группы в формате 26-1.");
-  }
-  for (const number of numbers) {
-    const label = direction + "-" + number;
-    if (label.length > 80) throw new Error("Название группы слишком длинное.");
-  }
-  for (const number of numbers) {
-    const code = direction + "-" + number;
+  const year = $("groupYear").value.trim();
+  const boxes = Array.from($("groupNumbers").querySelectorAll("input:checked"));
+  if (!direction) throw new Error("Выберите направление.");
+  if (!/^\d{2}$/.test(year)) throw new Error("Год группы — две цифры, например 26.");
+  if (!boxes.length) throw new Error("Отметьте номер группы.");
+  for (const box of boxes) {
+    const number = year + "-" + box.value;
+    const code = (directionCodes.get(direction) || direction) + "-" + number;
     selectedGroups.set(code, {direction, number});
+    box.checked = false;
   }
-  for (const box of checkboxes) box.checked = false;
-  $("extraNumbers").value = "";
   renderSelectedGroups();
 }
 
@@ -316,7 +325,7 @@ submit("loginForm", async (data, form) => {
 });
 
 submit("openForm", async data => {
-  if (data.getAll("groupNumber").length || $("extraNumbers").value.trim()) addProgramGroups();
+  if ($("groupNumbers").querySelector("input:checked")) addProgramGroups();
   if (!selectedGroups.size) throw new Error("Выберите хотя бы одну группу.");
   const groups = [];
   const programs = [];

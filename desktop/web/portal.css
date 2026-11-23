@@ -68,6 +68,10 @@ dialog h2 { margin-top: 12px; }
 #openForm > .fields:first-child { align-items: center; }
 .group-numbers { display: flex; gap: 14px; margin: 0; min-width: 0; border: 1px solid var(--border); border-radius: 8px; }
 .group-numbers label { white-space: nowrap; }
+.group-numbers { display: block; padding: 10px 12px; }
+.number-grid { display: grid; grid-template-columns: repeat(10, minmax(48px, 1fr)); gap: 6px 10px; }
+.number-grid .check { align-items: center; }
+@media (max-width: 640px) { .number-grid { grid-template-columns: repeat(5, 1fr); } }
 .selected-groups { display: grid; gap: 6px; list-style: none; margin: 0; padding: 0; }
 .selected-groups li { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
 .group-filter > p { margin: 8px 0; }

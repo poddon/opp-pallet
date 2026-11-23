@@ -50,19 +50,16 @@
         <p class="muted">Всем выбранным группам назначается общий тест по всем модулям.</p>
         <div class="fields">
           <label>Направление <select id="direction"></select></label>
-          <fieldset class="group-numbers">
-            <legend>Номер группы</legend>
-            <label class="check"><input type="checkbox" name="groupNumber" value="26-1"> 26-1</label>
-            <label class="check"><input type="checkbox" name="groupNumber" value="26-2"> 26-2</label>
-          </fieldset>
-          <label>Другой номер вручную
-            <input id="extraNumbers" placeholder="26-3, 25-1" maxlength="100">
-          </label>
+          <label>Год группы <input id="groupYear" inputmode="numeric" pattern="[0-9]{2}" maxlength="2" value="26" required></label>
         </div>
+        <fieldset class="group-numbers">
+          <legend>Номер группы</legend>
+          <div id="groupNumbers" class="number-grid"></div>
+        </fieldset>
         <div class="actions"><button class="secondary" id="addProgramGroups" type="button">Добавить в список</button></div>
         <div>
           <h2>Выбранные группы</h2>
-          <p id="emptyGroups" class="muted">Выберите направление, отметьте или впишите номер группы и нажмите «Добавить в список».</p>
+          <p id="emptyGroups" class="muted">Выберите направление, проверьте год, отметьте номера групп и нажмите «Добавить в список».</p>
           <ul id="selectedGroups" class="selected-groups" aria-label="Выбранные группы"></ul>
         </div>
         <div class="fields">
