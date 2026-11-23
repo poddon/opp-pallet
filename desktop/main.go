@@ -208,10 +208,17 @@ func main() {
 	}
 	if err != nil && !errors.Is(err, flag.ErrHelp) {
 		fmt.Fprintln(os.Stderr, "Ошибка:", err)
-		if wizard || ownsConsole() {
+		// Keep the window open when started by double click, from a .bat file or from autostart,
+		// so the reason stays readable. Pipes and redirected input do not wait.
+		if wizard || ownsConsole() || interactive() {
 			fmt.Fprintln(os.Stderr, "Нажмите Enter, чтобы закрыть окно.")
 			_, _ = input.reader.ReadString('\n')
 		}
 		os.Exit(1)
 	}
+}
+
+func interactive() bool {
+	info, err := os.Stdin.Stat()
+	return err == nil && info.Mode()&os.ModeCharDevice != 0
 }
