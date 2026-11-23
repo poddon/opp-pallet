@@ -13,12 +13,11 @@ func TestDBError(t *testing.T) {
 	if got := readable(cp1251); got != "база данных" {
 		t.Fatal(got)
 	}
-	c := config{host: "localhost", port: 5432, database: "skopp", user: "skopp"}
-	err := dbError(c, &pq.Error{Code: "3D000", Message: cp1251})
-	if !strings.Contains(err.Error(), "база skopp на localhost:5432: такой базы данных нет на сервере") || !strings.Contains(err.Error(), `CREATE DATABASE "skopp" OWNER "skopp"`) {
+	c := config{host: "localhost", port: 5432, database: "postgres", user: "skopp"}
+	if err := dbError(c, &pq.Error{Code: "28P01"}); !strings.Contains(err.Error(), `неверный пароль пользователя "skopp"`) {
 		t.Fatal(err)
 	}
-	if err := dbError(c, &pq.Error{Code: "28P01"}); !strings.Contains(err.Error(), "неверный пароль") {
+	if err := migrationError(c, &pq.Error{Code: "42501", Message: "permission denied for schema public"}); !strings.Contains(err.Error(), `GRANT CREATE, USAGE ON SCHEMA public TO "skopp"`) {
 		t.Fatal(err)
 	}
 }

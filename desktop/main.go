@@ -33,16 +33,16 @@ type config struct {
 func parseConfig(args []string) (config, error) {
 	var c config
 	if len(args) == 0 || (args[0] != "start" && args[0] != "cleanup") {
-		return c, errors.New("использование: OPP-test.exe start --ip localhost --port 5432 --name ИМЯ_БАЗЫ --password ПАРОЛЬ\n" +
+		return c, errors.New("использование: OPP-test.exe start --ip localhost --port 5432 --name ЛОГИН --password ПАРОЛЬ\n" +
 			"подробнее: OPP-test.exe start --help или OPP-test.exe cleanup --help")
 	}
 	c.cleanup = args[0] == "cleanup"
 	flags := flag.NewFlagSet(args[0], flag.ContinueOnError)
 	flags.StringVar(&c.host, "ip", "localhost", "адрес PostgreSQL")
 	flags.IntVar(&c.port, "port", 5432, "порт PostgreSQL")
-	flags.StringVar(&c.database, "name", "opp", "имя существующей базы PostgreSQL")
-	flags.StringVar(&c.user, "user", os.Getenv("PGUSER"), "роль PostgreSQL (по умолчанию совпадает с --name)")
-	flags.StringVar(&c.password, "password", "", "пароль PostgreSQL (или PGPASSWORD)")
+	flags.StringVar(&c.user, "name", os.Getenv("PGUSER"), "логин (пользователь) PostgreSQL")
+	flags.StringVar(&c.password, "password", "", "пароль пользователя PostgreSQL (или PGPASSWORD)")
+	flags.StringVar(&c.database, "db", "postgres", "база данных PostgreSQL, в которой создаются таблицы")
 	flags.StringVar(&c.sslmode, "sslmode", "disable", "режим TLS PostgreSQL (disable, require, verify-ca, verify-full)")
 	if c.cleanup {
 		flags.BoolVar(&c.apply, "apply", false, "удалить устаревшие технические записи после просмотра")
@@ -66,11 +66,11 @@ func validateConfig(c config) (config, error) {
 	if c.port < 1 || c.port > 65535 {
 		return c, errors.New("порт PostgreSQL должен быть от 1 до 65535")
 	}
-	if c.database == "" || c.host == "" {
-		return c, errors.New("укажите адрес PostgreSQL и имя существующей базы")
+	if c.host == "" || c.user == "" {
+		return c, errors.New("укажите адрес PostgreSQL (--ip) и логин пользователя (--name)")
 	}
-	if c.user == "" {
-		c.user = c.database
+	if c.database == "" {
+		c.database = "postgres"
 	}
 	return c, nil
 }
@@ -122,7 +122,7 @@ func (a *app) migrate(ctx context.Context) error {
 func run(c config) error {
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
-	fmt.Printf("Подключение к базе %s на %s:%d (роль %s)…\n", c.database, c.host, c.port, c.user)
+	fmt.Printf("Подключение к PostgreSQL %s:%d, пользователь %s, база %s…\n", c.host, c.port, c.user, c.database)
 	db, err := openDB(ctx, c)
 	if err != nil {
 		return dbError(c, err)
@@ -136,7 +136,7 @@ func run(c config) error {
 		return err
 	}
 	if err := a.migrate(ctx); err != nil {
-		return fmt.Errorf("подготовка таблиц (проверьте права роли PostgreSQL): %w", err)
+		return migrationError(c, err)
 	}
 	student, err := net.Listen("tcp", net.JoinHostPort(c.studentHost, "8004"))
 	if err != nil {

@@ -94,9 +94,9 @@ func (p startupInput) configure(dir string) (config, error) {
 	if c.port, err = strconv.Atoi(port); err != nil || c.port < 1 || c.port > 65535 {
 		return c, errors.New("порт PostgreSQL должен быть от 1 до 65535")
 	}
-	ask(&c.database, "Имя существующей базы", saved.Database, false)
-	ask(&c.user, "Пользователь PostgreSQL", saved.User, false)
+	ask(&c.user, "Логин (пользователь) PostgreSQL", saved.User, false)
 	ask(&c.password, "Пароль PostgreSQL", saved.Password, true)
+	ask(&c.database, "База данных", saved.Database, false)
 
 	if err != nil {
 		return c, err
@@ -114,7 +114,7 @@ type databaseSettings struct {
 
 func legacyDatabaseSettings(dir string) (databaseSettings, error) {
 	defaults := databaseSettings{
-		Host: "localhost", Port: 5432, Database: "opp",
+		Host: "localhost", Port: 5432, Database: "postgres",
 		User: "postgres",
 	}
 	settings := defaults

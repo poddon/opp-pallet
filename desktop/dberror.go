@@ -14,24 +14,20 @@ import (
 // PostgreSQL on Windows sends connection errors in Windows-1251, which the console
 // shows as "����"; such messages are converted to UTF-8 first.
 func dbError(c config, err error) error {
-	where := fmt.Sprintf("база %s на %s:%d", c.database, c.host, c.port)
+	where := fmt.Sprintf("PostgreSQL %s:%d, пользователь %s, база %s", c.host, c.port, c.user, c.database)
 	var pqErr *pq.Error
 	if errors.As(err, &pqErr) {
 		switch pqErr.Code {
-		case "3D000":
-			return fmt.Errorf("%s: такой базы данных нет на сервере.\n"+
-				"Укажите в --name имя существующей базы или создайте её в pgAdmin: Databases → Create → Database…, "+
-				"имя %s, владелец (Owner) — роль %s.\n"+
-				"Или выполните в Query Tool базы postgres: CREATE DATABASE %s OWNER %s;",
-				where, c.database, c.user, pq.QuoteIdentifier(c.database), pq.QuoteIdentifier(c.user))
 		case "28P01":
-			return fmt.Errorf("%s: неверный пароль роли %q. Проверьте --password", where, c.user)
+			return fmt.Errorf("%s: неверный пароль пользователя %q. Проверьте --password", where, c.user)
 		case "28000":
-			return fmt.Errorf("%s: роль %q не может войти (роли нет, у неё не включён вход или подключение запрещено в pg_hba.conf). "+
-				"Если роль называется не так, как база, укажите её через --user. Ответ сервера: %s",
-				where, c.user, readable(pqErr.Message))
+			return fmt.Errorf("%s: пользователь %q не может войти (такого пользователя нет, у него не включён вход "+
+				"или подключение запрещено в pg_hba.conf). Ответ сервера: %s", where, c.user, readable(pqErr.Message))
+		case "3D000":
+			return fmt.Errorf("%s: базы данных %q нет на сервере. Не указывайте --db, чтобы использовать базу postgres, "+
+				"или укажите в --db существующую базу", where, c.database)
 		case "42501":
-			return fmt.Errorf("%s: у роли %q нет прав на подключение к базе. Ответ сервера: %s", where, c.user, readable(pqErr.Message))
+			return fmt.Errorf("%s: у пользователя %q нет прав на подключение к базе. Ответ сервера: %s", where, c.user, readable(pqErr.Message))
 		}
 		return fmt.Errorf("%s: %s (код %s)", where, readable(pqErr.Message), pqErr.Code)
 	}
@@ -68,4 +64,19 @@ func readable(s string) string {
 		}
 	}
 	return b.String()
+}
+
+// migrationError explains a failure to create the application tables.
+func migrationError(c config, err error) error {
+	var pqErr *pq.Error
+	if errors.As(err, &pqErr) && pqErr.Code == "42501" {
+		return fmt.Errorf("у пользователя %q нет прав создавать таблицы в базе %s (схема public). "+
+			"Выдайте права от имени postgres в Query Tool базы %s:\n"+
+			"GRANT CREATE, USAGE ON SCHEMA public TO %s;\nОтвет сервера: %s",
+			c.user, c.database, c.database, pq.QuoteIdentifier(c.user), readable(pqErr.Message))
+	}
+	if errors.As(err, &pqErr) {
+		return fmt.Errorf("создание таблиц в базе %s: %s (код %s)", c.database, readable(pqErr.Message), pqErr.Code)
+	}
+	return fmt.Errorf("создание таблиц в базе %s: %w", c.database, err)
 }

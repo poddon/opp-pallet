@@ -11,7 +11,7 @@
 
 ## Запуск в Windows
 
-Скачайте [OPP-test.exe](https://github.com/poddon/opp-pallet/releases/download/site-latest/OPP-test.exe). Подготовьте существующую базу PostgreSQL. При запуске приложение подключается к ней и само создаёт недостающие таблицы (`quiz_*`). Роль PostgreSQL должна иметь права на создание таблиц в своей схеме и изменение существующих таблиц приложения.
+Скачайте [OPP-test.exe](https://github.com/poddon/opp-pallet/releases/download/site-latest/OPP-test.exe). Приложение подключается к PostgreSQL под пользователем из `--name` к базе `postgres` (другую базу можно указать в `--db`) и само создаёт недостающие таблицы `quiz_*` в схеме `public`. В PostgreSQL 15 и новее обычному пользователю нужно один раз выдать права от имени `postgres`: `GRANT CREATE, USAGE ON SCHEMA public TO skopp;` — если прав нет, программа так и напишет при запуске.
 
 Проще всего запускать через [start.bat](https://github.com/poddon/opp-pallet/releases/download/site-latest/start.bat) — это одна строка запуска с параметрами, впишите свои значения:
 
@@ -24,16 +24,16 @@
 Тот же запуск из командной строки:
 
 ```powershell
-.\OPP-test.exe start --ip localhost --port 5432 --name ИМЯ_БАЗЫ --password ПАРОЛЬ_POSTGRESQL
+.\OPP-test.exe start --ip localhost --port 5432 --name ЛОГИН --password ПАРОЛЬ
 ```
 
 | Параметр | Назначение | По умолчанию |
 | --- | --- | --- |
 | `--ip` | адрес PostgreSQL | `localhost` |
 | `--port` | порт PostgreSQL | `5432` |
-| `--name` | имя существующей базы | `opp` |
-| `--user` | роль PostgreSQL | совпадает с `--name` (или `PGUSER`) |
-| `--password` | пароль PostgreSQL | `PGPASSWORD` |
+| `--name` | логин (пользователь) PostgreSQL | `PGUSER` |
+| `--password` | пароль пользователя PostgreSQL | `PGPASSWORD` |
+| `--db` | база данных, в которой создаются таблицы `quiz_*` | `postgres` |
 | `--sslmode` | TLS подключения к PostgreSQL | `disable` |
 | `--student-bind`, `--admin-bind` | интерфейсы порталов | `0.0.0.0` и `127.0.0.1` |
 
@@ -57,8 +57,8 @@
 ## Очистка базы
 
 ```powershell
-.\OPP-test.exe cleanup --ip localhost --port 5432 --name ИМЯ_БАЗЫ --password ПАРОЛЬ_POSTGRESQL
-.\OPP-test.exe cleanup --ip localhost --port 5432 --name ИМЯ_БАЗЫ --password ПАРОЛЬ_POSTGRESQL --apply
+.\OPP-test.exe cleanup --ip localhost --port 5432 --name ЛОГИН --password ПАРОЛЬ
+.\OPP-test.exe cleanup --ip localhost --port 5432 --name ЛОГИН --password ПАРОЛЬ --apply
 ```
 
 Первая команда только подсчитывает устаревшие записи: строки старого мониторинга `quiz_live` старше 24 часов без привязки к назначениям и просроченные сеансы администратора. Вторая удаляет их. Завершённые тесты, ответы и архивные результаты сохраняются. Просроченные сеансы администратора также удаляются автоматически во время работы.
