@@ -122,8 +122,18 @@
           <button class="secondary" type="reset">Сбросить</button>
           <a id="export" class="button secondary" href="/api/admin/results?format=xlsx">Скачать Excel</a>
           <a id="statement" class="button secondary" href="/api/admin/results?format=statement">Сформировать ведомость</a>
+          <a id="statsExport" class="button secondary" href="/api/admin/results?format=statsxlsx">Скачать статистику</a>
         </div>
       </form>
+      <details id="statsBox" class="stats-box" open>
+        <summary>Статистика по выбранным фильтрам</summary>
+        <div id="statTiles" class="stat-tiles"></div>
+        <div class="table-box"><table>
+          <thead><tr><th>Группа</th><th>Прохождений</th><th>Студентов</th><th>Средний результат</th><th>Сдали на 70%+</th><th>Доля сдавших</th><th>Списываний</th></tr></thead>
+          <tbody id="statRows"></tbody>
+        </table></div>
+        <div id="moduleStats" class="module-stats"></div>
+      </details>
       <div class="table-box"><table>
         <thead><tr><th>Дата, МСК</th><th>Время</th><th>ФИО</th><th>Группа</th><th>Тест</th><th>Статус</th><th>Результат</th><th>Ответы</th></tr></thead>
         <tbody id="resultRows"></tbody>

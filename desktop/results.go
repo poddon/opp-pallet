@@ -108,7 +108,7 @@ func (a *app) results(w http.ResponseWriter, r *http.Request) error {
 	const pageSize = 100
 	page := 1
 	format := q.Get("format")
-	export := format == "xlsx" || format == "statement"
+	export := format == "xlsx" || format == "statement" || format == "stats" || format == "statsxlsx"
 	if !export {
 		if raw := q.Get("page"); raw != "" {
 			var err error
@@ -137,15 +137,33 @@ func (a *app) results(w http.ResponseWriter, r *http.Request) error {
 		return err
 	}
 	if export {
+		if format == "stats" {
+			summary, err := a.stats(r.Context(), items)
+			if err != nil {
+				return err
+			}
+			writeJSON(w, 200, summary)
+			return nil
+		}
 		var body []byte
 		name, display := "OPP-results.xlsx", "Результаты ОПП.xlsx"
-		if format == "statement" {
+		if format == "statsxlsx" {
+			summary, err := a.stats(r.Context(), items)
+			if err != nil {
+				return err
+			}
+			body, err = workbook([]sheetData{statsSheet(summary)})
+			if err != nil {
+				return err
+			}
+			name, display = "OPP-stats.xlsx", "Статистика ОПП.xlsx"
+		} else if format == "statement" {
 			if len(items) == 0 {
 				return problem{404, "Нет результатов для ведомости. Измените фильтры."}
 			}
 			body, err = statement(items)
 			name, display = "Vedomost-OPP.xlsx", "Ведомость ОПП.xlsx"
-		} else {
+		} else if format == "xlsx" {
 			body, err = a.exportResults(r.Context(), items)
 		}
 		if err != nil {
@@ -368,6 +386,8 @@ func workbook(sheets []sheetData) ([]byte,error) {
 				switch v := value.(type) {
 				case int:
 					fmt.Fprintf(&sheet, "<c><v>%d</v></c>", v)
+				case float64:
+					fmt.Fprintf(&sheet, "<c><v>%s</v></c>", strconv.FormatFloat(v, 'f', -1, 64))
 				case nil:
 					sheet.WriteString("<c/>")
 				default:
@@ -464,8 +484,13 @@ func (a *app) exportResults(ctx context.Context, items []resultRow) ([]byte, err
 	for range a.modules {
 		summaryWidths = append(summaryWidths, 16, 16, 16)
 	}
+	overview, err := a.stats(ctx, items)
+	if err != nil {
+		return nil, err
+	}
 	return workbook([]sheetData{
 		{"Результаты", summary, summaryWidths},
+		statsSheet(overview),
 		{"Ответы по модулям", detail, []int{11, 9, 32, 36, 14, 30, 10, 70, 45, 45, 14}},
 	})
 }

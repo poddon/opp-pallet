@@ -214,11 +214,72 @@ async function loadResults() {
   $("prev").disabled = data.page <= 1;
   $("next").disabled = !data.more;
   $("page").textContent = "Страница " + data.page;
+  void loadStats(request);
   const exportParams = new URLSearchParams(filters);
   exportParams.set("format", "xlsx");
   $("export").href = adminPath + "results?" + exportParams;
   exportParams.set("format", "statement");
   $("statement").href = adminPath + "results?" + exportParams;
+}
+
+const percent = value => String(value).replace(".", ",") + "%";
+
+async function loadStats(request) {
+  const params = new URLSearchParams(filters);
+  params.set("format", "stats");
+  let stats;
+  try {
+    stats = await api(adminPath + "results?" + params);
+  } catch (error) {
+    reportError(error);
+    return;
+  }
+  if (request !== resultsRequest) return;
+  const t = stats.total;
+  $("statTiles").replaceChildren(...[
+    ["Прохождений", t.attempts],
+    ["Студентов", t.students],
+    ["Средний результат", percent(t.average)],
+    ["Сдали на 70%+", t.passed + " (" + percent(t.passRate) + ")"],
+    ["Списываний", t.cheating],
+  ].map(([label, value]) => {
+    const tile = document.createElement("div");
+    tile.className = "stat-tile";
+    const number = document.createElement("strong");
+    number.textContent = value;
+    const caption = document.createElement("span");
+    caption.textContent = label;
+    tile.append(number, caption);
+    return tile;
+  }));
+  const line = l => [l.group, l.attempts, l.students, percent(l.average), l.passed, percent(l.passRate), l.cheating];
+  table("statRows", stats.groups.map(line), 7, "Нет данных по этим фильтрам.");
+  if (stats.groups.length > 1) {
+    const total = line(t);
+    const row = document.createElement("tr");
+    row.className = "stat-total";
+    for (const value of total) {
+      const cell = document.createElement("td");
+      cell.textContent = value;
+      row.append(cell);
+    }
+    $("statRows").append(row);
+  }
+  $("moduleStats").replaceChildren(...stats.modules.map(m => {
+    const item = document.createElement("div");
+    item.className = "module-stat";
+    const name = document.createElement("span");
+    name.textContent = m.module;
+    const bar = document.createElement("div");
+    bar.className = "module-bar";
+    const fill = document.createElement("div");
+    fill.style.width = Math.min(100, m.average) + "%";
+    bar.append(fill);
+    const value = document.createElement("strong");
+    value.textContent = m.total ? percent(m.average) + " правильных" : "нет ответов";
+    item.append(name, bar, value);
+    return item;
+  }));
 }
 
 function answerItem(item) {
@@ -470,7 +531,7 @@ async function download(event, format) {
     const blob = await response.blob();
     const link = document.createElement("a");
     link.href = URL.createObjectURL(blob);
-    link.download = format === "statement" ? "Ведомость ОПП.xlsx" : "Результаты ОПП.xlsx";
+    link.download = {statement: "Ведомость ОПП.xlsx", statsxlsx: "Статистика ОПП.xlsx"}[format] || "Результаты ОПП.xlsx";
     document.body.append(link);
     link.click();
     link.remove();
@@ -481,6 +542,7 @@ async function download(event, format) {
 }
 $("statement").addEventListener("click", event => void download(event, "statement"));
 $("export").addEventListener("click", event => void download(event, "xlsx"));
+$("statsExport").addEventListener("click", event => void download(event, "statsxlsx"));
 
 $("openPassword").addEventListener("click", () => {
   $("passwordForm").reset();

@@ -317,7 +317,7 @@ func TestPortalsPostgreSQL(t *testing.T) {
 	}
 	var answerSheet []byte
 	for _, f := range book.File {
-		if f.Name == "xl/worksheets/sheet2.xml" {
+		if f.Name == "xl/worksheets/sheet3.xml" {
 			r, err := f.Open()
 			if err != nil {
 				t.Fatal(err)
@@ -398,5 +398,15 @@ func TestPortalsPostgreSQL(t *testing.T) {
 	request(admin, "GET", "/api/admin/results?"+url.Values{"group":{cheatGroup}, "status":{flagged}}.Encode(), nil, 200, &cheated)
 	if len(cheated.Rows) != 1 || cheated.Rows[0].Percent != 0 || cheated.Rows[0].Reason != "Снимок экрана" {
 		t.Fatalf("cheating result: %+v", cheated)
+	}
+	var summary resultStats
+	request(admin, "GET", "/api/admin/results?"+url.Values{"group":{cheatGroup}, "format":{"stats"}}.Encode(), nil, 200, &summary)
+	if summary.Total.Attempts != 1 || summary.Total.Cheating != 1 || summary.Total.Average != 0 || len(summary.Groups) != 1 ||
+		len(summary.Modules) != 4 {
+		t.Fatalf("stats: %+v", summary)
+	}
+	statsBook := request(admin, "GET", "/api/admin/results?"+url.Values{"group":{cheatGroup}, "format":{"statsxlsx"}}.Encode(), nil, 200, nil)
+	if !bytes.HasPrefix(statsBook.Body.Bytes(), []byte("PK")) {
+		t.Fatal("stats workbook")
 	}
 }
