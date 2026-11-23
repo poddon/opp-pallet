@@ -173,6 +173,9 @@ function showAttempt(data) {
   $("taking").hidden = !live;
   $("finished").hidden = live;
   lastStatus = data.status;
+  document.body.classList.toggle("testing", live);
+  if (live && !viewBase) rememberView();
+  if (!live) viewBase = null;
   if (!live) {
     if (data.status === "СПИСЫВАНИЕ") showCheat();
     $("resultTitle").textContent = data.status === "СПИСЫВАНИЕ" ? "СПИСАНО. Обратитесь к преподавателю" : data.status;
@@ -282,6 +285,7 @@ $("back").addEventListener("click", () => {
 const reasonText = {
   tab: "Уход со страницы",
   window: "Переключение на другое окно",
+  split: "Разделение экрана",
   screenshot: "Снимок экрана",
   copy: "Копирование текста",
   paste: "Вставка текста",
@@ -340,9 +344,42 @@ document.addEventListener("visibilitychange", () => {
   }
   violation("tab");
 });
-// Focus moving to another program, a pop-up window or a screenshot tool (Win+Shift+S).
+// Split screen, a floating window or a browser window made smaller (phone or computer).
+// Rotating the phone and browser zoom are not violations: they reset the reference size.
+let viewBase = null;
+function viewSize() {
+  const v = window.visualViewport;
+  // The screen orientation does not change in split screen, only when the phone is rotated.
+  const orientation = screen.orientation?.type || (screen.width > screen.height ? "landscape" : "portrait");
+  return {w: window.innerWidth, h: window.innerHeight, scale: v ? v.scale : 1, dpr: window.devicePixelRatio, orientation};
+}
+function rememberView() { viewBase = viewSize(); }
+let resizeTimer = 0;
+function checkView() {
+  if (!viewBase || lastStatus !== "Проходит") return;
+  const now = viewSize();
+  if (now.orientation !== viewBase.orientation || now.dpr !== viewBase.dpr || now.scale !== viewBase.scale) {
+    rememberView();
+    return;
+  }
+  // The mobile address bar changes the height by about 10%; split screen halves the window.
+  if (now.w < viewBase.w * 0.8 || now.h < viewBase.h * 0.7) violation("split");
+}
+window.addEventListener("resize", () => {
+  clearTimeout(resizeTimer);
+  resizeTimer = setTimeout(checkView, 400);
+});
+screen.orientation?.addEventListener("change", () => setTimeout(rememberView, 600));
+// Android split screen, picture-in-picture and multi-window report it through the page lifecycle too.
+document.addEventListener("freeze", () => violation("tab"));
+
+// Focus moving to another program, a pop-up window, the notification shade, a chat bubble
+// or a screenshot tool (Win+Shift+S).
 window.addEventListener("blur", () => {
-  setTimeout(() => violation(document.visibilityState === "hidden" ? "tab" : "window"), 150);
+  setTimeout(() => {
+    if (document.hasFocus()) return;
+    violation(document.visibilityState === "hidden" ? "tab" : "window");
+  }, 150);
 });
 setInterval(() => {
   if (lastStatus !== "Проходит") return;
