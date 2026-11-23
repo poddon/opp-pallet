@@ -58,28 +58,39 @@
         </form>
       </details>
       <form id="openForm" class="stack">
-        <div class="fields">
-          <label>Направление <select id="direction"></select></label>
-          <fieldset class="group-numbers">
-            <legend>Номер группы</legend>
-            <label class="check"><input type="checkbox" name="groupNumber" value="26-1"> 26-1</label>
-            <label class="check"><input type="checkbox" name="groupNumber" value="26-2"> 26-2</label>
-          </fieldset>
-          <label>Другие номера
-            <input id="extraNumbers" placeholder="26-3, 25-1" maxlength="100">
-          </label>
-        </div>
-        <div class="actions"><button class="secondary" id="addProgramGroups" type="button">Добавить в список</button></div>
-        <details id="existingGroups">
-          <summary>Выбрать группу из базы</summary>
+        <label>Тест <select id="openTest" name="test" required></select></label>
+        <fieldset class="group-list">
+          <legend>Группы</legend>
           <div class="fields">
-            <label>Группа <select id="existingGroup"></select></label>
-            <div class="actions"><button id="addExistingGroup" type="button" class="secondary">Добавить в список</button></div>
+            <label>Поиск группы <input id="groupSearch" type="search" placeholder="Например, 26-1" maxlength="80"></label>
+            <div class="actions">
+              <button id="checkAllGroups" type="button" class="secondary">Отметить найденные</button>
+              <button id="uncheckAllGroups" type="button" class="secondary">Снять отметки</button>
+            </div>
+          </div>
+          <p id="noGroups" class="muted" hidden>Групп пока нет. Добавьте новую группу ниже.</p>
+          <div id="groupChecklist" class="checklist"></div>
+        </fieldset>
+        <details id="newGroups">
+          <summary>Новая группа направления Алабуга Политех</summary>
+          <div class="stack">
+            <div class="fields">
+              <label>Направление <select id="direction"></select></label>
+              <fieldset class="group-numbers">
+                <legend>Номер группы</legend>
+                <label class="check"><input type="checkbox" name="groupNumber" value="26-1"> 26-1</label>
+                <label class="check"><input type="checkbox" name="groupNumber" value="26-2"> 26-2</label>
+              </fieldset>
+              <label>Другие номера
+                <input id="extraNumbers" placeholder="26-3, 25-1" maxlength="100">
+              </label>
+            </div>
+            <div class="actions"><button class="secondary" id="addProgramGroups" type="button">Добавить в список</button></div>
           </div>
         </details>
         <div>
           <h2>Выбранные группы</h2>
-          <p id="emptyGroups" class="muted">Добавьте одну или несколько групп.</p>
+          <p id="emptyGroups" class="muted">Отметьте одну или несколько групп.</p>
           <ul id="selectedGroups" class="selected-groups" aria-label="Выбранные группы"></ul>
         </div>
         <div class="fields">
@@ -89,7 +100,7 @@
         <p id="openTestError" class="error" role="alert"></p>
       </form>
       <details>
-        <summary>Добавить группу</summary>
+        <summary>Добавить группу с произвольным названием</summary>
         <form id="groupForm" class="fields">
           <label>Название группы <input name="code" placeholder="ПРОМРОБО 25-3" maxlength="80" required></label>
           <div class="actions"><button class="secondary">Добавить</button></div>
@@ -98,9 +109,10 @@
     </section>
     <section id="active" class="card" hidden>
       <h1>Активные тесты</h1>
+      <p class="muted">Тест закрывается автоматически по окончании времени доступа. Кнопка «Закрыть тест» закрывает его раньше только для выбранной группы.</p>
       <p id="openingSummary" class="muted" role="status" hidden></p>
       <div class="table-box"><table>
-        <thead><tr><th>Группа</th><th>Тест</th><th>Закрытие, МСК</th><th>Действие</th></tr></thead>
+        <thead><tr><th>Группа</th><th>Тест</th><th>Открыт, МСК</th><th>Закроется автоматически, МСК</th><th>Осталось</th><th>Действие</th></tr></thead>
         <tbody id="activeRows"></tbody>
       </table></div>
     </section>
@@ -117,12 +129,9 @@
       <form id="filters" class="stack">
         <div class="fields">
           <label>ФИО <input name="name" type="search" maxlength="160"></label>
-          <label>Группа <select id="filterGroup" name="group"></select></label>
-          <label>Тест <select id="filterTest" name="test"></select></label>
-          <label>Статус <select name="status">
-            <option value="">Все статусы</option><option>Пройден</option>
-            <option>Тест закрыт</option><option>СПИСЫВАНИЕ</option>
-          </select></label>
+          <details class="multi"><summary>Группы <span id="groupCount" class="muted"></span></summary><div id="filterGroup" class="checklist"></div></details>
+          <details class="multi"><summary>Тесты <span id="testCount" class="muted"></span></summary><div id="filterTest" class="checklist"></div></details>
+          <details class="multi"><summary>Статусы <span id="statusCount" class="muted"></span></summary><div id="filterStatus" class="checklist"></div></details>
           <label>Дата с <input name="from" type="date"></label>
           <label>Дата по <input name="to" type="date"></label>
         </div>

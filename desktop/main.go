@@ -30,12 +30,14 @@ type config struct {
 	studentHost, adminHost, adminPassword, consentFile string
 	port int
 	cleanup, apply bool
+	adminUsesDBPassword bool
 }
 
 func parseConfig(args []string) (config, error) {
 	var c config
 	if len(args) == 0 || (args[0] != "start" && args[0] != "cleanup") {
-		return c, errors.New("использование: OPP-test.exe start --help или OPP-test.exe cleanup --help")
+		return c, errors.New("использование: MaxBotWebApp.exe start --ip localhost --port 5432 --name maxbot --password ПАРОЛЬ\n" +
+			"подробнее: MaxBotWebApp.exe start --help или MaxBotWebApp.exe cleanup --help")
 	}
 	c.cleanup = args[0] == "cleanup"
 	flags := flag.NewFlagSet(args[0], flag.ContinueOnError)
@@ -50,7 +52,7 @@ func parseConfig(args []string) (config, error) {
 	} else {
 		flags.StringVar(&c.studentHost, "student-bind", "0.0.0.0", "интерфейс портала студента")
 		flags.StringVar(&c.adminHost, "admin-bind", "127.0.0.1", "интерфейс портала администратора")
-		flags.StringVar(&c.adminPassword, "admin-password", "", "пароль администратора (или OPP_ADMIN_PASSWORD), минимум 12 символов")
+		flags.StringVar(&c.adminPassword, "admin-password", "", "отдельный пароль администратора (или OPP_ADMIN_PASSWORD), минимум 12 символов; по умолчанию вход по паролю PostgreSQL")
 		flags.StringVar(&c.consentFile, "consent-file", os.Getenv("OPP_CONSENT_FILE"), "файл с текстом согласия в UTF-8")
 	}
 	if err := flags.Parse(args[1:]); err != nil {
@@ -78,8 +80,19 @@ func validateConfig(c config) (config, error) {
 	if c.user == "" {
 		c.user = c.database
 	}
-	if !c.cleanup && len([]rune(c.adminPassword)) < 12 {
-		return c, errors.New("пароль администратора должен содержать не менее 12 символов")
+	if c.cleanup {
+		return c, nil
+	}
+	// Without a separate admin password the portal accepts the PostgreSQL password,
+	// so the documented one-line start command works as is.
+	c.adminUsesDBPassword = c.adminPassword == ""
+	if c.adminUsesDBPassword {
+		if c.password == "" {
+			return c, errors.New("укажите пароль PostgreSQL (--password или PGPASSWORD) или отдельный пароль администратора (--admin-password)")
+		}
+		c.adminPassword = c.password
+	} else if len([]rune(c.adminPassword)) < 12 {
+		return c, errors.New("отдельный пароль администратора должен содержать не менее 12 символов")
 	}
 	return c, nil
 }
@@ -173,6 +186,9 @@ func run(c config) error {
 	go a.schedule(signalCtx)
 	fmt.Println("Студент       http://localhost:8004")
 	fmt.Println("Администратор http://localhost:8005")
+	if c.adminUsesDBPassword {
+		fmt.Println("Вход в портал администратора — по паролю PostgreSQL.")
+	}
 	if c.consentFile == "" {
 		fmt.Println("Согласие на обработку персональных данных можно настроить в админке.")
 	}

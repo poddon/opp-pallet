@@ -12,6 +12,11 @@ let lastStatus = "";
 let pending = false;
 let flaggedDuringRequest = false;
 let nextPoll = 0;
+let testCounts = new Map();
+
+function showQuestionCount() {
+  $("questionCount").textContent = testCounts.get(studentTest.value) ?? "—";
+}
 
 async function loadGroups() {
   try {
@@ -36,6 +41,8 @@ async function loadGroups() {
 async function loadTests() {
   const group = studentGroup.value;
   options(studentTest, [], "Выберите тест");
+  testCounts = new Map();
+  showQuestionCount();
   const testField = $("studentTestField");
   testField.hidden = true;
   studentTest.required = false;
@@ -44,11 +51,13 @@ async function loadTests() {
     const tests = await api(studentPath + "tests?" + new URLSearchParams({group}));
     if (studentGroup.value !== group) return;
     options(studentTest, tests.map(t => ({
-      label: t.title + " · до " + dateFormat.format(new Date(t.closes)) + " МСК",
+      label: t.title + " · " + t.questions + " вопр. · до " + dateFormat.format(new Date(t.closes)) + " МСК",
       value: String(t.id)
     })), tests.length ? "Выберите тест" : "Нет открытых тестов");
+    testCounts = new Map(tests.map(t => [String(t.id), t.questions]));
     if (tests.length === 1) {
       studentTest.value = String(tests[0].id);
+      showQuestionCount();
     } else {
       testField.hidden = false;
       studentTest.required = true;
@@ -133,6 +142,7 @@ function paintClock() {
 
 $("refreshGroups").addEventListener("click", loadGroups);
 studentGroup.addEventListener("change", loadTests);
+studentTest.addEventListener("change", showQuestionCount);
 $("entry").addEventListener("submit", event => {
   event.preventDefault();
   const form = new FormData(event.currentTarget);

@@ -70,7 +70,12 @@ dialog h2 { margin-top: 12px; }
 .group-numbers label { white-space: nowrap; }
 .selected-groups { display: grid; gap: 6px; list-style: none; margin: 0; padding: 0; }
 .selected-groups li { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
-#existingGroups .fields { margin-top: 8px; }
+#newGroups .stack { margin-top: 10px; }
+.group-list { border: 1px solid var(--border); border-radius: 8px; display: grid; gap: 10px; margin: 0; min-width: 0; }
+.checklist { display: grid; gap: 4px 16px; grid-template-columns: repeat(auto-fill, minmax(min(100%, 260px), 1fr)); max-height: 280px; overflow: auto; }
+.checklist .check { align-items: center; }
+details.multi { align-self: end; padding-block: 9px; }
+details.multi .checklist { margin-top: 8px; max-height: 220px; }
 
 #consentSettings { margin-bottom: 16px; }
 #consentForm { margin-top: 10px; }

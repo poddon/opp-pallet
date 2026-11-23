@@ -51,8 +51,12 @@ func readCatalog() ([]test, error) {
 	if err := json.Unmarshal(body, &catalog); err != nil {
 		return nil, err
 	}
-	general := test{ID: "general", Title: "Общий тест"}
+	seen := map[string]bool{}
 	for _, t := range catalog {
+		if seen[t.ID] {
+			return nil, fmt.Errorf("повторяется тест %s", t.ID)
+		}
+		seen[t.ID] = true
 		if t.ID == "" || t.Title == "" || len(t.Questions) == 0 {
 			return nil, errors.New("некорректный тест в банке вопросов")
 		}
@@ -61,9 +65,11 @@ func readCatalog() ([]test, error) {
 				return nil, fmt.Errorf("некорректный вопрос теста %s", t.ID)
 			}
 		}
-		general.Questions = append(general.Questions, t.Questions...)
 	}
-	return append([]test{general}, catalog...), nil
+	if len(catalog) == 0 {
+		return nil, errors.New("банк вопросов пуст")
+	}
+	return catalog, nil
 }
 
 func digest(s string) string {
@@ -128,12 +134,17 @@ func (a *app) expire(ctx context.Context) error {
 	return tx.Commit()
 }
 
+const dropExpiredSessions = `DELETE FROM quiz_admin_sessions WHERE expires_at <= clock_timestamp()`
+
 func (a *app) schedule(ctx context.Context) {
 	ticker := time.NewTicker(3 * time.Second)
 	defer ticker.Stop()
 	for {
 		work, cancel := context.WithTimeout(ctx, 10*time.Second)
 		err := a.expire(work)
+		if err == nil {
+			_, err = a.db.ExecContext(work, dropExpiredSessions)
+		}
 		cancel()
 		if err != nil && ctx.Err() == nil {
 			log.Printf("автозакрытие тестов: %v", err)
@@ -174,10 +185,32 @@ func (a *app) cleanup(ctx context.Context, apply bool) error {
 			return err
 		}
 	}
+	var sessions int64
+	if err := tx.QueryRowContext(ctx, "SELECT to_regclass('quiz_admin_sessions') IS NOT NULL").Scan(&exists); err != nil {
+		return err
+	}
+	if exists {
+		const expired = ` FROM quiz_admin_sessions WHERE expires_at <= clock_timestamp()`
+		if apply {
+			result, err := tx.ExecContext(ctx, "DELETE"+expired)
+			if err != nil {
+				return err
+			}
+			if sessions, err = result.RowsAffected(); err != nil {
+				return err
+			}
+		} else if err := tx.QueryRowContext(ctx, "SELECT count(*)"+expired).Scan(&sessions); err != nil {
+			return err
+		}
+	}
 	if err := tx.Commit(); err != nil {
 		return err
 	}
 	fmt.Printf("Устаревшие записи старого мониторинга — %d\n", count)
+	fmt.Printf("Просроченные сеансы администратора — %d\n", sessions)
+	if !apply {
+		fmt.Println("Для удаления повторите команду с --apply")
+	}
 	return nil
 }
 

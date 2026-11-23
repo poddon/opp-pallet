@@ -100,11 +100,13 @@ type assignment struct {
 	ID int64 `json:"id"`
 	Group string `json:"group"`
 	Title string `json:"title"`
+	Questions int `json:"questions"`
+	Opened time.Time `json:"opened"`
 	Closes time.Time `json:"closes"`
 }
 
 func (a *app) assignments(ctx context.Context, group string) ([]assignment, error) {
-	rows, err := a.db.QueryContext(ctx, `SELECT id,group_code,title,closes_at FROM quiz_assignments
+	rows, err := a.db.QueryContext(ctx, `SELECT id,group_code,title,jsonb_array_length(questions),opened_at,closes_at FROM quiz_assignments
 		WHERE ($1='' OR group_code=$1) AND closed_at IS NULL AND closes_at > clock_timestamp()
 		ORDER BY closes_at, id`, group)
 	if err != nil {
@@ -114,7 +116,7 @@ func (a *app) assignments(ctx context.Context, group string) ([]assignment, erro
 	out := []assignment{}
 	for rows.Next() {
 		var item assignment
-		if err := rows.Scan(&item.ID,&item.Group,&item.Title,&item.Closes); err != nil {
+		if err := rows.Scan(&item.ID,&item.Group,&item.Title,&item.Questions,&item.Opened,&item.Closes); err != nil {
 			return nil, err
 		}
 		out = append(out,item)
@@ -266,9 +268,9 @@ func (a *app) adminPortal(web fs.FS) http.Handler {
 		if err != nil {
 			return err
 		}
-		tests := make([]map[string]string,0,len(a.catalog))
+		tests := make([]map[string]any,0,len(a.catalog))
 		for _, t := range a.catalog {
-			tests = append(tests,map[string]string{"id":t.ID,"title":t.Title})
+			tests = append(tests,map[string]any{"id":t.ID,"title":t.Title,"questions":len(t.Questions)})
 		}
 		consent, err := a.consentText(r.Context(), a.db)
 		if err != nil {
@@ -320,6 +322,7 @@ func (a *app) openAssignment(w http.ResponseWriter, r *http.Request) error {
 	var req struct {
 		Groups   []string       `json:"groups"`
 		Programs []programGroup `json:"programs"`
+		Test     string         `json:"test"`
 		Minutes  int            `json:"minutes"`
 	}
 	if err := readJSON(w, r, &req); err != nil {
@@ -347,9 +350,9 @@ func (a *app) openAssignment(w http.ResponseWriter, r *http.Request) error {
 	slices.Sort(groups)
 	groups = slices.Compact(groups)
 
-	index := slices.IndexFunc(a.catalog, func(t test) bool { return t.ID == "general" })
+	index := slices.IndexFunc(a.catalog, func(t test) bool { return t.ID == req.Test })
 	if index < 0 {
-		return errors.New("общий тест отсутствует в банке вопросов")
+		return problem{400, "Выберите тест"}
 	}
 	selected := a.catalog[index]
 	questions, err := json.Marshal(selected.Questions)

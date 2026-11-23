@@ -56,3 +56,23 @@ func TestStartupWithNoLegacyFile(t *testing.T) {
 		t.Fatal("startup configuration did not match the supplied parameters")
 	}
 }
+
+func TestStartCommandWithoutSeparateAdminPassword(t *testing.T) {
+	t.Setenv("PGUSER", "")
+	t.Setenv("PGPASSWORD", "")
+	t.Setenv("OPP_ADMIN_PASSWORD", "")
+	c, err := parseConfig(strings.Fields("start --ip localhost --port 5432 --name maxbot --password maxbotmaxbot"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if c.host != "localhost" || c.port != 5432 || c.database != "maxbot" || c.user != "maxbot" ||
+		c.password != "maxbotmaxbot" || c.adminPassword != "maxbotmaxbot" || !c.adminUsesDBPassword {
+		t.Fatalf("unexpected configuration: %+v", c)
+	}
+	if _, err := parseConfig(strings.Fields("start --name maxbot")); err == nil {
+		t.Fatal("start without any password must fail")
+	}
+	if _, err := parseConfig(strings.Fields("start --name maxbot --password x --admin-password short")); err == nil {
+		t.Fatal("short separate admin password must fail")
+	}
+}

@@ -28,16 +28,69 @@ function showConsent(text, saved = false) {
   $("missingConsent").hidden = Boolean(text);
 }
 
+const statuses = ["Пройден", "Тест закрыт", "СПИСЫВАНИЕ"];
+let knownGroups = [];
+
+function checklist(container, items, name, checked = new Set()) {
+  const keep = new Set(Array.from(container.querySelectorAll("input:checked"), box => box.value));
+  container.replaceChildren(...items.map(entry => {
+    const item = typeof entry === "string" ? {label: entry, value: entry} : entry;
+    const label = document.createElement("label");
+    label.className = "check";
+    const box = document.createElement("input");
+    box.type = "checkbox";
+    box.name = name;
+    box.value = item.value;
+    box.checked = checked.has(item.value) || keep.has(item.value);
+    label.append(box, document.createTextNode(" " + item.label));
+    return label;
+  }));
+}
+
+function countChecked(container, counter) {
+  const count = container.querySelectorAll("input:checked").length;
+  $(counter).textContent = count ? "(" + count + ")" : "(все)";
+}
+
+function renderGroupChecklist() {
+  const checked = new Set(Array.from(selectedGroups.keys()));
+  checklist($("groupChecklist"), knownGroups, "openGroup", checked);
+  for (const box of $("groupChecklist").querySelectorAll("input")) box.checked = checked.has(box.value);
+  $("noGroups").hidden = knownGroups.length > 0;
+  filterGroupChecklist();
+}
+
+function filterGroupChecklist() {
+  const needle = $("groupSearch").value.trim().toLowerCase();
+  for (const label of $("groupChecklist").children) {
+    label.hidden = Boolean(needle) && !label.textContent.toLowerCase().includes(needle);
+  }
+}
+
 async function loadSetup() {
   const setup = await api(adminPath + "setup");
-  const tests = setup.tests.map(item => ({label: item.title, value: item.id}));
+  const tests = setup.tests.map(item => ({label: item.title + " · " + item.questions + " вопр.", value: item.id}));
+  options($("openTest"), tests, "Выберите тест");
   options($("direction"), setup.directions, "Выберите направление");
-  options($("existingGroup"), setup.groups, "Выберите группу");
-  $("existingGroups").hidden = setup.groups.length === 0;
-  options($("filterGroup"), setup.groups, "Все группы");
-  options($("filterTest"), [...tests, {label: "Архивные тесты", value: "archive"}], "Все тесты");
+  knownGroups = setup.groups;
+  for (const [code, entry] of selectedGroups) {
+    if (entry && knownGroups.includes(code)) selectedGroups.set(code, null);
+  }
+  renderGroupChecklist();
+  renderSelectedGroups();
+  checklist($("filterGroup"), setup.groups, "group");
+  checklist($("filterTest"), [...setup.tests.map(item => ({label: item.title, value: item.id})),
+    {label: "Архивные тесты", value: "archive"}], "test");
+  checklist($("filterStatus"), statuses, "status");
+  updateFilterCounts();
   showConsent(setup.consent);
   showDashboard(true);
+}
+
+function updateFilterCounts() {
+  countChecked($("filterGroup"), "groupCount");
+  countChecked($("filterTest"), "testCount");
+  countChecked($("filterStatus"), "statusCount");
 }
 
 function table(id, rows, columns, empty) {
@@ -80,6 +133,7 @@ function renderSelectedGroups() {
     const remove = action("Убрать", () => {
       selectedGroups.delete(code);
       renderSelectedGroups();
+      renderGroupChecklist();
     });
     remove.setAttribute("aria-label", "Убрать " + label.textContent);
     row.append(label, remove);
@@ -102,31 +156,42 @@ function addProgramGroups() {
   }
   for (const number of numbers) {
     const code = (direction + " " + number).toUpperCase();
-    selectedGroups.set(code, {direction, number});
+    selectedGroups.set(code, knownGroups.includes(code) ? null : {direction, number});
   }
   for (const box of checkboxes) box.checked = false;
   $("extraNumbers").value = "";
   renderSelectedGroups();
+  renderGroupChecklist();
 }
 
-function addExistingGroup() {
-  const select = $("existingGroup");
-  if (!select.value) throw new Error("Выберите группу из списка.");
-  if (!selectedGroups.has(select.value)) selectedGroups.set(select.value, null);
-  select.value = "";
+$("addProgramGroups").addEventListener("click", () => {
+  try {
+    addProgramGroups();
+    $("message").textContent = "";
+  } catch (error) {
+    reportError(error);
+  }
+});
+$("groupChecklist").addEventListener("change", event => {
+  const box = event.target;
+  if (box.checked) selectedGroups.set(box.value, null);
+  else selectedGroups.delete(box.value);
+  renderSelectedGroups();
+});
+$("groupSearch").addEventListener("input", filterGroupChecklist);
+$("groupSearch").addEventListener("keydown", event => { if (event.key === "Enter") event.preventDefault(); });
+function markVisibleGroups(checked) {
+  for (const label of $("groupChecklist").children) {
+    if (label.hidden) continue;
+    const box = label.querySelector("input");
+    box.checked = checked;
+    if (checked) selectedGroups.set(box.value, null);
+    else selectedGroups.delete(box.value);
+  }
   renderSelectedGroups();
 }
-
-for (const [id, add] of [["addProgramGroups", addProgramGroups], ["addExistingGroup", addExistingGroup]]) {
-  $(id).addEventListener("click", () => {
-    try {
-      add();
-      $("message").textContent = "";
-    } catch (error) {
-      reportError(error);
-    }
-  });
-}
+$("checkAllGroups").addEventListener("click", () => markVisibleGroups(true));
+$("uncheckAllGroups").addEventListener("click", () => markVisibleGroups(false));
 
 async function loadActive() {
   const rows = await api(adminPath + "assignments");
@@ -142,8 +207,10 @@ async function loadActive() {
         reportError(error);
       }
     }, "danger");
-    return [row.group, row.title, dateFormat.format(new Date(row.closes)), close];
-  }), 4, "Активных тестов нет.");
+    const left = Math.max(0, Math.ceil((new Date(row.closes) - Date.now()) / 60000));
+    return [row.group, row.title + " · " + row.questions + " вопр.", dateFormat.format(new Date(row.opened)),
+      dateFormat.format(new Date(row.closes)), left + " мин", close];
+  }), 6, "Активных тестов нет.");
 }
 
 async function loadLive() {
@@ -251,9 +318,8 @@ submit("loginForm", async (data, form) => {
 submit("groupForm", async (data, form) => {
   const item = await api(adminPath + "groups", {code: data.get("code")});
   form.reset();
+  selectedGroups.set(item.code, null);
   await loadSetup();
-  $("existingGroups").open = true;
-  $("existingGroup").value = item.code;
 });
 $("consentInput").addEventListener("input", () => { $("consentSaved").textContent = ""; });
 submit("consentForm", async data => {
@@ -265,7 +331,7 @@ submit("consentForm", async data => {
 
 submit("openForm", async data => {
   if (data.getAll("groupNumber").length || $("extraNumbers").value.trim()) addProgramGroups();
-  if ($("existingGroup").value) addExistingGroup();
+  if (!data.get("test")) throw new Error("Выберите тест.");
   if (!selectedGroups.size) throw new Error("Выберите хотя бы одну группу.");
   const groups = [];
   const programs = [];
@@ -274,7 +340,7 @@ submit("openForm", async data => {
     else groups.push(code);
   }
   const result = await api(adminPath + "assignments", {
-    groups, programs, minutes: Number(data.get("minutes"))
+    groups, programs, test: data.get("test"), minutes: Number(data.get("minutes"))
   });
   selectedGroups.clear();
   renderSelectedGroups();
@@ -303,7 +369,7 @@ for (const button of tabs) {
 function setFilters() {
   filters = new URLSearchParams();
   for (const [key, value] of new FormData($("filters"))) {
-    if (value) filters.set(key, value);
+    if (value) filters.append(key, value);
   }
   page = 1;
   void selectTab("results");
@@ -312,7 +378,8 @@ $("filters").addEventListener("submit", event => {
   event.preventDefault();
   setFilters();
 });
-$("filters").addEventListener("reset", () => setTimeout(setFilters, 0));
+$("filters").addEventListener("reset", () => setTimeout(() => { updateFilterCounts(); setFilters(); }, 0));
+$("filters").addEventListener("change", updateFilterCounts);
 $("prev").addEventListener("click", () => { page--; void selectTab("results"); });
 $("next").addEventListener("click", () => { page++; void selectTab("results"); });
 

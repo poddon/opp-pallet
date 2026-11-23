@@ -29,9 +29,15 @@ func TestPortalsPostgreSQL(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(a.catalog) != 5 || a.catalog[0].ID != "general" || len(a.catalog[0].Questions) != 50 {
-		t.Fatal("expected a general test with all 50 questions and four thematic tests")
+	if len(a.catalog) != 4 {
+		t.Fatal("expected four thematic tests")
 	}
+	for _, item := range a.catalog {
+		if item.ID == "general" {
+			t.Fatal("general test must not be offered")
+		}
+	}
+	chosen := a.catalog[0]
 	if err := a.migrate(ctx); err != nil {
 		t.Fatal(err)
 	}
@@ -98,7 +104,9 @@ func TestPortalsPostgreSQL(t *testing.T) {
 		{Direction: "Промышленная робототехника", Number: "26-2"},
 		{Direction: "Промышленная автоматика", Number: "26-1"},
 	}
-	batch := map[string]any{"groups": []string{group, group}, "programs": programs, "minutes": 2}
+	request(admin, "POST", "/api/admin/assignments", map[string]any{"groups": []string{group}, "test": "general", "minutes": 2}, 400, nil)
+	request(admin, "POST", "/api/admin/assignments", map[string]any{"groups": []string{group}, "minutes": 2}, 400, nil)
+	batch := map[string]any{"groups": []string{group, group}, "programs": programs, "test": chosen.ID, "minutes": 2}
 	request(admin, "POST", consentEndpoint, map[string]string{"text": "   "}, 400, nil)
 	var opened bulkAssignmentResult
 	request(admin, "POST", endpoint, batch, 201, &opened)
@@ -108,7 +116,7 @@ func TestPortalsPostgreSQL(t *testing.T) {
 	for _, program := range programs {
 		var tests []assignment
 		request(student, "GET", "/api/student/tests?"+url.Values{"group": {program.code()}}.Encode(), nil, 200, &tests)
-		if len(tests) != 1 || tests[0].ID != opened.Opened[program.code()] || tests[0].Title != "Общий тест" {
+		if len(tests) != 1 || tests[0].ID != opened.Opened[program.code()] || tests[0].Title != chosen.Title || tests[0].Questions != len(chosen.Questions) {
 			t.Fatalf("tests for %s: %+v", program.code(), tests)
 		}
 	}
@@ -119,7 +127,7 @@ func TestPortalsPostgreSQL(t *testing.T) {
 	}
 	request(admin, "POST", endpoint, map[string]any{"programs": []programGroup{
 		{Direction: programs[0].Direction, Number: "26-0"},
-	}, "minutes": 2}, 400, nil)
+	}, "test": chosen.ID, "minutes": 2}, 400, nil)
 
 	id := opened.Opened[group]
 	token, err := newToken()
@@ -144,7 +152,7 @@ func TestPortalsPostgreSQL(t *testing.T) {
 	req.Consent = digest(newConsent)
 	request(student,"POST",studentAttempt,req,200,&view)
 	request(student,"POST",studentAttempt,req,200,&view)
-	if view.Position != 1 || view.Total != 50 || len(view.Choices) < 2 {
+	if view.Position != 1 || view.Total != len(chosen.Questions) || len(view.Choices) < 2 {
 		t.Fatalf("unexpected initial question: %+v",view)
 	}
 	var recordedConsent string
@@ -183,11 +191,17 @@ func TestPortalsPostgreSQL(t *testing.T) {
 	if view.Status != closed || view.Score != 1 {
 		t.Fatalf("result after manual close: %+v", view)
 	}
-	query := "?"+url.Values{"test":{"general"}, "status":{closed}, "name":{"Иванов"}, "group":{group}}.Encode()
+	query := "?"+url.Values{"test":{chosen.ID, "archive"}, "status":{closed, completed}, "name":{"Иванов"},
+		"group":{group, programs[0].code()}}.Encode()
 	var matches struct{ Rows []resultRow }
 	request(admin,"GET","/api/admin/results"+query,nil,200,&matches)
 	if len(matches.Rows)==0 || matches.Rows[0].Group != group {
 		t.Fatalf("filtered results: %+v",matches)
+	}
+	var none struct{ Rows []resultRow }
+	request(admin,"GET","/api/admin/results?"+url.Values{"group":{group}, "status":{flagged}}.Encode(),nil,200,&none)
+	if len(none.Rows) != 0 {
+		t.Fatalf("combined filters ignored status: %+v", none)
 	}
 	var details struct {
 		Answers []struct {
@@ -216,7 +230,7 @@ func TestPortalsPostgreSQL(t *testing.T) {
 		t.Fatal("closing one group must leave the other group open")
 	}
 	var reopened bulkAssignmentResult
-	request(admin, "POST", endpoint, map[string]any{"groups": []string{group}, "minutes": 2}, 201, &reopened)
+	request(admin, "POST", endpoint, map[string]any{"groups": []string{group}, "test": chosen.ID, "minutes": 2}, 201, &reopened)
 	id = reopened.Opened[group]
 	if id == 0 {
 		t.Fatal("group did not reopen")

@@ -12,6 +12,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/lib/pq"
 )
 
 type resultRow struct {
@@ -46,10 +48,38 @@ const resultCTE = `WITH result AS (
 
 func (a *app) results(w http.ResponseWriter, r *http.Request) error {
 	q := r.URL.Query()
-	args := []any{strings.TrimSpace(q.Get("name")), q.Get("group"), q.Get("test"), q.Get("status")}
+	// Group, test and status accept several values: ?group=A&group=B matches either group.
+	many := func(key string) ([]string, error) {
+		values := []string{}
+		for _, v := range q[key] {
+			if v == "" {
+				continue
+			}
+			if !validLength(v, 160) || len(values) >= 200 {
+				return nil, problem{400, "Некорректный фильтр"}
+			}
+			values = append(values, v)
+		}
+		return values, nil
+	}
+	groups, err := many("group")
+	if err != nil {
+		return err
+	}
+	tests, err := many("test")
+	if err != nil {
+		return err
+	}
+	statuses, err := many("status")
+	if err != nil {
+		return err
+	}
+	args := []any{strings.TrimSpace(q.Get("name")), pq.Array(groups), pq.Array(tests), pq.Array(statuses)}
 	query := resultCTE+` SELECT id,date,time,name,group_code,title,status,pct,archived FROM result
 		WHERE ($1='' OR strpos(lower(name), lower($1)) > 0)
-		AND ($2='' OR group_code=$2) AND ($3='' OR test_id=$3) AND ($4='' OR status=$4)`
+		AND (cardinality($2::text[])=0 OR group_code=ANY($2::text[]))
+		AND (cardinality($3::text[])=0 OR test_id=ANY($3::text[]))
+		AND (cardinality($4::text[])=0 OR status=ANY($4::text[]))`
 	for _, filter := range []struct{ name, condition string }{
 		{"from", " AND event_at >= $%d"},
 		{"to", " AND event_at < $%d"},
