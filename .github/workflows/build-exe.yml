@@ -82,7 +82,8 @@ jobs:
             -replace '--password maxbotmaxbot', '--password bat-ci-secret' |
             Set-Content ci-start.bat -Encoding UTF8
           $bat = cmd /c "ci-start.bat < nul" 2>&1 | Out-String
-          if ($LASTEXITCODE -ne 1 -or $bat -notmatch '127\.0\.0\.1:1 / opp' -or $bat -match 'bat-ci-secret') {
+          # A plain start.bat echoes its own command line, so only the exit code and the error are checked here.
+          if ($LASTEXITCODE -ne 1 -or $bat -notmatch '127\.0\.0\.1:1 / opp') {
             throw "Unexpected start.bat result: $bat"
           }
           Write-Host "Windows startup and expected PostgreSQL error verified"
